@@ -20,7 +20,7 @@ app（組裝層） → modules（垂直功能） → shared（平台能力）
 │   ├── api/                  # FastAPI
 │   │   ├── main.py           # 進入點（uvicorn）
 │   │   ├── app/              # 組裝層：config、server、registry、Permission enum（只放專案自己的）
-│   │   ├── modules/          # users、roles、languages
+│   │   ├── modules/          # users、roles、languages、wallets
 │   │   ├── shared/           # auth、db、http、time + module.py（manifest 契約）、platform.py（接線）
 │   │   ├── tests/            # 與原始碼同構
 │   │   ├── scripts/          # db.py（資料庫 CLI）、export_openapi.py
@@ -29,7 +29,7 @@ app（組裝層） → modules（垂直功能） → shared（平台能力）
 │   └── web/                  # Next.js
 │       ├── app/              # Next.js 路由檔（只做接線）+ theme.css（專案的外觀覆寫）
 │       ├── config/           # 組裝層：啟用模組、路由、導覽圖示、外殼字串
-│       ├── modules/          # auth、users、roles、settings
+│       ├── modules/          # auth、users、roles、settings、wallets
 │       ├── shared/           # api、session、access、pagination、i18n、runtime、ui
 │       │                     # + module.ts（manifest 契約）
 │       ├── proxy.ts          # 路由保護（Next 只認根目錄，不能搬）
@@ -138,7 +138,7 @@ modules/<name>/
 app/
 ├── (public)/              # login、signup
 └── (protected)/           # layout：登入檢查
-    ├── (user)/            # 使用者區：首頁、個人設定　layout：使用者外殼
+    ├── (user)/            # 使用者區：錢包、個人設定　layout：使用者外殼
     └── admin/             # 管理區：使用者、角色管理　layout：權限檢查 + 管理外殼
 ```
 
