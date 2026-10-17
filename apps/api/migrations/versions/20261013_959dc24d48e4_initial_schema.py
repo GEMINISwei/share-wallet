@@ -4,7 +4,7 @@ Revision ID: 959dc24d48e4
 Revises:
 Create Date: 2026-10-13 21:43:02.638068
 
-0.0.1 的初始結構: 帳號、角色、使用者角色關聯, 以及一次性初始化用的 `system_state`。
+0.0.1 的初始結構: 帳號、角色、使用者角色關聯。
 
 由 `alembic revision --autogenerate` 對著一個空資料庫產生, 內容等於當下 model 定義的全部。
 **這是這個資料庫唯一的起點** —— 應用程式不會自己建任何表 (沒有 `create_all`),
@@ -19,7 +19,6 @@ from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
-from sqlalchemy.dialects import postgresql
 
 revision: str = '959dc24d48e4'
 down_revision: str | Sequence[str] | None = None
@@ -42,15 +41,6 @@ def upgrade() -> None:
     )
     op.create_index('ix_roles_created_at_id', 'roles', [sa.literal_column('created_at DESC'), sa.literal_column('id DESC')], unique=False)
     op.create_index('ix_roles_is_disabled_created_at', 'roles', ['is_disabled', sa.literal_column('created_at DESC')], unique=False)
-    op.create_table('system_state',
-    sa.Column('key', sa.String(), nullable=False),
-    sa.Column('value', postgresql.JSONB(astext_type=sa.Text()), nullable=False),
-    sa.Column('id', sa.UUID(), nullable=False),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), nullable=True),
-    sa.PrimaryKeyConstraint('id', name=op.f('pk_system_state')),
-    sa.UniqueConstraint('key', name=op.f('uq_system_state_key'))
-    )
     op.create_table('users',
     sa.Column('username', sa.String(), nullable=False),
     sa.Column('password', sa.String(), nullable=False),
@@ -81,7 +71,6 @@ def downgrade() -> None:
     op.drop_index('ix_users_is_disabled_created_at', table_name='users')
     op.drop_index('ix_users_created_at_id', table_name='users')
     op.drop_table('users')
-    op.drop_table('system_state')
     op.drop_index('ix_roles_is_disabled_created_at', table_name='roles')
     op.drop_index('ix_roles_created_at_id', table_name='roles')
     op.drop_table('roles')

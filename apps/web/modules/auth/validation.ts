@@ -32,7 +32,6 @@ export function validateSignupValues(values: SignupFormValues, locale: Locale): 
   const t = translate(authMessages, locale)
   const errors: SignupFormErrors = {}
 
-  if (!values.register_key.trim()) errors.register_key = t("registerKeyRequired")
   if (!values.nickname.trim()) errors.nickname = t("nicknameRequired")
   if (!values.username.trim()) errors.username = t("usernameRequired")
   errors.password = validateNewPassword(values.password, locale)

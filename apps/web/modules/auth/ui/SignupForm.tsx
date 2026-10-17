@@ -1,6 +1,6 @@
 "use client"
 
-import { KeyRound, Lock, Shield, User, UserPen } from "lucide-react"
+import { Lock, Shield, User, UserPen } from "lucide-react"
 import { ICON_SIZE } from "@/shared/ui"
 import { Button } from "@/shared/ui"
 import { useT } from "@/shared/i18n/context"
@@ -26,7 +26,7 @@ export default function SignupForm() {
     submit,
   } = useSignupForm()
 
-  // 四個欄位共通的狀態, 展開進每個 AuthField。
+  // 各欄位共通的狀態, 展開進每個 AuthField。
   const fieldState = { disabled: isPending, showError: isSubmit }
 
   // 每個欄位的 onChange 都是「寫值 + 關掉錯誤提示」, 包成一個 factory 以免四處重複。
@@ -39,7 +39,7 @@ export default function SignupForm() {
 
   return (
     <main className={styles.page}>
-      {/* action 而不是 onSubmit, 理由見 LoginForm.tsx —— 這裡外洩的是密碼與註冊金鑰。 */}
+      {/* action 而不是 onSubmit, 理由見 LoginForm.tsx —— 這裡外洩的是新帳號的密碼。 */}
       <form className={styles.card} action={() => submit()} noValidate>
         <div className={styles.appName}>{t("createAccount")}</div>
 
@@ -89,18 +89,6 @@ export default function SignupForm() {
                 onToggle={togglePassword}
               />
             }
-          />
-
-          <AuthField
-            {...fieldState}
-            icon={<KeyRound size={ICON_SIZE.md} />}
-            name="register_key"
-            type="password"
-            autoComplete="off"
-            placeholder={t("registerKey")}
-            value={values.register_key}
-            error={errors.register_key}
-            onChange={handleChange("register_key")}
           />
 
           <Button type="submit" size="large" fullWidth disabled={isPending}>

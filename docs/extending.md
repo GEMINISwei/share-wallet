@@ -240,9 +240,13 @@ autogenerate 固定會漏三件事，產出一定要讀：
 |---|---|
 | `seed_data` | 初始資料的 `list[dict]` |
 | `seed_match_key` | **有設**：每次啟動依此欄位 upsert（欄位必須有唯一約束）；**沒設**：只在表為空時寫入 |
+| `seed_insert_only_keys` | 選用，只在第一次寫入、之後 upsert 不覆蓋的欄位（模板給初始值、之後交給使用者調整） |
 | `prepare_seed_item()` | 選用，寫入前轉換資料（例如雜湊密碼） |
 
-`RoleTable` 設了 `seed_match_key = "code"`，所以新增的權限會自動補進已在跑的環境裡的超管角色。
+`RoleTable` 設了 `seed_match_key = "code"`：系統角色（超級管理者、一般用戶）的名稱與啟用狀態
+每次啟動都會同步回模板。`permissions` 列在 `seed_insert_only_keys`，因為一般用戶的權限交給超級管理者
+在後台調整；超管的 `*` 由 service 擋住修改。新增系統角色時在 `seed_data` 加一筆，前端在
+`modules/roles/constants.ts` 補上顯示名稱。
 
 ## 語系（i18n）
 

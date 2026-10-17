@@ -25,8 +25,8 @@ class RoleError(BaseError):
     )
     CANNOT_DISABLE_DEFAULT = LangText(zh="預設角色不可停用", en="Cannot Disable Default Role")
     CANNOT_UPDATE_DEFAULT_PERMISSIONS = LangText(
-        zh="預設角色不可修改權限",
-        en="Cannot Update Default Role Permissions",
+        zh="超級管理者角色不可修改權限",
+        en="Cannot Update Super Admin Role Permissions",
     )
     CANNOT_RENAME_DEFAULT = LangText(zh="預設角色不可改名", en="Cannot Rename Default Role")
 
@@ -93,19 +93,23 @@ async def update_role(id: str, form_data: RoleUpdate) -> RoleOperate:
     }
 
     if RoleTable.is_system_role(role):
-        # 系統角色整個由模板擁有: 權限與名稱都會在每次啟動時由 seed 同步回去 (見
-        # `RoleTable.seed_data`), 畫面上的名稱也是依 code 查字典而不是讀這個欄位。
-        # 放行改名的話, 寫入會成功、畫面看不到變化、重啟後再被悄悄改回來。
-        if role["permissions"] != form_data.permissions:
-            raise LangException(403, RoleError.CANNOT_UPDATE_DEFAULT_PERMISSIONS)
+        # 系統角色的名稱與狀態由模板擁有: 每次啟動都由 seed 同步回去 (見 `RoleTable.seed_data`),
+        # 畫面上的名稱也是依 code 查字典而不是讀這個欄位。放行改名的話, 寫入會成功、畫面看不到
+        # 變化、重啟後再被悄悄改回來。停用則會讓註冊 (綁一般用戶) 或超管本身失效。
         if form_data.is_disabled is True:
             raise LangException(403, RoleError.CANNOT_DISABLE_DEFAULT)
         if form_data.name != role["name"]:
             raise LangException(403, RoleError.CANNOT_RENAME_DEFAULT)
     else:
+        update_data["is_disabled"] = form_data.is_disabled
+
+    if RoleTable.is_super_admin_role(role):
+        # `*` 是超管存在的意義, 拿掉任何一部分都只會造出一個「名叫超管但不是超管」的角色。
+        if role["permissions"] != form_data.permissions:
+            raise LangException(403, RoleError.CANNOT_UPDATE_DEFAULT_PERMISSIONS)
+    else:
         validate_regular_permissions(form_data.permissions)
         update_data["permissions"] = form_data.permissions
-        update_data["is_disabled"] = form_data.is_disabled
 
     # 再包一次 ensure_found: 查到之後、更新之前文件仍可能被刪掉。
     return RoleOperate.model_validate(

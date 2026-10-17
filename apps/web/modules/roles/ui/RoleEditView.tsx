@@ -24,9 +24,6 @@ export default function RoleEditView({ role, permissionOptions }: RoleEditViewPr
   )
   const { isPending, submit, fieldError } = useActionSubmit()
   const { notify, notifyError, closeNotify } = useNotify()
-  const readOnlyPermissions = role.permissions.includes("*")
-    ? permissionOptions.map((o) => o.value)
-    : role.permissions.filter(isPermissionValue)
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -51,30 +48,22 @@ export default function RoleEditView({ role, permissionOptions }: RoleEditViewPr
       subtitle={getRoleDisplayName(role, t)}
       backHref={ROLES_PATH}
       backLabel={t("backToList")}
-      actions={role.code ? null : (
+      actions={
         <Button type="submit" disabled={isPending} form="role-edit-form">{isPending ? t("saving") : t("save")}</Button>
-      )}
+      }
     >
-      {role.code ? (
+      {/* 超級管理者角色在 edit-page.server 就被導回列表, 進得來的都能改權限。 */}
+      <Form id="role-edit-form" onSubmit={handleSubmit}>
         <PermissionChecklist
           permissionOptions={permissionOptions}
-          selectedPermissions={readOnlyPermissions}
-          disabled={true}
-          onChange={() => {}}
+          selectedPermissions={permissions}
+          disabled={isPending}
+          error={fieldError("permissions")}
+          onChange={setPermissions}
         />
-      ) : (
-        <Form id="role-edit-form" onSubmit={handleSubmit}>
-          <PermissionChecklist
-            permissionOptions={permissionOptions}
-            selectedPermissions={permissions}
-            disabled={isPending}
-            error={fieldError("permissions")}
-            onChange={setPermissions}
-          />
 
-          <Notify {...notify} onOpenChange={(open) => { if (!open) closeNotify() }} />
-        </Form>
-      )}
+        <Notify {...notify} onOpenChange={(open) => { if (!open) closeNotify() }} />
+      </Form>
     </FormPageShell>
   )
 }

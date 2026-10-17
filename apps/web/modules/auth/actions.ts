@@ -29,16 +29,22 @@ export async function loginUser(formData: ActionFormData<LoginFormValues>) {
   return withoutAccessToken(res)
 }
 
+// 註冊完直接是登入狀態: 後端回的是 token, 與登入走同一個 cookie 寫入點。
 export async function signupUser(formData: ActionFormData<SignupFormValues>) {
   const values: SignupFormValues = {
     nickname: getActionFormString(formData, "nickname"),
     username: getActionFormString(formData, "username"),
     password: getActionFormString(formData, "password"),
-    register_key: getActionFormString(formData, "register_key"),
   }
-  return apiPost({
+  const res = await apiPost({
     url: "/users/signup",
     auth: "none",
     data: values,
   })
+
+  if (res.status === "success" && res.data.access_token) {
+    await setAccessTokenCookie(res.data.access_token)
+  }
+
+  return withoutAccessToken(res)
 }

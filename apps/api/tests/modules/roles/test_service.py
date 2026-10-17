@@ -22,6 +22,14 @@ SYSTEM_ROLE = {
     "is_disabled": False,
 }
 
+USER_ROLE: dict[str, Any] = {
+    "id": "role-user",
+    "code": "user",
+    "name": "一般用戶",
+    "permissions": [],
+    "is_disabled": False,
+}
+
 REGULAR_ROLE: dict[str, Any] = {
     "id": "role-reader",
     "code": None,
@@ -34,7 +42,7 @@ REGULAR_ROLE: dict[str, Any] = {
 @pytest.fixture
 def roles(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
     """幾個角色查得到; 回傳 `create`/`update_by_id` 收到的資料。"""
-    stored = {role["id"]: role for role in (SYSTEM_ROLE, REGULAR_ROLE)}
+    stored = {role["id"]: role for role in (SYSTEM_ROLE, USER_ROLE, REGULAR_ROLE)}
     writes: list[dict[str, Any]] = []
 
     async def fake_find(id, session=None):
@@ -160,8 +168,9 @@ async def test_system_role_cannot_be_disabled_by_update(roles):
 
 
 @pytest.mark.asyncio
-async def test_system_role_cannot_be_disabled_by_delete(roles):
-    await _expect_error(_disable("role-super"), 403, RoleError.CANNOT_DISABLE_DEFAULT)
+@pytest.mark.parametrize("role_id", ["role-super", "role-user"])
+async def test_system_role_cannot_be_disabled_by_delete(roles, role_id: str):
+    await _expect_error(_disable(role_id), 403, RoleError.CANNOT_DISABLE_DEFAULT)
 
 
 @pytest.mark.asyncio
@@ -181,3 +190,45 @@ async def test_system_role_update_without_changes_is_accepted(roles):
     await _update("role-super", name="超級管理者", permissions=[Permission.ALL])
 
     assert roles == [{"id": "role-super", "name": "超級管理者"}]
+
+
+# ── 一般用戶: 系統角色, 但權限交給超級管理者調整 ─────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_user_role_permissions_can_be_updated(roles):
+    """與超管不同, 一般用戶的權限會寫入; 狀態不寫 (系統角色不能停用)。"""
+    await _update("role-user", name="一般用戶", permissions=[])
+
+    assert roles == [{"id": "role-user", "name": "一般用戶", "permissions": []}]
+
+
+@pytest.mark.asyncio
+async def test_user_role_cannot_take_wildcard(roles):
+    """註冊的人都綁這個角色, 給它 `*` 等於讓任何人註冊就成為超管。"""
+    await _expect_error(
+        _update("role-user", name="一般用戶", permissions=[Permission.ALL]),
+        403,
+        RoleError.CANNOT_USE_ALL_PERMISSION,
+    )
+    assert roles == []
+
+
+@pytest.mark.asyncio
+async def test_user_role_cannot_be_disabled_by_update(roles):
+    await _expect_error(
+        _update("role-user", name="一般用戶", permissions=[], is_disabled=True),
+        403,
+        RoleError.CANNOT_DISABLE_DEFAULT,
+    )
+    assert roles == []
+
+
+@pytest.mark.asyncio
+async def test_user_role_cannot_be_renamed(roles):
+    await _expect_error(
+        _update("role-user", name="會員", permissions=[]),
+        403,
+        RoleError.CANNOT_RENAME_DEFAULT,
+    )
+    assert roles == []

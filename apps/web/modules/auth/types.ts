@@ -16,7 +16,6 @@ export type LoginFormErrors = Partial<Record<keyof LoginFormValues, string>>
 // ---- 註冊 ----
 
 export type SignupFormValues = {
-  register_key: string
   username: string
   nickname: string
   password: string

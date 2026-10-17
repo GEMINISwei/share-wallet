@@ -13,7 +13,6 @@ import { validateSignupValues } from "../validation"
 import type { SignupFormErrors, SignupFormValues } from "../types"
 
 const initialValues: SignupFormValues = {
-  register_key: "",
   username: "",
   nickname: "",
   password: "",
@@ -56,8 +55,9 @@ export function useSignupForm() {
       startTransition(async () => {
         const res = await signupUser(createActionFormData(values))
 
+        // 後端已經簽好 token 寫進 cookie, 直接進首頁。
         if (res.status === "success") {
-          router.push(LOGIN_PATH)
+          router.push("/")
           return
         }
 

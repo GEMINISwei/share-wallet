@@ -16,7 +16,7 @@ import type { ApiListMeta } from "@/shared/api/response"
 import { useT } from "@/shared/i18n/context"
 import { rolesMessages } from "../i18n"
 import { getRoleDisplayName } from "../constants"
-import { canManageRole } from "../capabilities"
+import { canEditRoleDetails, canEditRolePermissions } from "../capabilities"
 import { ROLES_PATH } from "../manifest"
 import type { RoleInfo } from "../types"
 
@@ -78,13 +78,12 @@ export default function RolesTable({
             <td data-label={t("colActions")}>
               <ActionMenu
                 items={[
-                  // 系統角色的名稱、狀態與權限都是模板的一部分 (下次啟動會被 seed 同步回去)。
-                  canManageRole(role) && {
+                  canEditRoleDetails(role) && {
                     icon: <Pencil size={ICON_SIZE.sm} />,
                     label: t("edit"),
                     onClick: () => onEdit(role),
                   },
-                  canManageRole(role) && {
+                  canEditRolePermissions(role) && {
                     icon: <ShieldCheck size={ICON_SIZE.sm} />,
                     label: t("managePermissions"),
                     onClick: () => router.push(`${ROLES_PATH}/${role.id}/edit`),

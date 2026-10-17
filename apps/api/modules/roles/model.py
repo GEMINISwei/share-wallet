@@ -16,6 +16,8 @@ from shared.db.table import (
 )
 
 SUPER_ADMIN_ROLE_CODE = "super_admin"
+# 公開註冊的帳號一律綁這個角色 (見 `modules/users/account.py` 的 `signup_user`)。
+USER_ROLE_CODE = "user"
 
 
 class RoleDetail(TypedDict):
@@ -50,11 +52,21 @@ class RoleTable(BaseTable):
     __table_args__ = pagination_indexes("roles")
 
     seed_match_key = "code"
+    # 系統角色的權限只在第一次建立時寫入: 一般用戶的權限交給超級管理者在後台調整, 每次啟動都
+    # 蓋回模板的話, 調整過的權限會在重啟後悄悄消失。超級管理者的 `*` 由 service 擋住修改,
+    # 不靠 seed 同步。名稱與 `is_disabled` 仍然每次同步 (系統角色不能改名也不能停用)。
+    seed_insert_only_keys = frozenset({"permissions"})
     seed_data = [
         {
             "code": SUPER_ADMIN_ROLE_CODE,
             "name": "超級管理者",
             "permissions": [Permission.ALL],
+            "is_disabled": False,
+        },
+        {
+            "code": USER_ROLE_CODE,
+            "name": "一般用戶",
+            "permissions": [],
             "is_disabled": False,
         },
     ]
@@ -137,6 +149,14 @@ class RoleTable(BaseTable):
     @classmethod
     async def get_super_admin_role_id(cls) -> str:
         return await cls.get_system_role_id(SUPER_ADMIN_ROLE_CODE)
+
+    @classmethod
+    async def get_user_role_id(cls) -> str:
+        return await cls.get_system_role_id(USER_ROLE_CODE)
+
+    @classmethod
+    def is_super_admin_role(cls, role: RoleDetail) -> bool:
+        return role["code"] == SUPER_ADMIN_ROLE_CODE
 
     @classmethod
     async def get_system_role_id(cls, code: str) -> str:
