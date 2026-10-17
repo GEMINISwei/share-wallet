@@ -26,6 +26,7 @@ export default function LoginForm({ reason }: LoginFormProps) {
     closeNotify,
     changeValue,
     togglePassword,
+    goSignup,
     submit,
   } = useLoginForm({ reason })
 
@@ -87,6 +88,10 @@ export default function LoginForm({ reason }: LoginFormProps) {
 
           <Button type="submit" size="large" fullWidth disabled={isPending}>
             {isPending ? t("loggingIn") : t("login")}
+          </Button>
+
+          <Button variant="outlined" fullWidth disabled={isPending} onClick={goSignup}>
+            {t("goSignup")}
           </Button>
         </div>
 

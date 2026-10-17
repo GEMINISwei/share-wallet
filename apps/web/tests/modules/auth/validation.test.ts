@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { getLoginRedirectReason } from "@/modules/auth/validation"
+import { getLoginRedirectReason, validateSignupValues } from "@/modules/auth/validation"
 
 describe("getLoginRedirectReason", () => {
   it("認得約定裡的導向原因", () => {
@@ -11,5 +11,20 @@ describe("getLoginRedirectReason", () => {
     expect(getLoginRedirectReason("bogus")).toBeUndefined()
     expect(getLoginRedirectReason(["session-expired"])).toBeUndefined()
     expect(getLoginRedirectReason(undefined)).toBeUndefined()
+  })
+})
+
+describe("validateSignupValues", () => {
+  const filled = { nickname: "Newbie", username: "newbie", password: "new-password" }
+
+  it("填齊暱稱、帳號與合格的密碼就沒有錯誤（不需要註冊代碼）", () => {
+    expect(Object.values(validateSignupValues(filled, "zh")).filter(Boolean)).toEqual([])
+  })
+
+  it("空白的暱稱與帳號擋下來", () => {
+    const errors = validateSignupValues({ ...filled, nickname: " ", username: "" }, "zh")
+
+    expect(errors.nickname).toBeTruthy()
+    expect(errors.username).toBeTruthy()
   })
 })
