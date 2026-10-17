@@ -110,3 +110,15 @@ async def test_update_with_empty_role_ids_clears_roles(db):
     result = await UserTable.find_detail_by_id(created["id"])
     assert result is not None
     assert result["role_ids"] == []
+
+
+async def test_find_nicknames_by_ids_skips_unknown_ids(db):
+    created = await UserTable.create(
+        data={"username": "nick-user", "password": "hashed", "nickname": "小明"}
+    )
+
+    result = await UserTable.find_nicknames_by_ids(
+        [created["id"], "0123abcd-4567-89ab-cdef-0123456789ab", "not-a-uuid"]
+    )
+
+    assert result == {created["id"]: "小明"}

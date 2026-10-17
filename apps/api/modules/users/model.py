@@ -245,6 +245,16 @@ class UserTable(BaseTable):
             limit=limit,
         )
 
+    @classmethod
+    async def find_nicknames_by_ids(cls, user_ids: list[str]) -> dict[str, str]:
+        parsed = [parsed_id for user_id in user_ids if (parsed_id := parse_uuid(user_id))]
+        if not parsed:
+            return {}
+        rows = await resolve_session(None).execute(
+            select(cls.id, cls.nickname).where(cls.id.in_(parsed))
+        )
+        return {str(user_id): nickname for user_id, nickname in rows.all()}
+
     # 收窄回傳型別, 理由與 `ignore[override]` 的必要性見 modules/roles/model.py 的同一處。
     @classmethod
     async def find_detail_by_id(  # type: ignore[override]
