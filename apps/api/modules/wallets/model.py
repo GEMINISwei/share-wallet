@@ -18,6 +18,7 @@ from sqlalchemy import (
     select,
 )
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -77,6 +78,12 @@ class CategoryDetail(TypedDict):
     type: CategoryType
     name: str
     archived_at: datetime | None
+
+
+class InviteDetail(TypedDict):
+    wallet_id: str
+    token: str
+    expires_at: datetime
 
 
 class WalletTable(BaseTable):
@@ -256,6 +263,25 @@ class WalletMemberTable(BaseTable):
     async def remove(cls, wallet_id: str, user_id: str) -> None:
         await resolve_session(None).execute(delete(cls).where(*cls._key(wallet_id, user_id)))
 
+    @classmethod
+    async def add_if_absent(cls, wallet_id: str, user_id: str, role: MemberRole) -> None:
+        """已經是成員時什麼都不做 (角色不變)。
+
+        用 `ON CONFLICT DO NOTHING` 而不是先查再寫: 同一個人連按兩次加入時, 兩個請求都會
+        查到「還不是成員」, 第二個寫入就撞唯一約束變成 500。
+        """
+        await resolve_session(None).execute(
+            pg_insert(cls)
+            .values(
+                id=uuid.uuid4(),
+                created_at=utc_now(),
+                wallet_id=parse_uuid(wallet_id),
+                user_id=parse_uuid(user_id),
+                role=role,
+            )
+            .on_conflict_do_nothing(index_elements=["wallet_id", "user_id"])
+        )
+
 
 class WalletCategoryTable(BaseTable):
     __tablename__ = "wallet_categories"
@@ -334,3 +360,59 @@ class WalletCategoryTable(BaseTable):
             conditions.append(cls.id != parse_uuid(exclude_id))
         found = await resolve_session(None).scalar(select(cls.id).where(*conditions).limit(1))
         return found is not None
+
+
+class WalletInviteTable(BaseTable):
+    __tablename__ = "wallet_invites"
+
+    # 唯一: 每個錢包同時只有一條連結, 重新產生就是覆蓋這一列 (見 `replace`)。
+    wallet_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("wallets.id", ondelete="CASCADE"), unique=True
+    )
+    # 存原文而不是雜湊: 有效期內管理者要能再看到同一條連結 (見 docs/features.md〈邀請連結〉)。
+    # 連結一天就過期、只能以成員身分加入, 外洩的代價有限。
+    token: Mapped[str] = mapped_column(String, unique=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=False))
+
+    @staticmethod
+    def _detail(row: WalletInviteTable) -> InviteDetail:
+        return {"wallet_id": str(row.wallet_id), "token": row.token, "expires_at": row.expires_at}
+
+    @classmethod
+    async def find_detail_by_wallet(cls, wallet_id: str) -> InviteDetail | None:
+        """含已過期的; 過期與否由 service 依「現在」判斷。"""
+        row_id = parse_uuid(wallet_id)
+        if row_id is None:
+            return None
+        row = await resolve_session(None).scalar(select(cls).where(cls.wallet_id == row_id))
+        return None if row is None else cls._detail(row)
+
+    @classmethod
+    async def find_detail_by_token(cls, token: str) -> InviteDetail | None:
+        """含已過期的, 同 `find_detail_by_wallet`。"""
+        row = await resolve_session(None).scalar(select(cls).where(cls.token == token))
+        return None if row is None else cls._detail(row)
+
+    @classmethod
+    async def replace(cls, wallet_id: str, token: str, expires_at: datetime) -> None:
+        """產生或重新產生: 錢包已經有連結時換成新的 token, 舊的立即失效。"""
+        now = utc_now()
+        statement = pg_insert(cls).values(
+            id=uuid.uuid4(),
+            created_at=now,
+            wallet_id=parse_uuid(wallet_id),
+            token=token,
+            expires_at=expires_at,
+        )
+        await resolve_session(None).execute(
+            statement.on_conflict_do_update(
+                index_elements=["wallet_id"],
+                set_={"token": token, "expires_at": expires_at, "updated_at": now},
+            )
+        )
+
+    @classmethod
+    async def remove(cls, wallet_id: str) -> None:
+        row_id = parse_uuid(wallet_id)
+        if row_id is not None:
+            await resolve_session(None).execute(delete(cls).where(cls.wallet_id == row_id))

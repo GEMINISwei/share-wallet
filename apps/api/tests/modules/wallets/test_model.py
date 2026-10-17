@@ -3,7 +3,7 @@
 單元測試 (`conftest.py` 的 FakeStore) 把這些方法整個換掉, 所以它們的 SQL 只有這裡驗。
 """
 
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 from sqlalchemy.exc import IntegrityError
@@ -15,6 +15,7 @@ from modules.wallets.model import (
     MemberRole,
     WalletCategoryTable,
     WalletDetail,
+    WalletInviteTable,
     WalletKind,
     WalletMemberTable,
     WalletTable,
@@ -216,3 +217,39 @@ async def test_list_by_wallets_groups_members_per_wallet(db):
         empty: [],
         "not-a-uuid": [],
     }
+
+
+async def test_replace_invite_keeps_one_row_per_wallet(db):
+    wallet_id = await _wallet()
+    expires = utc_now() + timedelta(days=1)
+
+    await WalletInviteTable.replace(wallet_id, "old-token", expires)
+    await WalletInviteTable.replace(wallet_id, "new-token", expires)
+
+    assert await WalletInviteTable.find_detail_by_token("old-token") is None
+    assert await WalletInviteTable.find_detail_by_wallet(wallet_id) == {
+        "wallet_id": wallet_id, "token": "new-token", "expires_at": expires
+    }
+
+
+async def test_delete_wallet_cascades_invite(db):
+    wallet_id = await _wallet()
+    await WalletInviteTable.replace(wallet_id, "token", utc_now() + timedelta(days=1))
+
+    await WalletTable.delete_by_id(wallet_id)
+
+    assert await WalletInviteTable.find_detail_by_token("token") is None
+
+
+async def test_add_member_if_absent_ignores_existing(db):
+    alice, bob = await _user("alice"), await _user("bob")
+    wallet_id = await _wallet({alice: MemberRole.ADMIN})
+
+    await WalletMemberTable.add_if_absent(wallet_id, alice, MemberRole.MEMBER)
+    await WalletMemberTable.add_if_absent(wallet_id, bob, MemberRole.MEMBER)
+    await WalletMemberTable.add_if_absent(wallet_id, bob, MemberRole.MEMBER)
+
+    assert await WalletMemberTable.list_members(wallet_id) == [
+        {"user_id": alice, "role": MemberRole.ADMIN},
+        {"user_id": bob, "role": MemberRole.MEMBER},
+    ]

@@ -1,13 +1,13 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Path, Query
 
 from app.permissions import Permission
 from shared.auth.contracts import CurrentUser
 from shared.auth.dependency import check_user_permission
 from shared.http.schema import PaginationParams
 
-from . import admin, categories, members, service
+from . import admin, categories, invites, members, service
 from .model import WalletKind
 from .schema import (
     AdminWalletCreate,
@@ -16,6 +16,9 @@ from .schema import (
     CategoryList,
     CategoryOperate,
     CategoryRename,
+    InviteInfo,
+    InvitePreview,
+    InviteState,
     MemberList,
     MemberOperate,
     MemberRoleUpdate,
@@ -139,6 +142,56 @@ async def archive_category_route(
 ) -> CategoryOperate:
     """刪除分類。分類會被封存: 不再出現在清單上, 舊帳仍顯示原本的名稱。"""
     return await categories.archive_category(id, category_id, current_user)
+
+
+@router.get("/{id}/invite")
+async def get_invite_route(
+    id: UuidText,
+    current_user: CurrentUser = Depends(check_user_permission()),
+) -> InviteState:
+    """目前有效的邀請連結。只有錢包管理者看得到。"""
+    return await invites.get_invite(id, current_user)
+
+
+@router.put("/{id}/invite")
+async def create_invite_route(
+    id: UuidText,
+    current_user: CurrentUser = Depends(check_user_permission()),
+) -> InviteInfo:
+    """產生邀請連結, 有效期限一天。已經有連結時換成新的, 舊的立即失效。"""
+    return await invites.create_invite(id, current_user)
+
+
+@router.delete("/{id}/invite")
+async def revoke_invite_route(
+    id: UuidText,
+    current_user: CurrentUser = Depends(check_user_permission()),
+) -> WalletOperate:
+    """撤銷邀請連結。"""
+    return await invites.revoke_invite(id, current_user)
+
+
+# 拿到邀請連結的人用的: 他還不是成員, 所以不能掛在 `/wallets/{id}` 底下 (那裡一律先檢查成員)。
+invite_router = APIRouter(prefix="/invites", tags=["wallet-invites"])
+InviteToken = Annotated[str, Path(max_length=64)]
+
+
+@invite_router.get("/{token}")
+async def get_invite_preview_route(
+    token: InviteToken,
+    current_user: CurrentUser = Depends(check_user_permission()),
+) -> InvitePreview:
+    """邀請連結要加入的錢包。連結無效、過期或已撤銷時回 404。"""
+    return await invites.preview_invite(token, current_user)
+
+
+@invite_router.post("/{token}/accept")
+async def accept_invite_route(
+    token: InviteToken,
+    current_user: CurrentUser = Depends(check_user_permission()),
+) -> WalletOperate:
+    """以成員身分加入錢包。已經是成員時角色不變。"""
+    return await invites.accept_invite(token, current_user)
 
 
 # 後台只開放給超級管理者。查看單一錢包、修改、刪除、成員與分類沿用上面的端點

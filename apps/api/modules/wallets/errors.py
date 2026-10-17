@@ -19,3 +19,8 @@ class WalletError(BaseError):
     CATEGORY_NAME_EXISTS = LangText(
         zh="同類型已有相同名稱的分類", en="Category Name Already Exists"
     )
+    # 過期、撤銷、錢包已刪除都是這一個: 不讓拿到舊連結的人分辨錢包還在不在。
+    INVITE_INVALID = LangText(
+        zh="連結無效或已過期，請向管理者要新的連結",
+        en="This invite link is invalid or has expired. Ask a wallet admin for a new one",
+    )

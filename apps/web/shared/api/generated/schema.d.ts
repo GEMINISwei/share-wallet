@@ -28,6 +28,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/invites/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Invite Preview Route
+         * @description 邀請連結要加入的錢包。連結無效、過期或已撤銷時回 404。
+         */
+        get: operations["get_invite_preview_route_api_invites__token__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/invites/{token}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept Invite Route
+         * @description 以成員身分加入錢包。已經是成員時角色不變。
+         */
+        post: operations["accept_invite_route_api_invites__token__accept_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/languages/": {
         parameters: {
             query?: never;
@@ -411,6 +451,34 @@ export interface paths {
         patch: operations["rename_category_route_api_wallets__id__categories__category_id__patch"];
         trace?: never;
     };
+    "/api/wallets/{id}/invite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Invite Route
+         * @description 目前有效的邀請連結。只有錢包管理者看得到。
+         */
+        get: operations["get_invite_route_api_wallets__id__invite_get"];
+        /**
+         * Create Invite Route
+         * @description 產生邀請連結, 有效期限一天。已經有連結時換成新的, 舊的立即失效。
+         */
+        put: operations["create_invite_route_api_wallets__id__invite_put"];
+        post?: never;
+        /**
+         * Revoke Invite Route
+         * @description 撤銷邀請連結。
+         */
+        delete: operations["revoke_invite_route_api_wallets__id__invite_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/wallets/{id}/members": {
         parameters: {
             query?: never;
@@ -623,6 +691,47 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /**
+         * InviteInfo
+         * @description 錢包目前有效的邀請連結。確認頁的網址由前端依 `token` 組出。
+         */
+        InviteInfo: {
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Token */
+            token: string;
+        };
+        /**
+         * InvitePreview
+         * @description 邀請連結的確認頁要顯示的錢包摘要。
+         */
+        InvitePreview: {
+            /** Destination */
+            destination: string | null;
+            /** End Date */
+            end_date: string | null;
+            /** Is Member */
+            is_member: boolean;
+            kind: components["schemas"]["WalletKind"];
+            /** Member Count */
+            member_count: number;
+            /** Name */
+            name: string;
+            /** Start Date */
+            start_date: string | null;
+            /** Wallet Id */
+            wallet_id: string;
+        };
+        /**
+         * InviteState
+         * @description `invite` 是 null 表示沒有有效的連結 (沒產生過、已撤銷或已過期)。
+         */
+        InviteState: {
+            invite: components["schemas"]["InviteInfo"] | null;
         };
         /**
          * Language
@@ -1061,6 +1170,68 @@ export interface operations {
                 "application/json": components["schemas"]["AdminGeneralWalletCreate"] | components["schemas"]["AdminTravelWalletCreate"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WalletOperate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_invite_preview_route_api_invites__token__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvitePreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    accept_invite_route_api_invites__token__accept_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
@@ -2002,6 +2173,99 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CategoryOperate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_invite_route_api_wallets__id__invite_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InviteState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_invite_route_api_wallets__id__invite_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InviteInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_invite_route_api_wallets__id__invite_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WalletOperate"];
                 };
             };
             /** @description Validation Error */
