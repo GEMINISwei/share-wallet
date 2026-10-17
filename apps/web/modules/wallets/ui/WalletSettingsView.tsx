@@ -6,7 +6,7 @@ import { Button, Notify, useActionSubmit, useNotify } from "@/shared/ui"
 import { useT } from "@/shared/i18n/context"
 import { updateWallet } from "../actions"
 import { walletsMessages } from "../i18n"
-import { walletPath } from "../paths"
+import { type WalletArea, walletPath } from "../paths"
 import type { WalletInfo } from "../types"
 import { toUpdateRequest } from "../validation"
 import DeleteWalletDialog from "./DeleteWalletDialog"
@@ -15,7 +15,9 @@ import WalletFields from "./WalletFields"
 import WalletShell from "./WalletShell"
 import styles from "./wallets.module.css"
 
-export default function WalletSettingsView({ wallet }: { wallet: WalletInfo }) {
+type WalletSettingsViewProps = { wallet: WalletInfo; area: WalletArea }
+
+export default function WalletSettingsView({ wallet, area }: WalletSettingsViewProps) {
   const t = useT(walletsMessages)
   const router = useRouter()
   const form = useWalletForm({
@@ -46,7 +48,7 @@ export default function WalletSettingsView({ wallet }: { wallet: WalletInfo }) {
   return (
     <WalletShell
       title={t("settings")} subtitle={wallet.name}
-      backHref={walletPath(wallet.id)} backLabel={t("backToWallet")}
+      backHref={walletPath(wallet.id, area)} backLabel={t("backToWallet")}
     >
       <form className={styles.panel} onSubmit={handleSubmit} noValidate>
         <WalletFields
@@ -68,7 +70,8 @@ export default function WalletSettingsView({ wallet }: { wallet: WalletInfo }) {
       </section>
 
       <DeleteWalletDialog
-        wallet={wallet} open={deleting} onClose={() => setDeleting(false)} onError={notifyError}
+        wallet={wallet} area={area} open={deleting}
+        onClose={() => setDeleting(false)} onError={notifyError}
       />
       <Notify {...notify} onOpenChange={(open) => { if (!open) closeNotify() }} />
     </WalletShell>

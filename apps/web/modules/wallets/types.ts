@@ -7,6 +7,12 @@ export type MemberInfo = Schema<"MemberInfo">
 export type MemberRole = Schema<"MemberRole">
 export type CategoryInfo = Schema<"CategoryInfo">
 export type CategoryType = Schema<"CategoryType">
+export type AdminWalletInfo = Schema<"AdminWalletInfo">
+export type WalletAdmin = Schema<"WalletAdmin">
+export type UserOption = Schema<"UserOption">
+
+/** 後台列表的篩選條件 (網址參數)。空字串代表不篩選。 */
+export type AdminWalletFilters = { name: string; kind: WalletKind | "" }
 
 /** 建立與設定共用的表單值。全部是字串: 金額與日期在送出前才轉換。 */
 export type WalletFormValues = {

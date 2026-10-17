@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
-  groupCategories, isLastAdmin, memberActions, walletSections,
+  adminsSummary, groupCategories, isLastAdmin, memberActions, walletSections,
 } from "@/modules/wallets/capabilities"
 import type { CategoryInfo, MemberInfo, WalletInfo } from "@/modules/wallets/types"
 
@@ -85,5 +85,17 @@ describe("groupCategories", () => {
     const grouped = groupCategories(categories)
     expect(grouped.expense.map((category) => category.name)).toEqual(["餐飲", "交通"])
     expect(grouped.income.map((category) => category.name)).toEqual(["薪資"])
+  })
+})
+
+describe("adminsSummary", () => {
+  it("管理者超過一位時顯示第一位與人數", () => {
+    const admins = [
+      { user_id: "a", nickname: "Alice" },
+      { user_id: "b", nickname: "Bob" },
+      { user_id: "c", nickname: "Carol" },
+    ]
+    expect(adminsSummary(admins)).toEqual({ first: "Alice", count: 3, more: 2 })
+    expect(adminsSummary(admins.slice(0, 1))).toEqual({ first: "Alice", count: 1, more: 0 })
   })
 })
