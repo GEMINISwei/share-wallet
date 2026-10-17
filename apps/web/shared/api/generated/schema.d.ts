@@ -4,6 +4,30 @@
  */
 
 export interface paths {
+    "/api/admin/wallets/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get All Wallet List Route
+         * @description 所有錢包, 不論自己有沒有加入。`name` 是名稱的部分比對。
+         */
+        get: operations["get_all_wallet_list_route_api_admin_wallets__get"];
+        put?: never;
+        /**
+         * Create Wallet For User Route
+         * @description 建立錢包並指定一位啟用中的使用者當唯一的管理者; 沒指定自己時, 自己不會成為成員。
+         */
+        post: operations["create_wallet_for_user_route_api_admin_wallets__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/languages/": {
         parameters: {
             query?: never;
@@ -223,6 +247,26 @@ export interface paths {
         patch: operations["change_own_password_route_api_users_me_password_patch"];
         trace?: never;
     };
+    "/api/users/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get User Options Route
+         * @description 啟用中的使用者, 給指定錢包管理者這類下拉選單用。
+         */
+        get: operations["get_user_options_route_api_users_options_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/users/signup": {
         parameters: {
             query?: never;
@@ -412,6 +456,93 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AdminGeneralWalletCreate */
+        AdminGeneralWalletCreate: {
+            /** Admin User Id */
+            admin_user_id: string;
+            /**
+             * Initial Balance
+             * @default 0
+             */
+            initial_balance: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "general";
+            /** Name */
+            name: string;
+        };
+        /** AdminTravelWalletCreate */
+        AdminTravelWalletCreate: {
+            /** Admin User Id */
+            admin_user_id: string;
+            /** Destination */
+            destination: string;
+            /**
+             * End Date
+             * Format: date
+             */
+            end_date: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "travel";
+            /** Name */
+            name: string;
+            /**
+             * Start Date
+             * Format: date
+             */
+            start_date: string;
+        };
+        /**
+         * AdminWalletInfo
+         * @description 後台列表上的一個錢包。`balance` 只有一般錢包才有。
+         */
+        AdminWalletInfo: {
+            /** Admins */
+            admins: components["schemas"]["WalletAdmin"][];
+            /** Balance */
+            balance: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Destination */
+            destination: string | null;
+            /** End Date */
+            end_date: string | null;
+            /** Id */
+            id: string;
+            kind: components["schemas"]["WalletKind"];
+            /** Member Count */
+            member_count: number;
+            /** Name */
+            name: string;
+            /** Start Date */
+            start_date: string | null;
+        };
+        /**
+         * AdminWalletList
+         * @description 所有錢包, 不論自己有沒有加入。
+         */
+        AdminWalletList: {
+            /** Has Next */
+            has_next: boolean;
+            /** Has Previous */
+            has_previous: boolean;
+            /** List Data */
+            list_data: components["schemas"]["AdminWalletInfo"][];
+            /** Next Cursor */
+            next_cursor?: string | null;
+            /** Prev Cursor */
+            prev_cursor?: string | null;
+            /** Total Count */
+            total_count: number;
+        };
         /**
          * AppVersion
          * @description 系統目前執行的版本。
@@ -764,6 +895,25 @@ export interface components {
             /** Id */
             id: string;
         };
+        /** UserOption */
+        UserOption: {
+            /** Id */
+            id: string;
+            /** Nickname */
+            nickname: string;
+            /** Username */
+            username: string;
+        };
+        /**
+         * UserOptionList
+         * @description 啟用中的使用者, 依暱稱排序。
+         */
+        UserOptionList: {
+            /** Count */
+            count: number;
+            /** List Data */
+            list_data: components["schemas"]["UserOption"][];
+        };
         /** UserResetPassword */
         UserResetPassword: {
             /** Password */
@@ -797,6 +947,13 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+        };
+        /** WalletAdmin */
+        WalletAdmin: {
+            /** Nickname */
+            nickname: string;
+            /** User Id */
+            user_id: string;
         };
         /**
          * WalletInfo
@@ -857,6 +1014,74 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    get_all_wallet_list_route_api_admin_wallets__get: {
+        parameters: {
+            query: {
+                name?: string | null;
+                kind?: components["schemas"]["WalletKind"] | null;
+                cursor?: string | null;
+                direction?: "next" | "prev";
+                limit: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminWalletList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_wallet_for_user_route_api_admin_wallets__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminGeneralWalletCreate"] | components["schemas"]["AdminTravelWalletCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WalletOperate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_language_list_route_api_languages__get: {
         parameters: {
             query?: never;
@@ -1317,6 +1542,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_user_options_route_api_users_options_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserOptionList"];
                 };
             };
         };

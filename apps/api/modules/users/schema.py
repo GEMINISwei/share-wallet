@@ -5,7 +5,7 @@ from pydantic import AfterValidator, BaseModel, StringConstraints
 from app.permissions import Permission
 from shared.auth.passwords import MAX_PASSWORD_BYTES
 from shared.http.errors import BaseError, LangText, resolve_text
-from shared.http.schema import NonEmptyText, PaginatedResponse, UuidText
+from shared.http.schema import NonEmptyText, PaginatedResponse, SimpleListResponse, UuidText
 
 
 class PasswordError(BaseError):
@@ -113,3 +113,13 @@ class UserInfo(BaseModel):
 
 class UserList(PaginatedResponse["UserInfo"]):
     pass
+
+
+class UserOption(BaseModel):
+    id: str
+    username: str
+    nickname: str
+
+
+class UserOptionList(SimpleListResponse["UserOption"]):
+    """啟用中的使用者, 依暱稱排序。"""

@@ -1,10 +1,17 @@
-from fastapi import APIRouter, Depends
+from typing import Annotated
 
+from fastapi import APIRouter, Depends, Query
+
+from app.permissions import Permission
 from shared.auth.contracts import CurrentUser
 from shared.auth.dependency import check_user_permission
+from shared.http.schema import PaginationParams
 
-from . import categories, members, service
+from . import admin, categories, members, service
+from .model import WalletKind
 from .schema import (
+    AdminWalletCreate,
+    AdminWalletList,
     CategoryCreate,
     CategoryList,
     CategoryOperate,
@@ -132,3 +139,28 @@ async def archive_category_route(
 ) -> CategoryOperate:
     """刪除分類。分類會被封存: 不再出現在清單上, 舊帳仍顯示原本的名稱。"""
     return await categories.archive_category(id, category_id, current_user)
+
+
+# 後台只開放給超級管理者。查看單一錢包、修改、刪除、成員與分類沿用上面的端點
+# (超級管理者對任何錢包等同管理者), 這裡只有一般端點做不到的列出全部與替別人建立。
+admin_router = APIRouter(prefix="/admin/wallets", tags=["admin-wallets"])
+
+
+@admin_router.get("/")
+async def get_all_wallet_list_route(
+    pagination: Annotated[PaginationParams, Depends()],
+    name: str | None = Query(default=None),
+    kind: WalletKind | None = Query(default=None),
+    _: CurrentUser = Depends(check_user_permission(Permission.ALL)),
+) -> AdminWalletList:
+    """所有錢包, 不論自己有沒有加入。`name` 是名稱的部分比對。"""
+    return await admin.list_all_wallets(**pagination.model_dump(), name=name, kind=kind)
+
+
+@admin_router.post("/")
+async def create_wallet_for_user_route(
+    form_data: AdminWalletCreate,
+    _: CurrentUser = Depends(check_user_permission(Permission.ALL)),
+) -> WalletOperate:
+    """建立錢包並指定一位啟用中的使用者當唯一的管理者; 沒指定自己時, 自己不會成為成員。"""
+    return await admin.create_wallet_for(form_data)

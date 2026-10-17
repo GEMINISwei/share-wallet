@@ -30,7 +30,14 @@ from .schema import (
 async def create_wallet(
     form_data: GeneralWalletCreate | TravelWalletCreate, current_user: CurrentUser
 ) -> WalletOperate:
-    """建立者是唯一的管理者。一般錢包依請求的語系附上預設分類。"""
+    """建立者是唯一的管理者。"""
+    return await create_wallet_with_admin(form_data, current_user["id"])
+
+
+async def create_wallet_with_admin(
+    form_data: GeneralWalletCreate | TravelWalletCreate, admin_user_id: str
+) -> WalletOperate:
+    """`admin_user_id` 是唯一的成員兼管理者。一般錢包依請求的語系附上預設分類。"""
     # 逐欄列出而不是 `**model_dump()`, 理由見 modules/roles/service.py 的 create_role。
     data: dict[str, Any] = {"kind": form_data.kind, "name": form_data.name}
     if isinstance(form_data, GeneralWalletCreate):
@@ -46,7 +53,7 @@ async def create_wallet(
     # middleware 會整批回滾。
     created = await WalletTable.create(data=data)
     await WalletMemberTable.create(
-        data={"wallet_id": created["id"], "user_id": current_user["id"], "role": MemberRole.ADMIN}
+        data={"wallet_id": created["id"], "user_id": admin_user_id, "role": MemberRole.ADMIN}
     )
     if form_data.kind is WalletKind.GENERAL:
         await WalletCategoryTable.create_many(created["id"], default_categories())

@@ -122,3 +122,35 @@ async def test_find_nicknames_by_ids_skips_unknown_ids(db):
     )
 
     assert result == {created["id"]: "小明"}
+
+
+async def test_get_user_options_returns_only_active_users(db):
+    active = await UserTable.create(
+        data={"username": "option-active", "password": "hashed", "nickname": "小明"}
+    )
+    await UserTable.create(
+        data={
+            "username": "option-disabled",
+            "password": "hashed",
+            "nickname": "小華",
+            "is_disabled": True,
+        }
+    )
+
+    result = await UserTable.find_active_options()
+
+    assert result == [{"id": active["id"], "username": "option-active", "nickname": "小明"}]
+
+
+async def test_is_active_rejects_disabled_and_unknown_users(db):
+    active = await UserTable.create(
+        data={"username": "check-active", "password": "hashed", "nickname": "A"}
+    )
+    disabled = await UserTable.create(
+        data={"username": "check-off", "password": "hashed", "nickname": "B", "is_disabled": True}
+    )
+
+    assert await UserTable.is_active(active["id"]) is True
+    assert await UserTable.is_active(disabled["id"]) is False
+    assert await UserTable.is_active("0123abcd-4567-89ab-cdef-0123456789ab") is False
+    assert await UserTable.is_active("not-a-uuid") is False

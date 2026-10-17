@@ -62,6 +62,12 @@ class UserDetail(TypedDict):
     is_disabled: bool
 
 
+class UserOption(TypedDict):
+    id: str
+    username: str
+    nickname: str
+
+
 class UserTable(BaseTable):
     __tablename__ = "users"
 
@@ -254,6 +260,32 @@ class UserTable(BaseTable):
             select(cls.id, cls.nickname).where(cls.id.in_(parsed))
         )
         return {str(user_id): nickname for user_id, nickname in rows.all()}
+
+    @classmethod
+    async def find_active_options(cls) -> list[UserOption]:
+        """啟用中的使用者, 依暱稱排序, 供下拉選單使用。
+
+        只取三個欄位而不走 `get_all()`: 那會連角色一起載入, 選單用不到。
+        """
+        rows = await resolve_session(None).execute(
+            select(cls.id, cls.username, cls.nickname)
+            .where(cls.is_disabled.is_(False))
+            .order_by(cls.nickname.asc(), cls.id.asc())
+        )
+        return [
+            {"id": str(id), "username": username, "nickname": nickname}
+            for id, username, nickname in rows.all()
+        ]
+
+    @classmethod
+    async def is_active(cls, id: str) -> bool:
+        row_id = parse_uuid(id)
+        if row_id is None:
+            return False
+        found = await resolve_session(None).scalar(
+            select(cls.id).where(cls.id == row_id, cls.is_disabled.is_(False))
+        )
+        return found is not None
 
     # 收窄回傳型別, 理由與 `ignore[override]` 的必要性見 modules/roles/model.py 的同一處。
     @classmethod

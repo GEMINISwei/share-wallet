@@ -15,6 +15,7 @@ from modules.wallets.model import (
     MemberRole,
     WalletCategoryTable,
     WalletDetail,
+    WalletKind,
     WalletMemberTable,
     WalletTable,
 )
@@ -162,3 +163,56 @@ async def test_travel_wallet_end_before_start_is_rejected_by_the_database(db):
                     "end_date": date(2026, 11, 1),
                 }
             )
+
+
+async def test_find_page_filters_by_name_and_kind(db):
+    await _wallet(name="家用")
+    await _wallet(name="家族旅費")
+    await WalletTable.create(
+        data={
+            "kind": "travel",
+            "name": "家族旅行",
+            "destination": "東京",
+            "start_date": date(2026, 11, 1),
+            "end_date": date(2026, 11, 5),
+        }
+    )
+
+    by_name = await WalletTable.find_page(limit=10, name="旅")
+    by_kind = await WalletTable.find_page(limit=10, kind=WalletKind.TRAVEL)
+    both = await WalletTable.find_page(limit=10, name="家", kind=WalletKind.GENERAL)
+
+    assert [item["name"] for item in by_name["list_data"]] == ["家族旅費", "家族旅行"]
+    assert [item["name"] for item in by_kind["list_data"]] == ["家族旅行"]
+    assert [item["name"] for item in both["list_data"]] == ["家用", "家族旅費"]
+    assert both["total_count"] == 2
+
+
+async def test_find_page_paginates_all_wallets(db):
+    for index in range(3):
+        await _wallet(name=f"錢包{index}")
+
+    first = await WalletTable.find_page(limit=2)
+    second = await WalletTable.find_page(limit=2, cursor=first["next_cursor"])
+
+    assert [item["name"] for item in first["list_data"]] == ["錢包0", "錢包1"]
+    assert [item["name"] for item in second["list_data"]] == ["錢包2"]
+    assert first["total_count"] == 3
+    assert_covers(WalletDetail, first["list_data"][0], "WalletTable.find_page")
+
+
+async def test_list_by_wallets_groups_members_per_wallet(db):
+    alice, bob = await _user("alice"), await _user("bob")
+    shared = await _wallet({alice: MemberRole.ADMIN, bob: MemberRole.MEMBER})
+    empty = await _wallet()
+
+    result = await WalletMemberTable.list_by_wallets([shared, empty, "not-a-uuid"])
+
+    assert result == {
+        shared: [
+            {"user_id": alice, "role": MemberRole.ADMIN},
+            {"user_id": bob, "role": MemberRole.MEMBER},
+        ],
+        empty: [],
+        "not-a-uuid": [],
+    }

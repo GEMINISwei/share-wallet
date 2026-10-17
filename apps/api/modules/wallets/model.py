@@ -1,7 +1,7 @@
 import uuid
 from datetime import date, datetime, timedelta
 from enum import StrEnum
-from typing import TypedDict, cast
+from typing import Literal, TypedDict, cast
 
 from sqlalchemy import (
     BigInteger,
@@ -13,6 +13,7 @@ from sqlalchemy import (
     String,
     UniqueConstraint,
     delete,
+    desc,
     func,
     select,
 )
@@ -20,8 +21,9 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
 
+from shared.db.query import ilike_contains
 from shared.db.session import resolve_session
-from shared.db.table import BaseTable, parse_uuid
+from shared.db.table import BaseTable, Condition, PagedResult, parse_uuid
 from shared.time import utc_now
 
 
@@ -94,6 +96,8 @@ class WalletTable(BaseTable):
     __table_args__ = (
         CheckConstraint("kind IN ('general', 'travel')", name="kind"),
         CheckConstraint("end_date >= start_date", name="end_not_before_start"),
+        # 後台列出所有錢包時的游標分頁 (排序鍵是 created_at + id, 見 `get_page`)。
+        Index("ix_wallets_created_at_id", desc("created_at"), desc("id")),
     )
 
     # 收窄回傳型別, 理由與 `ignore[override]` 的必要性見 modules/roles/model.py 的同一處。
@@ -133,6 +137,23 @@ class WalletTable(BaseTable):
             {"wallet": cast(WalletDetail, wallet.to_detail()), "role": MemberRole(role)}
             for wallet, role in rows
         ]
+
+    @classmethod
+    async def find_page(
+        cls,
+        limit: int,
+        cursor: str | None = None,
+        direction: Literal["next", "prev"] = "next",
+        name: str | None = None,
+        kind: WalletKind | None = None,
+    ) -> PagedResult:
+        """所有錢包 (不看成員), 給後台用。"""
+        filters: list[Condition] = []
+        if name:
+            filters.append(ilike_contains(cls.name, name))
+        if kind is not None:
+            filters.append(cls.kind == kind)
+        return await cls.get_page(where=filters, cursor=cursor, direction=direction, limit=limit)
 
     @classmethod
     async def delete_by_id(cls, id: str) -> bool:
@@ -195,6 +216,24 @@ class WalletMemberTable(BaseTable):
             )
         ).all()
         return [{"user_id": str(user_id), "role": MemberRole(role)} for user_id, role in rows]
+
+    @classmethod
+    async def list_by_wallets(cls, wallet_ids: list[str]) -> dict[str, list[MemberDetail]]:
+        """多個錢包的成員, 一次查完 (後台列表的一頁)。每個錢包內依加入的先後排序。"""
+        parsed = [row_id for wallet_id in wallet_ids if (row_id := parse_uuid(wallet_id))]
+        result: dict[str, list[MemberDetail]] = {wallet_id: [] for wallet_id in wallet_ids}
+        if not parsed:
+            return result
+        rows = (
+            await resolve_session(None).execute(
+                select(cls.wallet_id, cls.user_id, cls.role)
+                .where(cls.wallet_id.in_(parsed))
+                .order_by(cls.created_at.asc(), cls.id.asc())
+            )
+        ).all()
+        for wallet_id, user_id, role in rows:
+            result[str(wallet_id)].append({"user_id": str(user_id), "role": MemberRole(role)})
+        return result
 
     @classmethod
     async def count_admins(cls, wallet_id: str) -> int:
