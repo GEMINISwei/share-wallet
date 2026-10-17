@@ -17,7 +17,8 @@ dependencies = [
     "pydantic-settings==2.15.0",
     # 用 PyJWT 而非 python-jose: 只簽 HS256, 後者會拉進用不到的非對稱加密鏈 (含帶著
     # timing attack advisory 的 ecdsa)。
-    "PyJWT==2.13.0",
+    # 名稱要寫正規化的小寫: Dependabot (uv) 用小寫名稱比對字串, 寫成 `PyJWT` 會改不到而整批失敗。
+    "pyjwt==2.13.0",
     "python-multipart==0.0.32",
     "bcrypt==5.0.0",
     # 是正式環境相依: compose 的 migrate service 用 api image 跑 `alembic upgrade head`。
