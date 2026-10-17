@@ -55,38 +55,40 @@ export default function InviteDialog({
 
   return (
     <Modal title={t("inviteTitle")} open={open} onOpenChange={(next) => { if (!next) onClose() }}>
-      <p className={styles.hint}>{t("inviteIntro")}</p>
-      {loadError && <ErrorState>{loadError}</ErrorState>}
-      {invite ? (
-        <>
-          <TextInput label={t("inviteLink")} value={link} readOnly />
-          <p className={styles.hint}>
-            {t("inviteExpires")} <LocalDate iso={invite.expires_at} withTime />
-          </p>
-          <p className={styles.hint}>{t("inviteReplaceHint")}</p>
+      <div className={styles.dialogBody}>
+        <p className={styles.hint}>{t("inviteIntro")}</p>
+        {loadError && <ErrorState>{loadError}</ErrorState>}
+        {invite ? (
+          <>
+            <TextInput label={t("inviteLink")} value={link} readOnly />
+            <p className={styles.hint}>
+              {t("inviteExpires")} <LocalDate iso={invite.expires_at} withTime />
+            </p>
+            <p className={styles.hint}>{t("inviteReplaceHint")}</p>
+            <div className={styles.dialogActions}>
+              <Button
+                variant="outlined" disabled={isPending}
+                onClick={() => run(() => revokeInvite(walletId), t("inviteRevoked"))}
+              >
+                {t("inviteRevoke")}
+              </Button>
+              <Button
+                variant="outlined" disabled={isPending}
+                onClick={() => run(() => createInvite(walletId))}
+              >
+                {t("inviteRegenerate")}
+              </Button>
+              <Button disabled={isPending} onClick={copy}>{t("inviteCopy")}</Button>
+            </div>
+          </>
+        ) : (
           <div className={styles.dialogActions}>
-            <Button
-              variant="outlined" disabled={isPending}
-              onClick={() => run(() => revokeInvite(walletId), t("inviteRevoked"))}
-            >
-              {t("inviteRevoke")}
+            <Button disabled={isPending} onClick={() => run(() => createInvite(walletId))}>
+              {t("inviteCreate")}
             </Button>
-            <Button
-              variant="outlined" disabled={isPending}
-              onClick={() => run(() => createInvite(walletId))}
-            >
-              {t("inviteRegenerate")}
-            </Button>
-            <Button disabled={isPending} onClick={copy}>{t("inviteCopy")}</Button>
           </div>
-        </>
-      ) : (
-        <div className={styles.dialogActions}>
-          <Button disabled={isPending} onClick={() => run(() => createInvite(walletId))}>
-            {t("inviteCreate")}
-          </Button>
-        </div>
-      )}
+        )}
+      </div>
       <Notify {...notify} onOpenChange={(next) => { if (!next) closeNotify() }} />
     </Modal>
   )
