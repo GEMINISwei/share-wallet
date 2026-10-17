@@ -38,15 +38,7 @@ export default function WalletsView({ wallets, totalBalance, errorMessage }: Wal
         </section>
 
         {errorMessage && <ErrorState>{errorMessage}</ErrorState>}
-        {/* 手機上標題列的建立鈕收在 ⋮ 選單裡, 第一次進來還沒有錢包時要有一顆看得到的。 */}
-        {!errorMessage && wallets.length === 0 && (
-          <>
-            <p className={styles.hint}>{t("empty")}</p>
-            <Button icon={<Plus size={ICON_SIZE.sm} />} fullWidth onClick={openCreate}>
-              {t("create")}
-            </Button>
-          </>
-        )}
+        {!errorMessage && wallets.length === 0 && <p className={styles.hint}>{t("empty")}</p>}
         {wallets.length > 0 && (
           <ul className={styles.list}>
             {wallets.map((wallet) => (
