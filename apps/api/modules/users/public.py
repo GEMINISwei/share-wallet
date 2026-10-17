@@ -9,4 +9,9 @@ async def find_nicknames(user_ids: list[str]) -> dict[str, str]:
     return await UserTable.find_nicknames_by_ids(user_ids)
 
 
-__all__ = ["create_super_admin", "find_nicknames"]
+async def is_active_user(user_id: str) -> bool:
+    """這個 id 是存在而且沒有停用的使用者。"""
+    return await UserTable.is_active(user_id)
+
+
+__all__ = ["create_super_admin", "find_nicknames", "is_active_user"]

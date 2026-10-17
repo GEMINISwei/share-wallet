@@ -5,6 +5,10 @@ import { useLocale } from "@/shared/i18n/context"
 import { hasErrors, validateWalletForm } from "../validation"
 import type { WalletFormErrors, WalletFormValues } from "../types"
 
+export const EMPTY_WALLET_FORM: WalletFormValues = {
+  kind: "general", name: "", initial_balance: "", destination: "", start_date: "", end_date: "",
+}
+
 /** 錢包表單的值與錯誤。改一個欄位就清掉那個欄位的錯誤, 送出前整份重新驗證。 */
 export function useWalletForm(initial: WalletFormValues) {
   const locale = useLocale()

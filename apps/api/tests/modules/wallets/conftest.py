@@ -11,6 +11,7 @@ from typing import Any
 
 import pytest
 
+from modules.wallets import admin as admin_service
 from modules.wallets import members as member_service
 from modules.wallets.model import (
     CategoryType,
@@ -25,12 +26,14 @@ ALICE = str(uuid.uuid4())
 BOB = str(uuid.uuid4())
 CAROL = str(uuid.uuid4())
 SUPER = str(uuid.uuid4())
+DAVE = str(uuid.uuid4())
 
 USERS = {
     "alice": {"id": ALICE, "nickname": "Alice", "permissions": [], "is_disabled": False},
     "bob": {"id": BOB, "nickname": "Bob", "permissions": [], "is_disabled": False},
     "carol": {"id": CAROL, "nickname": "Carol", "permissions": [], "is_disabled": False},
     "super": {"id": SUPER, "nickname": "Super", "permissions": ["*"], "is_disabled": False},
+    "dave": {"id": DAVE, "nickname": "Dave", "permissions": [], "is_disabled": True},
 }
 
 
@@ -182,6 +185,34 @@ def _install_members(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -> None:
     }.items():
         monkeypatch.setattr(WalletMemberTable, name, fake)
     monkeypatch.setattr(member_service, "find_nicknames", find_nicknames)
+    monkeypatch.setattr(admin_service, "find_nicknames", find_nicknames)
+
+
+def _install_admin(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -> None:
+    """後台用到的查詢: 所有錢包的一頁、一次取多個錢包的成員、帳號是否啟用。"""
+
+    async def find_page(limit, cursor=None, direction="next", name=None, kind=None):
+        # 篩選與分頁的 SQL 在 test_model.py 驗, 這裡只照順序回傳全部。
+        wallets = list(store.wallets.values())
+        return {
+            "list_data": wallets,
+            "has_next": False,
+            "has_previous": False,
+            "total_count": len(wallets),
+        }
+
+    async def list_by_wallets(wallet_ids):
+        return {
+            wid: [{"user_id": uid, "role": role} for uid, role in store.roles(wid).items()]
+            for wid in wallet_ids
+        }
+
+    async def is_active_user(user_id):
+        return any(info["id"] == user_id and not info["is_disabled"] for info in USERS.values())
+
+    monkeypatch.setattr(WalletTable, "find_page", find_page)
+    monkeypatch.setattr(WalletMemberTable, "list_by_wallets", list_by_wallets)
+    monkeypatch.setattr(admin_service, "is_active_user", is_active_user)
 
 
 def _install_categories(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -> None:
@@ -229,6 +260,7 @@ def store(monkeypatch: pytest.MonkeyPatch) -> FakeStore:
     fake = FakeStore()
     _install_wallets(monkeypatch, fake)
     _install_members(monkeypatch, fake)
+    _install_admin(monkeypatch, fake)
     _install_categories(monkeypatch, fake)
     return fake
 

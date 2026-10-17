@@ -9,6 +9,7 @@ import type { WalletFormErrors, WalletFormValues } from "./types"
 
 type WalletCreateRequest = ApiRequestBody<"/wallets/", "post">
 type WalletUpdateRequest = ApiRequestBody<"/wallets/{id}", "patch">
+type AdminWalletCreateRequest = ApiRequestBody<"/admin/wallets/", "post">
 
 const INTEGER = /^-?\d+$/
 
@@ -61,6 +62,19 @@ export function toCreateRequest(values: WalletFormValues): WalletCreateRequest {
   const name = values.name.trim()
   if (values.kind === "travel") return { kind: "travel", name, ...travelFields(values) }
   return { kind: "general", name, initial_balance: parseAmount(values.initial_balance) ?? 0 }
+}
+
+/** 後台建立錢包時一定要指定一位管理者。 */
+export function validateAdminUser(adminUserId: string, locale: Locale): string | undefined {
+  return adminUserId ? undefined : translate(walletsMessages, locale)("adminUserRequired")
+}
+
+/** 已通過驗證的表單值與管理者 → 後台建立錢包的請求。 */
+export function toAdminCreateRequest(
+  values: WalletFormValues,
+  adminUserId: string,
+): AdminWalletCreateRequest {
+  return { ...toCreateRequest(values), admin_user_id: adminUserId }
 }
 
 /** 已通過驗證的表單值 → 修改設定的請求。類型不能改, 所以一般錢包只送名稱。 */

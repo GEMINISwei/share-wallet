@@ -139,7 +139,7 @@ app/
 ├── (public)/              # login、signup
 └── (protected)/           # layout：登入檢查
     ├── (user)/            # 使用者區：錢包、個人設定　layout：使用者外殼
-    └── admin/             # 管理區：使用者、角色管理　layout：權限檢查 + 管理外殼
+    └── admin/             # 管理區：使用者、角色、錢包管理　layout：權限檢查 + 管理外殼
 ```
 
 路由放哪一區由 manifest 的 `group: "user" | "admin"` 決定，頁面檔要放在對應的 route group

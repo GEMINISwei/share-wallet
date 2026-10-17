@@ -11,7 +11,7 @@ from typing import Annotated, Literal, Self
 from pydantic import BaseModel, Field, StringConstraints, model_validator
 
 from shared.http.errors import BaseError, LangText, resolve_text
-from shared.http.schema import SimpleListResponse, UtcDateTime
+from shared.http.schema import PaginatedResponse, SimpleListResponse, UtcDateTime
 from shared.http.schema import UuidText as UuidText
 
 from .model import CategoryType, MemberRole, WalletKind
@@ -61,6 +61,21 @@ class TravelWalletCreate(_TravelFields):
 WalletCreate = Annotated[GeneralWalletCreate | TravelWalletCreate, Field(discriminator="kind")]
 
 
+class AdminGeneralWalletCreate(GeneralWalletCreate):
+    #: 這個錢包唯一的管理者, 必須是啟用中的使用者 (可以是超級管理者自己)。
+    admin_user_id: UuidText
+
+
+class AdminTravelWalletCreate(TravelWalletCreate):
+    #: 這個錢包唯一的管理者, 必須是啟用中的使用者 (可以是超級管理者自己)。
+    admin_user_id: UuidText
+
+
+AdminWalletCreate = Annotated[
+    AdminGeneralWalletCreate | AdminTravelWalletCreate, Field(discriminator="kind")
+]
+
+
 class GeneralWalletUpdate(BaseModel):
     kind: Literal[WalletKind.GENERAL]
     name: WalletName
@@ -99,6 +114,32 @@ class WalletList(SimpleListResponse["WalletInfo"]):
     """自己加入的錢包。`total_balance` 是其中所有一般錢包餘額的總和。"""
 
     total_balance: int
+
+
+class WalletAdmin(BaseModel):
+    user_id: str
+    nickname: str
+
+
+class AdminWalletInfo(BaseModel):
+    """後台列表上的一個錢包。`balance` 只有一般錢包才有。"""
+
+    id: str
+    kind: WalletKind
+    name: str
+    balance: int | None
+    destination: str | None
+    start_date: date | None
+    end_date: date | None
+    created_at: UtcDateTime
+    #: 成員人數, 含管理者。
+    member_count: int
+    #: 所有管理者, 依加入的先後排序。
+    admins: list[WalletAdmin]
+
+
+class AdminWalletList(PaginatedResponse["AdminWalletInfo"]):
+    """所有錢包, 不論自己有沒有加入。"""
 
 
 class MemberInfo(BaseModel):

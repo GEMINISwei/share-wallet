@@ -2,7 +2,7 @@
 
 import { apiDelete, apiPatch, apiPost } from "@/shared/api/request.server"
 import type { ApiRequestBody } from "@/shared/api/contract"
-import { WALLETS_PATH } from "./manifest"
+import { ADMIN_WALLETS_PATH, WALLETS_PATH } from "./manifest"
 import { walletPath } from "./paths"
 import type { MemberRole } from "./types"
 
@@ -12,6 +12,11 @@ const refreshWallets = { path: WALLETS_PATH }
 
 export async function createWallet(data: ApiRequestBody<"/wallets/", "post">) {
   return apiPost({ url: "/wallets/", data, refresh: refreshWallets })
+}
+
+/** 後台替指定的使用者建立錢包。 */
+export async function createWalletForUser(data: ApiRequestBody<"/admin/wallets/", "post">) {
+  return apiPost({ url: "/admin/wallets/", data, refresh: { path: ADMIN_WALLETS_PATH } })
 }
 
 export async function updateWallet(id: string, data: ApiRequestBody<"/wallets/{id}", "patch">) {

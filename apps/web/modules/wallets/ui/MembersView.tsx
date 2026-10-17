@@ -7,8 +7,7 @@ import { useT } from "@/shared/i18n/context"
 import { removeMember, updateMemberRole } from "../actions"
 import { isLastAdmin, memberActions } from "../capabilities"
 import { walletsMessages } from "../i18n"
-import { WALLETS_PATH } from "../manifest"
-import { walletPath } from "../paths"
+import { type WalletArea, walletPath, walletsListPath } from "../paths"
 import type { MemberInfo, MemberRole, WalletInfo } from "../types"
 import ConfirmDialog from "./ConfirmDialog"
 import WalletShell from "./WalletShell"
@@ -16,6 +15,7 @@ import styles from "./wallets.module.css"
 
 type MembersViewProps = {
   wallet: WalletInfo
+  area: WalletArea
   members: MemberInfo[]
   currentUserId: string
   errorMessage: string
@@ -25,7 +25,7 @@ type MembersViewProps = {
 type PendingRemoval = { member: MemberInfo; leaving: boolean } | null
 
 export default function MembersView({
-  wallet, members, currentUserId, errorMessage,
+  wallet, area, members, currentUserId, errorMessage,
 }: MembersViewProps) {
   const t = useT(walletsMessages)
   const router = useRouter()
@@ -54,7 +54,7 @@ export default function MembersView({
         setRemoval(null)
         // 離開之後這個錢包就打不開了, 回到列表。
         if (leaving) {
-          router.push(WALLETS_PATH)
+          router.push(walletsListPath(area))
           return
         }
         notifySuccess(t("memberRemoved"))
@@ -91,7 +91,7 @@ export default function MembersView({
   return (
     <WalletShell
       title={t("members")} subtitle={wallet.name}
-      backHref={walletPath(wallet.id)} backLabel={t("backToWallet")}
+      backHref={walletPath(wallet.id, area)} backLabel={t("backToWallet")}
     >
       {errorMessage && <ErrorState>{errorMessage}</ErrorState>}
       <ul className={styles.list}>

@@ -1,6 +1,230 @@
 {
   "components": {
     "schemas": {
+      "AdminGeneralWalletCreate": {
+        "properties": {
+          "admin_user_id": {
+            "title": "Admin User Id",
+            "type": "string"
+          },
+          "initial_balance": {
+            "default": 0,
+            "maximum": 9007199254740991.0,
+            "minimum": -9007199254740991.0,
+            "title": "Initial Balance",
+            "type": "integer"
+          },
+          "kind": {
+            "const": "general",
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 50,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "name",
+          "admin_user_id"
+        ],
+        "title": "AdminGeneralWalletCreate",
+        "type": "object"
+      },
+      "AdminTravelWalletCreate": {
+        "properties": {
+          "admin_user_id": {
+            "title": "Admin User Id",
+            "type": "string"
+          },
+          "destination": {
+            "maxLength": 50,
+            "minLength": 1,
+            "title": "Destination",
+            "type": "string"
+          },
+          "end_date": {
+            "format": "date",
+            "title": "End Date",
+            "type": "string"
+          },
+          "kind": {
+            "const": "travel",
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 50,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "start_date": {
+            "format": "date",
+            "title": "Start Date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "destination",
+          "start_date",
+          "end_date",
+          "kind",
+          "name",
+          "admin_user_id"
+        ],
+        "title": "AdminTravelWalletCreate",
+        "type": "object"
+      },
+      "AdminWalletInfo": {
+        "description": "後台列表上的一個錢包。`balance` 只有一般錢包才有。",
+        "properties": {
+          "admins": {
+            "items": {
+              "$ref": "#/components/schemas/WalletAdmin"
+            },
+            "title": "Admins",
+            "type": "array"
+          },
+          "balance": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Balance"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "destination": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Destination"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Date"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/WalletKind"
+          },
+          "member_count": {
+            "title": "Member Count",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Date"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "name",
+          "balance",
+          "destination",
+          "start_date",
+          "end_date",
+          "created_at",
+          "member_count",
+          "admins"
+        ],
+        "title": "AdminWalletInfo",
+        "type": "object"
+      },
+      "AdminWalletList": {
+        "description": "所有錢包, 不論自己有沒有加入。",
+        "properties": {
+          "has_next": {
+            "title": "Has Next",
+            "type": "boolean"
+          },
+          "has_previous": {
+            "title": "Has Previous",
+            "type": "boolean"
+          },
+          "list_data": {
+            "items": {
+              "$ref": "#/components/schemas/AdminWalletInfo"
+            },
+            "title": "List Data",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "prev_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prev Cursor"
+          },
+          "total_count": {
+            "title": "Total Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "list_data",
+          "has_next",
+          "has_previous",
+          "total_count"
+        ],
+        "title": "AdminWalletList",
+        "type": "object"
+      },
       "AppVersion": {
         "description": "系統目前執行的版本。",
         "properties": {
@@ -873,6 +1097,51 @@
         "title": "UserOperate",
         "type": "object"
       },
+      "UserOption": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "nickname": {
+            "title": "Nickname",
+            "type": "string"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "nickname"
+        ],
+        "title": "UserOption",
+        "type": "object"
+      },
+      "UserOptionList": {
+        "description": "啟用中的使用者, 依暱稱排序。",
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "list_data": {
+            "items": {
+              "$ref": "#/components/schemas/UserOption"
+            },
+            "title": "List Data",
+            "type": "array"
+          }
+        },
+        "required": [
+          "list_data",
+          "count"
+        ],
+        "title": "UserOptionList",
+        "type": "object"
+      },
       "UserResetPassword": {
         "properties": {
           "password": {
@@ -976,6 +1245,24 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "WalletAdmin": {
+        "properties": {
+          "nickname": {
+            "title": "Nickname",
+            "type": "string"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "nickname"
+        ],
+        "title": "WalletAdmin",
         "type": "object"
       },
       "WalletInfo": {
@@ -1130,6 +1417,168 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/admin/wallets/": {
+      "get": {
+        "description": "所有錢包, 不論自己有沒有加入。`name` 是名稱的部分比對。",
+        "operationId": "get_all_wallet_list_route_api_admin_wallets__get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "name",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Name"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/WalletKind"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "direction",
+            "required": false,
+            "schema": {
+              "default": "next",
+              "enum": [
+                "next",
+                "prev"
+              ],
+              "title": "Direction",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminWalletList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get All Wallet List Route",
+        "tags": [
+          "admin-wallets"
+        ]
+      },
+      "post": {
+        "description": "建立錢包並指定一位啟用中的使用者當唯一的管理者; 沒指定自己時, 自己不會成為成員。",
+        "operationId": "create_wallet_for_user_route_api_admin_wallets__post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "discriminator": {
+                  "mapping": {
+                    "general": "#/components/schemas/AdminGeneralWalletCreate",
+                    "travel": "#/components/schemas/AdminTravelWalletCreate"
+                  },
+                  "propertyName": "kind"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/AdminGeneralWalletCreate"
+                  },
+                  {
+                    "$ref": "#/components/schemas/AdminTravelWalletCreate"
+                  }
+                ],
+                "title": "Form Data"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalletOperate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Wallet For User Route",
+        "tags": [
+          "admin-wallets"
+        ]
+      }
+    },
     "/api/languages/": {
       "get": {
         "description": "列出這個 API 支援的訊息語系。",
@@ -1846,6 +2295,28 @@
           }
         },
         "summary": "Change Own Password Route",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/users/options": {
+      "get": {
+        "description": "啟用中的使用者, 給指定錢包管理者這類下拉選單用。",
+        "operationId": "get_user_options_route_api_users_options_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserOptionList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get User Options Route",
         "tags": [
           "users"
         ]

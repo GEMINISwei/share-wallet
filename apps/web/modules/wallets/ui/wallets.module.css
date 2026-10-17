@@ -200,3 +200,19 @@ a.row:hover {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* 後台列表: 名稱連到錢包頁, 管理者欄位點開看完整名單。兩者都是表格裡的文字連結。 */
+.tableLink {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-primary);
+  font: inherit;
+  text-align: start;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.tableLink:hover {
+  text-decoration: underline;
+}

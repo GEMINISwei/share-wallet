@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
-  canConfirmDelete, hasErrors, parseAmount, toCreateRequest, toUpdateRequest, validateWalletForm,
+  canConfirmDelete, hasErrors, parseAmount, toAdminCreateRequest, toCreateRequest, toUpdateRequest,
+  validateAdminUser, validateWalletForm,
 } from "@/modules/wallets/validation"
 import type { WalletFormValues } from "@/modules/wallets/types"
 
@@ -74,5 +75,18 @@ describe("canConfirmDelete", () => {
   it("輸入的名稱與錢包名稱相同才能刪除", () => {
     expect(canConfirmDelete(" 家用 ", "家用")).toBe(true)
     expect(canConfirmDelete("家", "家用")).toBe(false)
+  })
+})
+
+describe("後台建立錢包", () => {
+  it("沒有選管理者時回傳錯誤", () => {
+    expect(validateAdminUser("", "zh")).toBe("請選擇管理者")
+    expect(validateAdminUser("u-1", "zh")).toBeUndefined()
+  })
+
+  it("請求帶上指定的管理者", () => {
+    expect(toAdminCreateRequest(GENERAL, "u-1")).toEqual({
+      kind: "general", name: "家用", initial_balance: 0, admin_user_id: "u-1",
+    })
   })
 })

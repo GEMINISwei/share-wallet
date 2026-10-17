@@ -10,7 +10,7 @@ import { useT } from "@/shared/i18n/context"
 import { deleteCategory } from "../actions"
 import { groupCategories } from "../capabilities"
 import { walletsMessages } from "../i18n"
-import { walletPath } from "../paths"
+import { type WalletArea, walletPath } from "../paths"
 import type { CategoryInfo, CategoryType, WalletInfo } from "../types"
 import CategoryDialog from "./CategoryDialog"
 import ConfirmDialog from "./ConfirmDialog"
@@ -19,13 +19,16 @@ import styles from "./wallets.module.css"
 
 type CategoriesViewProps = {
   wallet: WalletInfo
+  area: WalletArea
   categories: CategoryInfo[]
   errorMessage: string
 }
 
 type Editing = { category: CategoryInfo | null; type: CategoryType } | null
 
-export default function CategoriesView({ wallet, categories, errorMessage }: CategoriesViewProps) {
+export default function CategoriesView({
+  wallet, area, categories, errorMessage,
+}: CategoriesViewProps) {
   const t = useT(walletsMessages)
   const router = useRouter()
   const [editing, setEditing] = useState<Editing>(null)
@@ -64,7 +67,7 @@ export default function CategoriesView({ wallet, categories, errorMessage }: Cat
   return (
     <WalletShell
       title={t("categories")} subtitle={wallet.name}
-      backHref={walletPath(wallet.id)} backLabel={t("backToWallet")}
+      backHref={walletPath(wallet.id, area)} backLabel={t("backToWallet")}
     >
       {errorMessage && <ErrorState>{errorMessage}</ErrorState>}
       {groups.map((group) => (

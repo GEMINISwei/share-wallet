@@ -67,6 +67,7 @@ async def test_get_users_me_with_valid_token_returns_current_user(client: AsyncC
 # 沒有任何一個權限能打開這些端點。
 ADMIN_ROUTES = [
     ("GET", "/api/users/?limit=20", None),
+    ("GET", "/api/users/options", None),
     ("GET", f"/api/users/{MISSING_ID}", None),
     (
         "POST",

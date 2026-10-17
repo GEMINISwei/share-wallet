@@ -6,13 +6,14 @@ import { FormDialog, TextInput, useActionSubmit } from "@/shared/ui"
 import { useT } from "@/shared/i18n/context"
 import { deleteWallet } from "../actions"
 import { walletsMessages } from "../i18n"
-import { WALLETS_PATH } from "../manifest"
+import { type WalletArea, walletsListPath } from "../paths"
 import type { WalletInfo } from "../types"
 import { canConfirmDelete } from "../validation"
 import styles from "./wallets.module.css"
 
 type DeleteWalletDialogProps = {
   wallet: WalletInfo
+  area: WalletArea
   open: boolean
   onClose: () => void
   onError: (message: string) => void
@@ -20,7 +21,7 @@ type DeleteWalletDialogProps = {
 
 // 刪除是永久的, 所以要輸入一樣的名稱才送得出去 (見 docs/features.md〈刪除錢包〉)。
 export default function DeleteWalletDialog({
-  wallet, open, onClose, onError,
+  wallet, area, open, onClose, onError,
 }: DeleteWalletDialogProps) {
   const t = useT(walletsMessages)
   const router = useRouter()
@@ -36,7 +37,7 @@ export default function DeleteWalletDialog({
     event.preventDefault()
     if (!canConfirmDelete(input, wallet.name)) return
     submit(() => deleteWallet(wallet.id), {
-      onSuccess: () => router.push(WALLETS_PATH),
+      onSuccess: () => router.push(walletsListPath(area)),
       onError,
       errorFallback: t("deleteFailed"),
     })
