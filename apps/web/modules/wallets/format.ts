@@ -13,3 +13,10 @@ export function formatDate(iso: string, locale: Locale, timeZone?: string) {
   return new Intl.DateTimeFormat(HTML_LANG[locale], { dateStyle: "medium", timeZone })
     .format(new Date(iso))
 }
+
+/** 日期加時間 (到分), 時區的處理同 `formatDate`。 */
+export function formatDateTime(iso: string, locale: Locale, timeZone?: string) {
+  return new Intl.DateTimeFormat(HTML_LANG[locale], {
+    dateStyle: "medium", timeStyle: "short", timeZone,
+  }).format(new Date(iso))
+}

@@ -153,7 +153,7 @@ async def get_invite_route(
     return await invites.get_invite(id, current_user)
 
 
-@router.put("/{id}/invite")
+@router.post("/{id}/invite")
 async def create_invite_route(
     id: UuidText,
     current_user: CurrentUser = Depends(check_user_permission()),

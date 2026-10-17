@@ -22,6 +22,10 @@ async function renderMembersPage({ params }: WalletPageProps, area: WalletArea) 
     getT(walletsMessages),
   ])
   if (!wallet) return <WalletNotFound area={area} />
+  // 邀請連結只有管理者看得到 (後端對成員回 403), 不是管理者就不必問。
+  const inviteRes = wallet.can_manage
+    ? await apiGet({ url: "/wallets/{id}/invite", params: { id } })
+    : null
   return (
     <MembersView
       wallet={wallet}
@@ -29,6 +33,8 @@ async function renderMembersPage({ params }: WalletPageProps, area: WalletArea) 
       members={getApiListData(membersRes)}
       currentUserId={currentUser.data?.id ?? ""}
       errorMessage={membersRes.status === "success" ? "" : t("membersFailed")}
+      invite={inviteRes?.status === "success" ? inviteRes.data.invite : null}
+      inviteError={inviteRes && inviteRes.status !== "success" ? t("inviteLoadFailed") : ""}
     />
   )
 }

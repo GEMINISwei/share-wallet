@@ -10,7 +10,7 @@ import { useSignupForm } from "./useSignupForm"
 import AuthField, { AuthErrorBanner, PasswordToggle } from "./AuthField"
 import styles from "./auth.module.css"
 
-export default function SignupForm() {
+export default function SignupForm({ invite }: { invite?: string }) {
   const t = useT(authMessages)
   const {
     values,
@@ -24,7 +24,7 @@ export default function SignupForm() {
     togglePassword,
     goLogin,
     submit,
-  } = useSignupForm()
+  } = useSignupForm(invite)
 
   // 各欄位共通的狀態, 展開進每個 AuthField。
   const fieldState = { disabled: isPending, showError: isSubmit }

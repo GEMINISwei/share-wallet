@@ -21,3 +21,7 @@ export {
   default as AdminWalletsPage, generateMetadata as generateAdminWalletsMetadata,
 } from "./admin-page.server"
 export type { AdminWalletsPageProps } from "./admin-page.server"
+export {
+  default as InvitePage, generateMetadata as generateInviteMetadata,
+} from "./invite-page.server"
+export type { InvitePageProps } from "./invite-page.server"

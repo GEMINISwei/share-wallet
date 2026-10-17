@@ -2,7 +2,7 @@
 
 import { useSyncExternalStore } from "react"
 import { useLocale } from "@/shared/i18n/context"
-import { formatDate } from "../format"
+import { formatDate, formatDateTime } from "../format"
 
 const subscribe = () => () => {}
 
@@ -11,12 +11,13 @@ const subscribe = () => () => {}
  * 換成本地時區。用 `useSyncExternalStore` 的 server snapshot 而不是直接格式化, 否則兩邊
  * 時區不同時 React 會報 hydration mismatch。
  */
-export default function LocalDate({ iso }: { iso: string }) {
+export default function LocalDate({ iso, withTime }: { iso: string; withTime?: boolean }) {
   const locale = useLocale()
+  const format = withTime ? formatDateTime : formatDate
   const text = useSyncExternalStore(
     subscribe,
-    () => formatDate(iso, locale),
-    () => formatDate(iso, locale, "UTC"),
+    () => format(iso, locale),
+    () => format(iso, locale, "UTC"),
   )
   return <time dateTime={iso}>{text}</time>
 }

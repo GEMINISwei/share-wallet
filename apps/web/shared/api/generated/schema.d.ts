@@ -463,12 +463,12 @@ export interface paths {
          * @description 目前有效的邀請連結。只有錢包管理者看得到。
          */
         get: operations["get_invite_route_api_wallets__id__invite_get"];
+        put?: never;
         /**
          * Create Invite Route
          * @description 產生邀請連結, 有效期限一天。已經有連結時換成新的, 舊的立即失效。
          */
-        put: operations["create_invite_route_api_wallets__id__invite_put"];
-        post?: never;
+        post: operations["create_invite_route_api_wallets__id__invite_post"];
         /**
          * Revoke Invite Route
          * @description 撤銷邀請連結。
@@ -2217,7 +2217,7 @@ export interface operations {
             };
         };
     };
-    create_invite_route_api_wallets__id__invite_put: {
+    create_invite_route_api_wallets__id__invite_post: {
         parameters: {
             query?: never;
             header?: never;

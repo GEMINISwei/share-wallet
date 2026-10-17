@@ -22,7 +22,7 @@ def _invite_url(wallet_id: str) -> str:
 
 async def _create(client: AsyncClient, wallet_id: str, as_user: str = "alice") -> str:
     authenticate(client, as_user)
-    response = await client.put(_invite_url(wallet_id))
+    response = await client.post(_invite_url(wallet_id))
     assert response.status_code == 200
     return response.json()["token"]
 
@@ -32,7 +32,7 @@ async def test_create_invite_as_admin_expires_in_one_day(client: AsyncClient, st
     wallet_id = store.add_wallet()
     authenticate(client, "alice")
 
-    body = (await client.put(_invite_url(wallet_id))).json()
+    body = (await client.post(_invite_url(wallet_id))).json()
 
     assert len(body["token"]) >= 32
     assert body["expires_at"] == (store.now + timedelta(days=1)).isoformat() + "Z"
@@ -44,7 +44,7 @@ async def test_create_invite_as_super_admin_succeeds(client: AsyncClient, store:
     wallet_id = store.add_wallet()
     authenticate(client, "super")
 
-    response = await client.put(_invite_url(wallet_id))
+    response = await client.post(_invite_url(wallet_id))
 
     assert response.status_code == 200
     assert wallet_id in store.invites
@@ -55,7 +55,7 @@ async def test_create_invite_as_member_returns_403(client: AsyncClient, store: F
     wallet_id = store.add_wallet(members={ALICE: ADMIN, BOB: MEMBER})
     authenticate(client, "bob")
 
-    response = await client.put(_invite_url(wallet_id))
+    response = await client.post(_invite_url(wallet_id))
 
     assert response.status_code == 403
     assert store.invites == {}
@@ -66,7 +66,7 @@ async def test_create_invite_as_outsider_returns_404(client: AsyncClient, store:
     wallet_id = store.add_wallet()
     authenticate(client, "bob")
 
-    assert (await client.put(_invite_url(wallet_id))).status_code == 404
+    assert (await client.post(_invite_url(wallet_id))).status_code == 404
 
 
 @pytest.mark.asyncio
