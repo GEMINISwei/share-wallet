@@ -1,0 +1,76 @@
+"use client"
+
+import { useRouter } from "next/navigation"
+import { type FormEvent, useState } from "react"
+import { Button, Notify, useActionSubmit, useNotify } from "@/shared/ui"
+import { useT } from "@/shared/i18n/context"
+import { updateWallet } from "../actions"
+import { walletsMessages } from "../i18n"
+import { walletPath } from "../paths"
+import type { WalletInfo } from "../types"
+import { toUpdateRequest } from "../validation"
+import DeleteWalletDialog from "./DeleteWalletDialog"
+import { useWalletForm } from "./useWalletForm"
+import WalletFields from "./WalletFields"
+import WalletShell from "./WalletShell"
+import styles from "./wallets.module.css"
+
+export default function WalletSettingsView({ wallet }: { wallet: WalletInfo }) {
+  const t = useT(walletsMessages)
+  const router = useRouter()
+  const form = useWalletForm({
+    kind: wallet.kind,
+    name: wallet.name,
+    initial_balance: "",
+    destination: wallet.destination ?? "",
+    start_date: wallet.start_date ?? "",
+    end_date: wallet.end_date ?? "",
+  })
+  const [deleting, setDeleting] = useState(false)
+  const { isPending, submit, fieldError } = useActionSubmit()
+  const { notify, notifyError, notifySuccess, closeNotify } = useNotify()
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!form.validate()) return
+    submit(() => updateWallet(wallet.id, toUpdateRequest(form.values)), {
+      onSuccess: () => {
+        notifySuccess(t("saved"))
+        router.refresh()
+      },
+      onError: notifyError,
+      errorFallback: t("saveFailed"),
+    })
+  }
+
+  return (
+    <WalletShell
+      title={t("settings")} subtitle={wallet.name}
+      backHref={walletPath(wallet.id)} backLabel={t("backToWallet")}
+    >
+      <form className={styles.panel} onSubmit={handleSubmit} noValidate>
+        <WalletFields
+          values={form.values}
+          errors={{ ...form.errors, name: form.errors.name ?? fieldError("name") }}
+          disabled={isPending} showInitialBalance={false} onChange={form.change}
+        />
+        <div>
+          <Button type="submit" disabled={isPending}>{isPending ? t("saving") : t("save")}</Button>
+        </div>
+      </form>
+
+      <section className={`${styles.panel} ${styles.dangerPanel}`}>
+        <h2 className={styles.sectionTitle}>{t("dangerZone")}</h2>
+        <p className={styles.hint}>{t("deleteDesc")}</p>
+        <div>
+          <Button variant="outlined" onClick={() => setDeleting(true)}>{t("deleteWallet")}</Button>
+        </div>
+      </section>
+
+      <DeleteWalletDialog
+        wallet={wallet} open={deleting} onClose={() => setDeleting(false)} onError={notifyError}
+      />
+      <Notify {...notify} onOpenChange={(open) => { if (!open) closeNotify() }} />
+    </WalletShell>
+  )
+}

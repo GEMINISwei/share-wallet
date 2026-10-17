@@ -1,20 +1,7 @@
-import { Container, PageHeader } from "@/shared/ui"
-import { getT } from "@/shared/i18n/locale.server"
-import { appMessages } from "@/config/i18n"
+import { redirect } from "next/navigation"
+import { WALLETS_PATH } from "@/modules/wallets/public.server"
 
-export async function generateMetadata() {
-  return { title: (await getT(appMessages))("homeTitle") }
-}
-
-export default async function HomePage() {
-  const t = await getT(appMessages)
-
-  return (
-    <Container size="lg" padded>
-      <PageHeader
-        title={t("homeHeading")}
-        subtitle={t("homeSubtitle")}
-      />
-    </Container>
-  )
+// 這個 app 的首頁就是錢包列表。保留 `/` 這個入口 (登入後預設導到這裡), 再轉過去。
+export default function HomePage() {
+  redirect(WALLETS_PATH)
 }

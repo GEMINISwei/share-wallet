@@ -1,6 +1,7 @@
 # 給 AI agent 的專案指引
 
 這是給 AI agent 的**唯一**指引（不另設 `CLAUDE.md`）。只寫無法從程式碼推導的規則，細節見：
+[`features.md`](docs/features.md)（產品規則的唯一來源）、
 [`architecture.md`](docs/architecture.md)（依賴規則、模組介面）、
 [`development.md`](docs/development.md)（指令、測試、風格）、
 [`extending.md`](docs/extending.md)（新增模組／權限／migration／i18n）、
