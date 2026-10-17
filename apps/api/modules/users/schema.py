@@ -46,11 +46,11 @@ class SuperAdminCreate(BaseModel):
     nickname: NonEmptyText
 
 
+# 不帶角色: 公開註冊的角色固定是一般用戶 (見 `account.signup_user`), 多送的欄位在驗證時就丟掉。
 class SignupRequest(BaseModel):
     username: NonEmptyText
     password: NewPassword
     nickname: NonEmptyText
-    register_key: NonEmptyText
 
 
 class UserLogin(BaseModel):
@@ -88,16 +88,6 @@ class PasswordChange(BaseModel):
 
 class UserOperate(BaseModel):
     id: str
-
-
-class SignupResponse(BaseModel):
-    id: str
-
-
-class BootstrapStatus(BaseModel):
-    # True 代表「還沒有任何超級管理者, 且 REGISTER_KEY 有設定」。
-    # 前端據此決定要顯示註冊表單還是「系統已初始化」的訊息。
-    available: bool
 
 
 class UserToken(BaseModel):

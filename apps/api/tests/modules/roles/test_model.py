@@ -6,7 +6,7 @@
 
 import pytest
 
-from modules.roles.model import RoleDetail, RoleTable
+from modules.roles.model import USER_ROLE_CODE, RoleDetail, RoleTable
 
 from ..helpers import assert_covers
 
@@ -23,3 +23,27 @@ async def test_role_detail_matches_both_finders(db):
     assert_covers(RoleDetail, by_id, "RoleDetail（find_detail_by_id）")
     assert len(by_ids) == 1
     assert_covers(RoleDetail, by_ids[0], "RoleDetail（find_details_by_ids）")
+
+
+async def test_seed_creates_user_role_with_no_permissions(db):
+    await RoleTable.ensure_seed()
+
+    role = await RoleTable.find_detail_by_code(USER_ROLE_CODE)
+
+    assert role is not None
+    assert role["permissions"] == []
+    assert role["is_disabled"] is False
+
+
+async def test_reseed_keeps_user_role_permissions_set_by_admin(db):
+    """超管調整過的權限, 服務重啟 (再跑一次 seed) 之後還在。"""
+    await RoleTable.ensure_seed()
+    role_id = await RoleTable.get_user_role_id()
+    # 直接寫入任意字串: 目前的 `Permission` 除了 `*` 之外沒有別的值, 而這裡驗的是 seed 不覆蓋。
+    await RoleTable.update_by_id(id=role_id, data={"permissions": ["wallets:read"]})
+
+    await RoleTable.ensure_seed()
+
+    role = await RoleTable.find_detail_by_code(USER_ROLE_CODE)
+    assert role is not None
+    assert role["permissions"] == ["wallets:read"]

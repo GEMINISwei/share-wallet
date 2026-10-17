@@ -129,9 +129,8 @@ def _prompt_password() -> str:
 async def cmd_create_superuser():
     """建立一個擁有全部權限的超級管理者。
 
-    這是網頁 `/signup` 之外唯一的建立路徑, 用途有兩個: 唯一超管失聯時的救援, 以及
-    需要第二個超管的場景。它同時會補上 `super_admin_bootstrap` 旗標, 因此執行之後
-    `/signup` 一律關閉 (見 `modules.users.bootstrap.create_super_admin`)。
+    這是**唯一**的建立路徑 (網頁上沒有, 見 `modules.users.bootstrap.create_super_admin`):
+    部署完建立第一位、唯一超管失聯時的救援, 以及需要第二位超管, 都走這裡。
     """
     from pydantic import ValidationError
 
@@ -164,7 +163,6 @@ async def cmd_create_superuser():
         await engine.dispose()
 
     print(f"已建立超級管理者：{username}（id: {user.id}）")
-    print("提示：`/signup` 已關閉，.env 的 REGISTER_KEY 可以清空。")
 
 
 # ── 入口 ──────────────────────────────────────────────────────────────────────
