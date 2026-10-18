@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest"
 import {
-  adminsSummary, groupCategories, isLastAdmin, memberActions, walletSections,
+  adminsSummary, changedFields, entryActions, entryCategoryOptions, groupCategories, isLastAdmin,
+  memberActions, walletSections,
 } from "@/modules/wallets/capabilities"
-import type { CategoryInfo, MemberInfo, WalletInfo } from "@/modules/wallets/types"
+import type {
+  CategoryInfo, EntryInfo, EntryLogInfo, EntrySnapshot, MemberInfo, WalletInfo,
+} from "@/modules/wallets/types"
 
 function wallet(overrides: Partial<WalletInfo>): WalletInfo {
   return {
@@ -24,6 +27,11 @@ describe("walletSections", () => {
   it("管理者（含沒有加入的超級管理者）看得到設定", () => {
     expect(walletSections(wallet({ my_role: "admin", can_manage: true })).settings).toBe(true)
     expect(walletSections(wallet({ my_role: null, can_manage: true })).settings).toBe(true)
+  })
+
+  it("只有一般錢包有異動紀錄", () => {
+    expect(walletSections(wallet({ kind: "general" })).history).toBe(true)
+    expect(walletSections(wallet({ kind: "travel" })).history).toBe(false)
   })
 
   it("只有一般錢包有分類", () => {
@@ -97,5 +105,82 @@ describe("adminsSummary", () => {
     ]
     expect(adminsSummary(admins)).toEqual({ first: "Alice", count: 3, more: 2 })
     expect(adminsSummary(admins.slice(0, 1))).toEqual({ first: "Alice", count: 1, more: 0 })
+  })
+})
+
+function entry(overrides: Partial<EntryInfo>): EntryInfo {
+  return {
+    id: "e-1", kind: "expense", amount: 300, category: { id: "food", name: "餐飲" },
+    entry_date: "2026-10-18", note: "", created_by: { user_id: "bob", nickname: "Bob" },
+    created_at: "2026-10-18T00:00:00Z", ...overrides,
+  }
+}
+
+describe("entryActions", () => {
+  it("自己的帳可以修改刪除", () => {
+    expect(entryActions(entry({}), { userId: "bob", canManage: false })).toEqual({
+      edit: true, delete: true,
+    })
+  })
+
+  it("別人的帳只有管理者能改刪", () => {
+    expect(entryActions(entry({}), { userId: "carol", canManage: false })).toEqual({
+      edit: false, delete: false,
+    })
+    expect(entryActions(entry({}), { userId: "alice", canManage: true })).toEqual({
+      edit: true, delete: true,
+    })
+  })
+
+  it("調整只能刪不能改", () => {
+    const adjustment = entry({ kind: "adjustment", amount: -50, category: null })
+    expect(entryActions(adjustment, { userId: "bob", canManage: true })).toEqual({
+      edit: false, delete: true,
+    })
+  })
+})
+
+describe("entryCategoryOptions", () => {
+  const categories: CategoryInfo[] = [
+    { id: "food", type: "expense", name: "餐飲" },
+    { id: "salary", type: "income", name: "薪資" },
+  ]
+
+  it("只列這個類型的分類", () => {
+    expect(entryCategoryOptions(categories, "income", null)).toEqual([{ id: "salary", name: "薪資" }])
+  })
+
+  it("修改時保留這筆原本的封存分類", () => {
+    const archived = entry({ category: { id: "old", name: "舊分類" } })
+    expect(entryCategoryOptions(categories, "expense", archived)).toEqual([
+      { id: "food", name: "餐飲" }, { id: "old", name: "舊分類" },
+    ])
+  })
+
+  it("換了類型就不留原本的分類", () => {
+    const archived = entry({ category: { id: "old", name: "舊分類" } })
+    expect(entryCategoryOptions(categories, "income", archived)).toEqual([{ id: "salary", name: "薪資" }])
+  })
+})
+
+describe("changedFields", () => {
+  const before: EntrySnapshot = {
+    kind: "expense", amount: 300, category_name: "餐飲", entry_date: "2026-10-18", note: "",
+  }
+  function log(overrides: Partial<EntryLogInfo>): EntryLogInfo {
+    return {
+      id: "l-1", entry_id: "e-1", action: "update", actor: { user_id: "bob", nickname: "Bob" },
+      as_super_admin: false, before, after: before, created_at: "2026-10-18T00:00:00Z", ...overrides,
+    }
+  }
+
+  it("異動紀錄列出改了哪些欄位", () => {
+    const after = { ...before, amount: 400, note: "午餐" }
+    expect(changedFields(log({ after }))).toEqual(["amount", "note"])
+  })
+
+  it("新增與刪除沒有改前改後", () => {
+    expect(changedFields(log({ action: "create", before: null }))).toEqual([])
+    expect(changedFields(log({ action: "delete", after: null }))).toEqual([])
   })
 })

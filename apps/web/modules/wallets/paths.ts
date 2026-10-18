@@ -25,3 +25,7 @@ export function walletMembersPath(id: string, area: WalletArea = "user") {
 export function walletCategoriesPath(id: string, area: WalletArea = "user") {
   return `${walletPath(id, area)}/categories`
 }
+
+export function walletHistoryPath(id: string, area: WalletArea = "user") {
+  return `${walletPath(id, area)}/history`
+}

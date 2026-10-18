@@ -1,4 +1,7 @@
 import { HTML_LANG, type Locale } from "@/shared/i18n/locale"
+import { translate } from "@/shared/i18n/dictionary"
+import { walletsMessages } from "./i18n"
+import type { EntryKind, EntrySnapshot } from "./types"
 
 /** 整數金額加上千分位。不帶幣別: 系統不設幣別 (見 docs/features.md〈金額〉)。 */
 export function formatAmount(amount: number, locale: Locale) {
@@ -19,4 +22,37 @@ export function formatDateTime(iso: string, locale: Locale, timeZone?: string) {
   return new Intl.DateTimeFormat(HTML_LANG[locale], {
     dateStyle: "medium", timeStyle: "short", timeZone,
   }).format(new Date(iso))
+}
+
+/** 這筆帳讓餘額變多少: 支出是負的; 調整的金額本身就是帶正負號的差額。 */
+export function signedAmount(kind: EntryKind, amount: number) {
+  return kind === "expense" ? -amount : amount
+}
+
+/** 使用者所在時區的今天 (YYYY-MM-DD), 記帳日期的預設值。不用 `toISOString()`: 那是 UTC 的日期。 */
+export function localToday(now: Date = new Date()) {
+  const pad = (value: number) => String(value).padStart(2, "0")
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+}
+
+/** 日期 (YYYY-MM-DD, 不含時間) 照原樣的年月日顯示, 不經過時區換算。 */
+export function formatEntryDate(day: string, locale: Locale) {
+  return formatDate(`${day}T00:00:00Z`, locale, "UTC")
+}
+
+const FIELD_LABEL = {
+  kind: "entryKind", amount: "amount", category_name: "category", entry_date: "entryDate", note: "note",
+} as const satisfies Record<keyof EntrySnapshot, keyof (typeof walletsMessages)["zh"]>
+
+/** 異動紀錄裡一個欄位的名稱與值。空的分類 (調整) 與備註顯示「（無）」。 */
+export function snapshotField(field: keyof EntrySnapshot, snapshot: EntrySnapshot, locale: Locale) {
+  const t = translate(walletsMessages, locale)
+  const values: Record<keyof EntrySnapshot, string> = {
+    kind: t(snapshot.kind),
+    amount: formatAmount(snapshot.amount, locale),
+    category_name: snapshot.category_name || t("emptyValue"),
+    entry_date: formatEntryDate(snapshot.entry_date, locale),
+    note: snapshot.note || t("emptyValue"),
+  }
+  return { label: t(FIELD_LABEL[field]), value: values[field] }
 }

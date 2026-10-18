@@ -1,14 +1,18 @@
-import type { CategoryInfo, CategoryType, MemberInfo, WalletAdmin, WalletInfo } from "./types"
+import type {
+  CategoryInfo, CategoryType, EntryInfo, EntryLogInfo, EntrySnapshot, MemberInfo, WalletAdmin,
+  WalletInfo,
+} from "./types"
 
 // 畫面上的分支。真正的授權在後端 (`modules/wallets/access.py`), 這裡只決定顯示哪些操作,
 // 規則要與後端同一組: 管理者 (或超級管理者, 後端給的 `can_manage`) 才能管理,
 // 錢包至少要有一位管理者。
 
-/** 錢包頁上要列出哪些入口。分類只屬於一般錢包, 設定只給管理者。 */
+/** 錢包頁上要列出哪些入口。分類與異動紀錄只屬於一般錢包, 設定只給管理者。 */
 export function walletSections(wallet: WalletInfo) {
   return {
     members: true,
     categories: wallet.kind === "general",
+    history: wallet.kind === "general",
     settings: wallet.can_manage,
   }
 }
@@ -63,4 +67,38 @@ export function groupCategories(
  */
 export function adminsSummary(admins: readonly WalletAdmin[]) {
   return { first: admins[0]?.nickname ?? "", count: admins.length, more: admins.length - 1 }
+}
+
+/** 這筆帳可以做的事。自己記的帳, 或管理者 (含超級管理者) 改任何人的; 調整只能刪不能改。 */
+export function entryActions(entry: EntryInfo, viewer: Viewer) {
+  const allowed = entry.created_by.user_id === viewer.userId || viewer.canManage
+  return { edit: allowed && entry.kind !== "adjustment", delete: allowed }
+}
+
+type CategoryOption = { id: string; name: string }
+
+/**
+ * 記帳時能選的分類: 這個類型、還沒封存的。修改時再加上這筆帳原本的分類 —— 它可能已經封存,
+ * 而後端允許保留 (見 docs/features.md〈收入與支出〉); 換了類型就不留。
+ */
+export function entryCategoryOptions(
+  categories: readonly CategoryInfo[],
+  type: CategoryType,
+  entry: EntryInfo | null,
+): CategoryOption[] {
+  const options = categories
+    .filter((category) => category.type === type)
+    .map(({ id, name }) => ({ id, name }))
+  const current = entry?.kind === type ? entry.category : null
+  if (current && !options.some((option) => option.id === current.id)) options.push(current)
+  return options
+}
+
+const SNAPSHOT_FIELDS = ["kind", "amount", "category_name", "entry_date", "note"] as const
+
+/** 修改紀錄裡改了哪些欄位, 依畫面上的順序。新增與刪除沒有「改前改後」, 是空的。 */
+export function changedFields(log: EntryLogInfo): (keyof EntrySnapshot)[] {
+  const { before, after } = log
+  if (!before || !after) return []
+  return SNAPSHOT_FIELDS.filter((field) => before[field] !== after[field])
 }

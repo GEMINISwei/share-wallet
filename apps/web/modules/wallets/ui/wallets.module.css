@@ -222,3 +222,89 @@ a.row:hover {
 .tableLink:hover {
   text-decoration: underline;
 }
+
+/* 帳目列表的一列是按鈕 (打開詳情), 外觀與連結列相同。 */
+.rowButton {
+  width: 100%;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.rowButton:hover {
+  background: var(--color-surface-hover);
+}
+
+.loadMore {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.detailAmount {
+  font-size: var(--fs-h2);
+  line-height: var(--lh-tight);
+}
+
+.fieldList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.fieldRow {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-size: var(--fs-sm);
+}
+
+.fieldRow dt {
+  color: var(--color-text-muted);
+}
+
+.fieldRow dd {
+  margin: 0;
+  color: var(--color-text-body);
+  text-align: end;
+  overflow-wrap: anywhere;
+}
+
+.logList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.list.logList {
+  gap: 0;
+}
+
+.list .logItem {
+  padding: var(--space-3) var(--space-4);
+}
+
+.logItem {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.logHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.logBody {
+  font-size: var(--fs-sm);
+  color: var(--color-text-body);
+  overflow-wrap: anywhere;
+}

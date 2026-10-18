@@ -5,11 +5,19 @@ import type { ApiRequestBody } from "@/shared/api/contract"
 import { translate, type Translator } from "@/shared/i18n/dictionary"
 import type { Locale } from "@/shared/i18n/locale"
 import { walletsMessages } from "./i18n"
-import type { WalletFormErrors, WalletFormValues } from "./types"
+import type {
+  AdjustFormErrors, AdjustFormValues, EntryFormErrors, EntryFormValues, WalletFormErrors,
+  WalletFormValues,
+} from "./types"
 
 type WalletCreateRequest = ApiRequestBody<"/wallets/", "post">
 type WalletUpdateRequest = ApiRequestBody<"/wallets/{id}", "patch">
 type AdminWalletCreateRequest = ApiRequestBody<"/admin/wallets/", "post">
+type EntryRequest = ApiRequestBody<"/wallets/{id}/entries", "post">
+type AdjustRequest = ApiRequestBody<"/wallets/{id}/adjustments", "post">
+
+/** 與後端 `EntryNote` 的上限相同。 */
+const NOTE_MAX_LENGTH = 200
 
 const INTEGER = /^-?\d+$/
 
@@ -45,7 +53,63 @@ export function validateWalletForm(values: WalletFormValues, locale: Locale): Wa
   return errors
 }
 
-export function hasErrors(errors: WalletFormErrors) {
+/** 收支的金額一律大於 0 (見 docs/features.md〈金額〉), 空白不算 0。 */
+export function parsePositiveAmount(text: string): number | null {
+  if (!text.trim()) return null
+  const value = parseAmount(text)
+  return value !== null && value > 0 ? value : null
+}
+
+function noteError(note: string, t: WalletsT) {
+  // 以字元 (code point) 計, 與後端 pydantic 的 max_length 相同; `length` 會把 emoji 算成兩個。
+  return [...note.trim()].length > NOTE_MAX_LENGTH
+    ? t("noteTooLong", { max: String(NOTE_MAX_LENGTH) })
+    : undefined
+}
+
+export function validateEntryForm(values: EntryFormValues, locale: Locale): EntryFormErrors {
+  const t = translate(walletsMessages, locale)
+  return {
+    amount: parsePositiveAmount(values.amount) === null ? t("amountPositive") : undefined,
+    category_id: values.category_id ? undefined : t("categoryRequired"),
+    entry_date: values.entry_date ? undefined : t("dateRequired"),
+    note: noteError(values.note, t),
+  }
+}
+
+/** 已通過 `validateEntryForm` 的表單值 → 記一筆與修改的請求。 */
+export function toEntryRequest(values: EntryFormValues): EntryRequest {
+  return {
+    kind: values.kind,
+    amount: parsePositiveAmount(values.amount) ?? 0,
+    category_id: values.category_id,
+    entry_date: values.entry_date,
+    note: values.note.trim(),
+  }
+}
+
+/** 實際餘額可以是 0 或負的 (例如信用卡), 但要填。 */
+export function validateAdjustForm(values: AdjustFormValues, locale: Locale): AdjustFormErrors {
+  const t = translate(walletsMessages, locale)
+  const balanceError = !values.balance.trim()
+    ? t("balanceRequired")
+    : parseAmount(values.balance) === null ? t("amountInvalid") : undefined
+  return {
+    balance: balanceError,
+    entry_date: values.entry_date ? undefined : t("dateRequired"),
+    note: noteError(values.note, t),
+  }
+}
+
+export function toAdjustRequest(values: AdjustFormValues): AdjustRequest {
+  return {
+    balance: parseAmount(values.balance) ?? 0,
+    entry_date: values.entry_date,
+    note: values.note.trim(),
+  }
+}
+
+export function hasErrors(errors: Record<string, string | undefined>) {
   return Object.values(errors).some(Boolean)
 }
 

@@ -1,6 +1,6 @@
 "use server"
 
-import { apiDelete, apiPatch, apiPost } from "@/shared/api/request.server"
+import { apiDelete, apiGet, apiPatch, apiPost } from "@/shared/api/request.server"
 import type { ApiRequestBody } from "@/shared/api/contract"
 import { ADMIN_WALLETS_PATH, WALLETS_PATH } from "./manifest"
 import { walletPath } from "./paths"
@@ -83,4 +83,51 @@ export async function revokeInvite(id: string) {
 /** 加入之後錢包列表多了一個錢包。 */
 export async function acceptInvite(token: string) {
   return apiPost({ url: "/invites/{token}/accept", params: { token }, refresh: refreshWallets })
+}
+
+// 記帳會改到餘額, 也就改到錢包列表的總額, 所以重新整理列表。
+type EntryRequest = ApiRequestBody<"/wallets/{id}/entries", "post">
+
+export async function createEntry(id: string, data: EntryRequest) {
+  return apiPost({ url: "/wallets/{id}/entries", params: { id }, data, refresh: refreshWallets })
+}
+
+export async function updateEntry(id: string, entryId: string, data: EntryRequest) {
+  return apiPatch({
+    url: "/wallets/{id}/entries/{entry_id}",
+    params: { id, entry_id: entryId },
+    data,
+    refresh: refreshWallets,
+  })
+}
+
+export async function deleteEntry(id: string, entryId: string) {
+  return apiDelete({
+    url: "/wallets/{id}/entries/{entry_id}",
+    params: { id, entry_id: entryId },
+    refresh: refreshWallets,
+  })
+}
+
+export async function adjustBalance(
+  id: string,
+  data: ApiRequestBody<"/wallets/{id}/adjustments", "post">,
+) {
+  return apiPost({ url: "/wallets/{id}/adjustments", params: { id }, data, refresh: refreshWallets })
+}
+
+// 「載入更多」與帳目詳情的歷史是使用者點了才取, 不在頁面 render 時一起取: 每筆帳都先取歷史
+// 太浪費, 而下一頁要接在畫面上已經有的帳後面, 不是換掉整頁。
+export async function loadMoreEntries(id: string, cursor: string) {
+  return apiGet({ url: "/wallets/{id}/entries", params: { id }, query: { cursor } })
+}
+
+export async function loadEntryLogs(id: string, entryId: string) {
+  return apiGet({
+    url: "/wallets/{id}/entries/{entry_id}/logs", params: { id, entry_id: entryId },
+  })
+}
+
+export async function loadMoreWalletLogs(id: string, cursor: string) {
+  return apiGet({ url: "/wallets/{id}/entry-logs", params: { id }, query: { cursor } })
 }
