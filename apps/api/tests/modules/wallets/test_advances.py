@@ -388,16 +388,12 @@ async def test_update_repayment_up_to_outstanding_plus_original_succeeds(client,
 
 
 @pytest.mark.asyncio
-async def test_update_repayment_beyond_outstanding_plus_original_returns_400(
-    client, store, wallet
-):
+async def test_update_repayment_beyond_outstanding_plus_original_returns_400(client, store, wallet):
     advance = store.add_advance(wallet, BOB, "小明", 500, outstanding=300)
     repayment = store.add_repayment(wallet, BOB, advance, 200)
     authenticate(client, "bob")
 
-    response = await client.patch(
-        f"/api/wallets/{wallet}/repayments/{repayment}", json=_money(501)
-    )
+    response = await client.patch(f"/api/wallets/{wallet}/repayments/{repayment}", json=_money(501))
 
     assert response.status_code == 400
     assert response.json()["detail"] == "還款不可超過未還金額"
@@ -410,9 +406,7 @@ async def test_update_repayment_of_others_as_member_returns_403(client, store, w
     repayment = store.add_repayment(wallet, ALICE, advance, 200)
     authenticate(client, "bob")
 
-    response = await client.patch(
-        f"/api/wallets/{wallet}/repayments/{repayment}", json=_money(100)
-    )
+    response = await client.patch(f"/api/wallets/{wallet}/repayments/{repayment}", json=_money(100))
 
     assert response.status_code == 403
 

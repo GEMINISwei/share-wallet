@@ -44,9 +44,7 @@ def upgrade() -> None:
             ondelete="CASCADE",
         ),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_wallet_advance_targets")),
-        sa.UniqueConstraint(
-            "wallet_id", "name", name=op.f("uq_wallet_advance_targets_wallet_id")
-        ),
+        sa.UniqueConstraint("wallet_id", "name", name=op.f("uq_wallet_advance_targets_wallet_id")),
     )
     op.add_column("wallet_entries", sa.Column("advance_target_id", sa.UUID(), nullable=True))
     op.add_column("wallet_entries", sa.Column("advance_id", sa.UUID(), nullable=True))

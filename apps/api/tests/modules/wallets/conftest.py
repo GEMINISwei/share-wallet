@@ -18,9 +18,9 @@ from modules.wallets import invites as invite_service
 from modules.wallets import members as member_service
 from modules.wallets.model import (
     CategoryType,
-    WalletAdvanceTargetTable,
     EntryKind,
     MemberRole,
+    WalletAdvanceTargetTable,
     WalletCategoryTable,
     WalletEntryLogTable,
     WalletEntryTable,

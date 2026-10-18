@@ -274,6 +274,12 @@ a.row:hover {
   overflow-wrap: anywhere;
 }
 
+/* 錢包頁的代墊未還清單: 版面同 .fieldList, 但它是 ul。 */
+.owingList {
+  padding: 0;
+  list-style: none;
+}
+
 .logList {
   display: flex;
   flex-direction: column;

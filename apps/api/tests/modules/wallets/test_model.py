@@ -6,6 +6,7 @@
 import asyncio
 import uuid
 from datetime import date, timedelta
+from typing import Any
 
 import pytest
 from sqlalchemy.exc import IntegrityError
@@ -20,9 +21,9 @@ from modules.wallets.model import (
     EntryLogAction,
     EntryLogDetail,
     MemberRole,
+    WalletAdvanceTargetTable,
     WalletCategoryTable,
     WalletDetail,
-    WalletAdvanceTargetTable,
     WalletEntryLogTable,
     WalletEntryTable,
     WalletInviteTable,
@@ -567,7 +568,7 @@ async def test_entry_advance_checks_reject_inconsistent_rows(db):
         "entry_date": date(2026, 10, 18),
         "created_by": alice,
     }
-    invalid = [
+    invalid: list[dict[str, Any]] = [
         # 代墊一定有對象與未還金額。
         {"kind": EntryKind.ADVANCE, "outstanding": 100},
         {"kind": EntryKind.ADVANCE, "advance_target_id": target["id"]},

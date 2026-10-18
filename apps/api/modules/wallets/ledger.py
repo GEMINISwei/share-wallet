@@ -1,4 +1,6 @@
-"""收支 (`entries.py`)、轉帳 (`transfers.py`) 與代墊 (`advances.py`) 共用的記帳步驟: 鎖餘額、檢查範圍、留異動紀錄。
+"""收支、轉帳與代墊 (`entries.py`、`transfers.py`、`advances.py`) 共用的記帳步驟。
+
+鎖餘額、檢查範圍、留異動紀錄。
 
 餘額是存起來的值 (見 docs/features.md〈餘額〉): 每個寫入都先 `WalletTable.lock_balance` 鎖住
 錢包, 再在同一個請求的交易裡改帳目、改餘額、留異動紀錄 —— 任何一步丟出例外時 middleware
@@ -23,7 +25,6 @@ from .model import (
     WalletTable,
 )
 from .schema import MAX_SAFE_AMOUNT, EntrySnapshot
-
 
 #: 讓餘額變少的種類。代墊是錢包替別人付出去的錢。
 _OUTFLOW = frozenset({EntryKind.EXPENSE, EntryKind.TRANSFER_OUT, EntryKind.ADVANCE})

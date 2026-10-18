@@ -22,9 +22,11 @@ export async function generateMetadata({ params }: WalletPageProps) {
 async function loadLedger(wallet: WalletInfo): Promise<WalletLedger | null> {
   if (wallet.kind !== "general") return null
   const params = { id: wallet.id }
-  const [entriesRes, categoriesRes, walletsRes, currentUser, t] = await Promise.all([
+  const [entriesRes, categoriesRes, targetsRes, walletsRes, currentUser, t] = await Promise.all([
     apiGet({ url: "/wallets/{id}/entries", params }),
     apiGet({ url: "/wallets/{id}/categories", params }),
+    // 代墊未還清單與對象的輸入提示; 取不到時只是不顯示, 不擋整頁。
+    apiGet({ url: "/wallets/{id}/advance-targets", params }),
     // 轉帳的對方錢包選單; 取不到時只是不能轉帳, 不擋整頁。
     apiGet({ url: "/wallets/" }),
     getCurrentUser(),
@@ -34,6 +36,7 @@ async function loadLedger(wallet: WalletInfo): Promise<WalletLedger | null> {
   return {
     entries: entriesRes.status === "success" ? entriesRes.data : { list_data: [], next_cursor: null },
     categories: getApiListData(categoriesRes),
+    advanceTargets: getApiListData(targetsRes),
     transferTargets: transferTargets(getApiListData(walletsRes), wallet.id),
     currentUserId: currentUser.data?.id ?? "",
     errorMessage: failed ? t("entriesFailed") : "",

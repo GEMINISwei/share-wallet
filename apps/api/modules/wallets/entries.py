@@ -38,9 +38,9 @@ from .schema import (
     EntryOperate,
     EntryPage,
     EntryUpdate,
-    RepaymentList,
     EntryUser,
     EntryWallet,
+    RepaymentList,
 )
 from .transfers import delete_transfer
 
@@ -241,7 +241,8 @@ async def list_entries(
 ) -> EntryPage:
     await open_general_wallet(wallet_id, current_user)
     page = await WalletEntryTable.find_page(wallet_id, limit=limit, cursor=cursor)
-    return EntryPage(list_data=await _entry_infos(page["list_data"]), next_cursor=page["next_cursor"])
+    items = await _entry_infos(page["list_data"])
+    return EntryPage(list_data=items, next_cursor=page["next_cursor"])
 
 
 async def list_repayments(
