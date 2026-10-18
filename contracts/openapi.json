@@ -239,6 +239,34 @@
         "title": "AppVersion",
         "type": "object"
       },
+      "BalanceAdjust": {
+        "description": "調整餘額: 輸入實際餘額, 記下一筆與目前餘額的差額。",
+        "properties": {
+          "balance": {
+            "maximum": 9007199254740991.0,
+            "minimum": -9007199254740991.0,
+            "title": "Balance",
+            "type": "integer"
+          },
+          "entry_date": {
+            "format": "date",
+            "title": "Entry Date",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "maxLength": 200,
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "balance",
+          "entry_date"
+        ],
+        "title": "BalanceAdjust",
+        "type": "object"
+      },
       "CategoryCreate": {
         "properties": {
           "name": {
@@ -339,6 +367,395 @@
         ],
         "title": "CategoryType",
         "type": "string"
+      },
+      "EntryCategory": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "EntryCategory",
+        "type": "object"
+      },
+      "EntryCreate": {
+        "description": "記一筆收入或支出。分類的類型要與 `kind` 相同。",
+        "properties": {
+          "amount": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 9007199254740991.0,
+            "title": "Amount",
+            "type": "integer"
+          },
+          "category_id": {
+            "title": "Category Id",
+            "type": "string"
+          },
+          "entry_date": {
+            "format": "date",
+            "title": "Entry Date",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "income",
+              "expense"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "maxLength": 200,
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "amount",
+          "category_id",
+          "entry_date"
+        ],
+        "title": "EntryCreate",
+        "type": "object"
+      },
+      "EntryInfo": {
+        "description": "一筆帳。收入與支出的 `amount` 是正數; 調整的 `amount` 是差額, 可以是負的。",
+        "properties": {
+          "amount": {
+            "title": "Amount",
+            "type": "integer"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EntryCategory"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by": {
+            "$ref": "#/components/schemas/EntryUser"
+          },
+          "entry_date": {
+            "format": "date",
+            "title": "Entry Date",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/EntryKind"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "amount",
+          "category",
+          "entry_date",
+          "note",
+          "created_by",
+          "created_at"
+        ],
+        "title": "EntryInfo",
+        "type": "object"
+      },
+      "EntryKind": {
+        "description": "一般錢包的帳目種類。",
+        "enum": [
+          "income",
+          "expense",
+          "adjustment"
+        ],
+        "title": "EntryKind",
+        "type": "string"
+      },
+      "EntryLogAction": {
+        "description": "異動紀錄的動作。",
+        "enum": [
+          "create",
+          "update",
+          "delete"
+        ],
+        "title": "EntryLogAction",
+        "type": "string"
+      },
+      "EntryLogInfo": {
+        "description": "一筆異動紀錄。新增沒有 `before`, 刪除沒有 `after`。",
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/EntryLogAction"
+          },
+          "actor": {
+            "$ref": "#/components/schemas/EntryUser"
+          },
+          "after": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EntrySnapshot"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "as_super_admin": {
+            "title": "As Super Admin",
+            "type": "boolean"
+          },
+          "before": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EntrySnapshot"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "entry_id": {
+            "title": "Entry Id",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "entry_id",
+          "action",
+          "actor",
+          "as_super_admin",
+          "before",
+          "after",
+          "created_at"
+        ],
+        "title": "EntryLogInfo",
+        "type": "object"
+      },
+      "EntryLogList": {
+        "description": "一筆帳的異動紀錄, 新到舊。",
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "list_data": {
+            "items": {
+              "$ref": "#/components/schemas/EntryLogInfo"
+            },
+            "title": "List Data",
+            "type": "array"
+          }
+        },
+        "required": [
+          "list_data",
+          "count"
+        ],
+        "title": "EntryLogList",
+        "type": "object"
+      },
+      "EntryLogPage": {
+        "description": "整個錢包的異動紀錄的一頁, 新到舊, 包含已刪除的帳。",
+        "properties": {
+          "list_data": {
+            "items": {
+              "$ref": "#/components/schemas/EntryLogInfo"
+            },
+            "title": "List Data",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "list_data",
+          "next_cursor"
+        ],
+        "title": "EntryLogPage",
+        "type": "object"
+      },
+      "EntryOperate": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "EntryOperate",
+        "type": "object"
+      },
+      "EntryPage": {
+        "description": "帳目的一頁, 日期新到舊。`next_cursor` 是 null 表示沒有更多了。",
+        "properties": {
+          "list_data": {
+            "items": {
+              "$ref": "#/components/schemas/EntryInfo"
+            },
+            "title": "List Data",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "list_data",
+          "next_cursor"
+        ],
+        "title": "EntryPage",
+        "type": "object"
+      },
+      "EntrySnapshot": {
+        "description": "異動當時的帳目內容。`category_name` 是當時的分類名稱。",
+        "properties": {
+          "amount": {
+            "title": "Amount",
+            "type": "integer"
+          },
+          "category_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Name"
+          },
+          "entry_date": {
+            "format": "date",
+            "title": "Entry Date",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/EntryKind"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "amount",
+          "category_name",
+          "entry_date",
+          "note"
+        ],
+        "title": "EntrySnapshot",
+        "type": "object"
+      },
+      "EntryUpdate": {
+        "description": "修改收入或支出, 可以在兩者之間切換。分類被封存後仍可保留原本的分類。調整不能修改。",
+        "properties": {
+          "amount": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 9007199254740991.0,
+            "title": "Amount",
+            "type": "integer"
+          },
+          "category_id": {
+            "title": "Category Id",
+            "type": "string"
+          },
+          "entry_date": {
+            "format": "date",
+            "title": "Entry Date",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "income",
+              "expense"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "maxLength": 200,
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "amount",
+          "category_id",
+          "entry_date"
+        ],
+        "title": "EntryUpdate",
+        "type": "object"
+      },
+      "EntryUser": {
+        "properties": {
+          "nickname": {
+            "title": "Nickname",
+            "type": "string"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "nickname"
+        ],
+        "title": "EntryUser",
+        "type": "object"
       },
       "GeneralWalletCreate": {
         "properties": {
@@ -2973,6 +3390,59 @@
         ]
       }
     },
+    "/api/wallets/{id}/adjustments": {
+      "post": {
+        "description": "把餘額調整成實際餘額, 記成一筆差額。餘額沒有變化時回 400。",
+        "operationId": "adjust_balance_route_api_wallets__id__adjustments_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "title": "Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BalanceAdjust"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntryOperate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Adjust Balance Route",
+        "tags": [
+          "wallets"
+        ]
+      }
+    },
     "/api/wallets/{id}/categories": {
       "get": {
         "operationId": "get_category_list_route_api_wallets__id__categories_get",
@@ -3171,6 +3641,365 @@
           }
         },
         "summary": "Rename Category Route",
+        "tags": [
+          "wallets"
+        ]
+      }
+    },
+    "/api/wallets/{id}/entries": {
+      "get": {
+        "description": "一般錢包的帳目, 日期新到舊、同一天依記帳時間新到舊。下一頁帶上一頁的 `next_cursor`。",
+        "operationId": "get_entry_list_route_api_wallets__id__entries_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "title": "Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 500,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntryPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Entry List Route",
+        "tags": [
+          "wallets"
+        ]
+      },
+      "post": {
+        "description": "記一筆收入或支出, 餘額隨即更新。",
+        "operationId": "create_entry_route_api_wallets__id__entries_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "title": "Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EntryCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntryOperate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Entry Route",
+        "tags": [
+          "wallets"
+        ]
+      }
+    },
+    "/api/wallets/{id}/entries/{entry_id}": {
+      "delete": {
+        "description": "刪除自己記的帳; 錢包管理者可以刪除任何人的。餘額反向套用。",
+        "operationId": "delete_entry_route_api_wallets__id__entries__entry_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "title": "Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "title": "Entry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntryOperate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Entry Route",
+        "tags": [
+          "wallets"
+        ]
+      },
+      "patch": {
+        "description": "修改自己記的收入或支出; 錢包管理者可以修改任何人的。調整不能修改。",
+        "operationId": "update_entry_route_api_wallets__id__entries__entry_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "title": "Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "title": "Entry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EntryUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntryOperate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Entry Route",
+        "tags": [
+          "wallets"
+        ]
+      }
+    },
+    "/api/wallets/{id}/entries/{entry_id}/logs": {
+      "get": {
+        "description": "一筆帳的異動紀錄, 新到舊。已刪除的帳也查得到。",
+        "operationId": "get_entry_log_list_route_api_wallets__id__entries__entry_id__logs_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "title": "Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "title": "Entry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntryLogList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Entry Log List Route",
+        "tags": [
+          "wallets"
+        ]
+      }
+    },
+    "/api/wallets/{id}/entry-logs": {
+      "get": {
+        "description": "整個錢包的帳目異動紀錄, 新到舊, 包含已刪除的帳。",
+        "operationId": "get_wallet_entry_log_list_route_api_wallets__id__entry_logs_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "title": "Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 500,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntryLogPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Wallet Entry Log List Route",
         "tags": [
           "wallets"
         ]

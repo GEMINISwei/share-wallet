@@ -14,18 +14,18 @@ from shared.http.errors import BaseError, LangText, resolve_text
 from shared.http.schema import PaginatedResponse, SimpleListResponse, UtcDateTime
 from shared.http.schema import UuidText as UuidText
 
-from .model import CategoryType, MemberRole, WalletKind
+from .model import CategoryType, EntryKind, EntryLogAction, MemberRole, WalletKind
 
 # JavaScript 數字能精確表示的整數上限。資料庫是 BIGINT, 但超過這個值送到瀏覽器就會失真,
 # 而且不會有任何錯誤。
 MAX_SAFE_AMOUNT = 2**53 - 1
 
 Amount = Annotated[int, Field(ge=-MAX_SAFE_AMOUNT, le=MAX_SAFE_AMOUNT)]
+PositiveAmount = Annotated[int, Field(gt=0, le=MAX_SAFE_AMOUNT)]
+EntryNote = Annotated[str, StringConstraints(strip_whitespace=True, max_length=200)]
 WalletName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=50)]
 Destination = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=50)]
-CategoryName = Annotated[
-    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=20)
-]
+CategoryName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=20)]
 
 
 class WalletSchemaError(BaseError):
@@ -211,3 +211,96 @@ class InvitePreview(BaseModel):
     member_count: int
     #: 自己是不是已經是這個錢包的成員。
     is_member: bool
+
+
+class EntryCreate(BaseModel):
+    """記一筆收入或支出。分類的類型要與 `kind` 相同。"""
+
+    kind: Literal[EntryKind.INCOME, EntryKind.EXPENSE]
+    amount: PositiveAmount
+    category_id: UuidText
+    entry_date: date
+    note: EntryNote = ""
+
+
+class EntryUpdate(EntryCreate):
+    """修改收入或支出, 可以在兩者之間切換。分類被封存後仍可保留原本的分類。調整不能修改。"""
+
+
+class BalanceAdjust(BaseModel):
+    """調整餘額: 輸入實際餘額, 記下一筆與目前餘額的差額。"""
+
+    balance: Amount
+    entry_date: date
+    note: EntryNote = ""
+
+
+class EntryOperate(BaseModel):
+    id: str
+
+
+class EntryUser(BaseModel):
+    user_id: str
+    nickname: str
+
+
+class EntryCategory(BaseModel):
+    id: str
+    #: 分類目前的名稱, 含已封存的分類。
+    name: str
+
+
+class EntryInfo(BaseModel):
+    """一筆帳。收入與支出的 `amount` 是正數; 調整的 `amount` 是差額, 可以是負的。"""
+
+    id: str
+    kind: EntryKind
+    amount: int
+    #: 調整沒有分類。
+    category: EntryCategory | None
+    entry_date: date
+    note: str
+    created_by: EntryUser
+    created_at: UtcDateTime
+
+
+class EntryPage(BaseModel):
+    """帳目的一頁, 日期新到舊。`next_cursor` 是 null 表示沒有更多了。"""
+
+    list_data: list[EntryInfo]
+    next_cursor: str | None
+
+
+class EntrySnapshot(BaseModel):
+    """異動當時的帳目內容。`category_name` 是當時的分類名稱。"""
+
+    kind: EntryKind
+    amount: int
+    category_name: str | None
+    entry_date: date
+    note: str
+
+
+class EntryLogInfo(BaseModel):
+    """一筆異動紀錄。新增沒有 `before`, 刪除沒有 `after`。"""
+
+    id: str
+    entry_id: str
+    action: EntryLogAction
+    actor: EntryUser
+    #: 這次操作是靠超級管理者的身分才做得到的 (不是成員, 或改刪別人的帳而不是錢包管理者)。
+    as_super_admin: bool
+    before: EntrySnapshot | None
+    after: EntrySnapshot | None
+    created_at: UtcDateTime
+
+
+class EntryLogList(SimpleListResponse["EntryLogInfo"]):
+    """一筆帳的異動紀錄, 新到舊。"""
+
+
+class EntryLogPage(BaseModel):
+    """整個錢包的異動紀錄的一頁, 新到舊, 包含已刪除的帳。"""
+
+    list_data: list[EntryLogInfo]
+    next_cursor: str | None

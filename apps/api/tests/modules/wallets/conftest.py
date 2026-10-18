@@ -6,23 +6,29 @@
 
 import uuid
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Any
 
 import pytest
 
 from modules.wallets import admin as admin_service
+from modules.wallets import entries as entry_service
+from modules.wallets import entry_logs as entry_log_service
 from modules.wallets import invites as invite_service
 from modules.wallets import members as member_service
 from modules.wallets.model import (
     CategoryType,
+    EntryKind,
     MemberRole,
     WalletCategoryTable,
+    WalletEntryLogTable,
+    WalletEntryTable,
     WalletInviteTable,
     WalletKind,
     WalletMemberTable,
     WalletTable,
 )
+from shared.http.errors import NoChangeError
 
 ALICE = str(uuid.uuid4())
 BOB = str(uuid.uuid4())
@@ -53,6 +59,9 @@ class FakeStore:
     # wallet_id → 邀請 (每個錢包最多一條)。
     invites: dict[str, dict] = field(default_factory=dict)
     locked: list[str] = field(default_factory=list)
+    entries: dict[str, dict] = field(default_factory=dict)
+    #: 寫入的順序。
+    logs: list[dict] = field(default_factory=list)
     #: invites.py 看到的「現在」, 測試改它來模擬過期。
     now: datetime = datetime(2026, 10, 18, 12, 0)
 
@@ -95,6 +104,39 @@ class FakeStore:
             "archived_at": datetime(2026, 10, 17) if archived else None,
         }
         return id
+
+    def add_entry(
+        self,
+        wallet_id: str,
+        created_by: str,
+        kind: EntryKind = EntryKind.EXPENSE,
+        amount: int = 100,
+        category_id: str | None = None,
+        entry_date: date = date(2026, 10, 18),
+        note: str = "",
+    ) -> str:
+        """直接放一筆帳 (不經過 service, 所以不動餘額、不留紀錄)。"""
+        id = str(uuid.uuid4())
+        self.entries[id] = {
+            "id": id,
+            "wallet_id": wallet_id,
+            "kind": kind,
+            "amount": amount,
+            "category_id": category_id,
+            "entry_date": entry_date,
+            "note": note,
+            "created_by": created_by,
+            "created_at": datetime(2026, 10, 18) + timedelta(seconds=len(self.entries)),
+        }
+        return id
+
+    def entry_detail(self, id: str) -> dict:
+        entry = self.entries[id]
+        category = self.categories.get(entry["category_id"] or "")
+        return {**entry, "category_name": None if category is None else category["name"]}
+
+    def balance(self, wallet_id: str) -> int:
+        return self.wallets[wallet_id]["balance"]
 
     def active_categories(self, wallet_id: str) -> list[dict]:
         return [
@@ -158,6 +200,11 @@ def _install_wallets(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -> None:
         monkeypatch.setattr(WalletTable, name, fake)
 
 
+async def _find_nicknames(user_ids):
+    by_id = {info["id"]: info["nickname"] for info in USERS.values()}
+    return {uid: by_id[uid] for uid in user_ids if uid in by_id}
+
+
 def _install_members(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -> None:
     async def create(data, session=None):
         store.members[(data["wallet_id"], data["user_id"])] = MemberRole(data["role"])
@@ -181,10 +228,6 @@ def _install_members(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -> None:
     async def add_if_absent(wallet_id, user_id, role):
         store.members.setdefault((wallet_id, user_id), role)
 
-    async def find_nicknames(user_ids):
-        by_id = {info["id"]: info["nickname"] for info in USERS.values()}
-        return {uid: by_id[uid] for uid in user_ids if uid in by_id}
-
     for name, fake in {
         "create": create,
         "find_role": find_role,
@@ -195,8 +238,9 @@ def _install_members(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -> None:
         "add_if_absent": add_if_absent,
     }.items():
         monkeypatch.setattr(WalletMemberTable, name, fake)
-    monkeypatch.setattr(member_service, "find_nicknames", find_nicknames)
-    monkeypatch.setattr(admin_service, "find_nicknames", find_nicknames)
+    for service in (member_service, entry_service, entry_log_service):
+        monkeypatch.setattr(service, "find_nicknames", _find_nicknames)
+    monkeypatch.setattr(admin_service, "find_nicknames", _find_nicknames)
 
 
 def _install_admin(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -> None:
@@ -275,7 +319,9 @@ def _install_invites(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -> None:
 
     async def replace(wallet_id, token, expires_at):
         store.invites[wallet_id] = {
-            "wallet_id": wallet_id, "token": token, "expires_at": expires_at
+            "wallet_id": wallet_id,
+            "token": token,
+            "expires_at": expires_at,
         }
 
     async def remove(wallet_id):
@@ -291,6 +337,89 @@ def _install_invites(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -> None:
     monkeypatch.setattr(invite_service, "utc_now", lambda: store.now)
 
 
+def _install_ledger_lookups(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -> None:
+    """記帳時才用到的錢包與分類查詢: 鎖住並讀餘額、寫回餘額、含封存的分類。"""
+
+    async def lock_balance(id):
+        store.locked.append(id)
+        wallet = store.wallets.get(id)
+        return None if wallet is None else wallet["balance"]
+
+    async def set_balance(id, balance):
+        store.wallets[id]["balance"] = balance
+
+    async def find_category(wallet_id, id):
+        found = store.categories.get(id)
+        return found if found is not None and found["wallet_id"] == wallet_id else None
+
+    monkeypatch.setattr(WalletTable, "lock_balance", lock_balance)
+    monkeypatch.setattr(WalletTable, "set_balance", set_balance)
+    monkeypatch.setattr(WalletCategoryTable, "find_detail_in_wallet", find_category)
+
+
+def _install_entries(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -> None:
+    async def create(data, session=None):
+        id = store.add_entry(**data)
+        return {"id": id, "created_at": store.entries[id]["created_at"]}
+
+    async def find_detail_in_wallet(wallet_id, id):
+        found = store.entries.get(id)
+        if found is None or found["wallet_id"] != wallet_id:
+            return None
+        return store.entry_detail(id)
+
+    async def update_by_id(id, data=None, session=None, *, also_changed=False):
+        entry = store.entries[id]
+        if all(entry[key] == value for key, value in (data or {}).items()):
+            raise NoChangeError()
+        entry.update(data or {})
+        return {"id": id}
+
+    async def delete_in_wallet(wallet_id, id):
+        if store.entries.get(id, {}).get("wallet_id") == wallet_id:
+            del store.entries[id]
+
+    async def find_page(wallet_id, limit, cursor=None):
+        # 排序與游標的 SQL 在 test_model.py 驗, 這裡只照日期新到舊回傳全部。
+        rows = [
+            store.entry_detail(id) for id, e in store.entries.items() if e["wallet_id"] == wallet_id
+        ]
+        rows.sort(key=lambda e: (e["entry_date"], e["created_at"]), reverse=True)
+        return {"list_data": rows, "next_cursor": None}
+
+    for name, fake in {
+        "create": create,
+        "find_detail_in_wallet": find_detail_in_wallet,
+        "update_by_id": update_by_id,
+        "delete_in_wallet": delete_in_wallet,
+        "find_page": find_page,
+    }.items():
+        monkeypatch.setattr(WalletEntryTable, name, fake)
+
+
+def _install_entry_logs(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -> None:
+    async def create_log(data, session=None):
+        log = {"id": str(uuid.uuid4()), "created_at": store.now, **data}
+        store.logs.append(log)
+        return log
+
+    def _log_details(wallet_id):
+        return [log for log in reversed(store.logs) if log["wallet_id"] == wallet_id]
+
+    async def list_for_entry(wallet_id, entry_id):
+        return [log for log in _log_details(wallet_id) if log["entry_id"] == entry_id]
+
+    async def find_log_page(wallet_id, limit, cursor=None):
+        return {"list_data": _log_details(wallet_id), "next_cursor": None}
+
+    for name, fake in {
+        "create": create_log,
+        "list_for_entry": list_for_entry,
+        "find_page": find_log_page,
+    }.items():
+        monkeypatch.setattr(WalletEntryLogTable, name, fake)
+
+
 @pytest.fixture
 def store(monkeypatch: pytest.MonkeyPatch) -> FakeStore:
     fake = FakeStore()
@@ -299,6 +428,9 @@ def store(monkeypatch: pytest.MonkeyPatch) -> FakeStore:
     _install_admin(monkeypatch, fake)
     _install_categories(monkeypatch, fake)
     _install_invites(monkeypatch, fake)
+    _install_ledger_lookups(monkeypatch, fake)
+    _install_entries(monkeypatch, fake)
+    _install_entry_logs(monkeypatch, fake)
     return fake
 
 

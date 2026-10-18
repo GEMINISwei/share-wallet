@@ -412,6 +412,26 @@ export interface paths {
         patch: operations["update_wallet_route_api_wallets__id__patch"];
         trace?: never;
     };
+    "/api/wallets/{id}/adjustments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Adjust Balance Route
+         * @description 把餘額調整成實際餘額, 記成一筆差額。餘額沒有變化時回 400。
+         */
+        post: operations["adjust_balance_route_api_wallets__id__adjustments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/wallets/{id}/categories": {
         parameters: {
             query?: never;
@@ -449,6 +469,94 @@ export interface paths {
         head?: never;
         /** Rename Category Route */
         patch: operations["rename_category_route_api_wallets__id__categories__category_id__patch"];
+        trace?: never;
+    };
+    "/api/wallets/{id}/entries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Entry List Route
+         * @description 一般錢包的帳目, 日期新到舊、同一天依記帳時間新到舊。下一頁帶上一頁的 `next_cursor`。
+         */
+        get: operations["get_entry_list_route_api_wallets__id__entries_get"];
+        put?: never;
+        /**
+         * Create Entry Route
+         * @description 記一筆收入或支出, 餘額隨即更新。
+         */
+        post: operations["create_entry_route_api_wallets__id__entries_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/wallets/{id}/entries/{entry_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Entry Route
+         * @description 刪除自己記的帳; 錢包管理者可以刪除任何人的。餘額反向套用。
+         */
+        delete: operations["delete_entry_route_api_wallets__id__entries__entry_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Entry Route
+         * @description 修改自己記的收入或支出; 錢包管理者可以修改任何人的。調整不能修改。
+         */
+        patch: operations["update_entry_route_api_wallets__id__entries__entry_id__patch"];
+        trace?: never;
+    };
+    "/api/wallets/{id}/entries/{entry_id}/logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Entry Log List Route
+         * @description 一筆帳的異動紀錄, 新到舊。已刪除的帳也查得到。
+         */
+        get: operations["get_entry_log_list_route_api_wallets__id__entries__entry_id__logs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/wallets/{id}/entry-logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Wallet Entry Log List Route
+         * @description 整個錢包的帳目異動紀錄, 新到舊, 包含已刪除的帳。
+         */
+        get: operations["get_wallet_entry_log_list_route_api_wallets__id__entry_logs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/wallets/{id}/invite": {
@@ -619,6 +727,24 @@ export interface components {
             /** Version */
             version: string;
         };
+        /**
+         * BalanceAdjust
+         * @description 調整餘額: 輸入實際餘額, 記下一筆與目前餘額的差額。
+         */
+        BalanceAdjust: {
+            /** Balance */
+            balance: number;
+            /**
+             * Entry Date
+             * Format: date
+             */
+            entry_date: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+        };
         /** CategoryCreate */
         CategoryCreate: {
             /** Name */
@@ -662,6 +788,181 @@ export interface components {
          * @enum {string}
          */
         CategoryType: "income" | "expense";
+        /** EntryCategory */
+        EntryCategory: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+        };
+        /**
+         * EntryCreate
+         * @description 記一筆收入或支出。分類的類型要與 `kind` 相同。
+         */
+        EntryCreate: {
+            /** Amount */
+            amount: number;
+            /** Category Id */
+            category_id: string;
+            /**
+             * Entry Date
+             * Format: date
+             */
+            entry_date: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "income" | "expense";
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+        };
+        /**
+         * EntryInfo
+         * @description 一筆帳。收入與支出的 `amount` 是正數; 調整的 `amount` 是差額, 可以是負的。
+         */
+        EntryInfo: {
+            /** Amount */
+            amount: number;
+            category: components["schemas"]["EntryCategory"] | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            created_by: components["schemas"]["EntryUser"];
+            /**
+             * Entry Date
+             * Format: date
+             */
+            entry_date: string;
+            /** Id */
+            id: string;
+            kind: components["schemas"]["EntryKind"];
+            /** Note */
+            note: string;
+        };
+        /**
+         * EntryKind
+         * @description 一般錢包的帳目種類。
+         * @enum {string}
+         */
+        EntryKind: "income" | "expense" | "adjustment";
+        /**
+         * EntryLogAction
+         * @description 異動紀錄的動作。
+         * @enum {string}
+         */
+        EntryLogAction: "create" | "update" | "delete";
+        /**
+         * EntryLogInfo
+         * @description 一筆異動紀錄。新增沒有 `before`, 刪除沒有 `after`。
+         */
+        EntryLogInfo: {
+            action: components["schemas"]["EntryLogAction"];
+            actor: components["schemas"]["EntryUser"];
+            after: components["schemas"]["EntrySnapshot"] | null;
+            /** As Super Admin */
+            as_super_admin: boolean;
+            before: components["schemas"]["EntrySnapshot"] | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Entry Id */
+            entry_id: string;
+            /** Id */
+            id: string;
+        };
+        /**
+         * EntryLogList
+         * @description 一筆帳的異動紀錄, 新到舊。
+         */
+        EntryLogList: {
+            /** Count */
+            count: number;
+            /** List Data */
+            list_data: components["schemas"]["EntryLogInfo"][];
+        };
+        /**
+         * EntryLogPage
+         * @description 整個錢包的異動紀錄的一頁, 新到舊, 包含已刪除的帳。
+         */
+        EntryLogPage: {
+            /** List Data */
+            list_data: components["schemas"]["EntryLogInfo"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /** EntryOperate */
+        EntryOperate: {
+            /** Id */
+            id: string;
+        };
+        /**
+         * EntryPage
+         * @description 帳目的一頁, 日期新到舊。`next_cursor` 是 null 表示沒有更多了。
+         */
+        EntryPage: {
+            /** List Data */
+            list_data: components["schemas"]["EntryInfo"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /**
+         * EntrySnapshot
+         * @description 異動當時的帳目內容。`category_name` 是當時的分類名稱。
+         */
+        EntrySnapshot: {
+            /** Amount */
+            amount: number;
+            /** Category Name */
+            category_name: string | null;
+            /**
+             * Entry Date
+             * Format: date
+             */
+            entry_date: string;
+            kind: components["schemas"]["EntryKind"];
+            /** Note */
+            note: string;
+        };
+        /**
+         * EntryUpdate
+         * @description 修改收入或支出, 可以在兩者之間切換。分類被封存後仍可保留原本的分類。調整不能修改。
+         */
+        EntryUpdate: {
+            /** Amount */
+            amount: number;
+            /** Category Id */
+            category_id: string;
+            /**
+             * Entry Date
+             * Format: date
+             */
+            entry_date: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "income" | "expense";
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+        };
+        /** EntryUser */
+        EntryUser: {
+            /** Nickname */
+            nickname: string;
+            /** User Id */
+            user_id: string;
+        };
         /** GeneralWalletCreate */
         GeneralWalletCreate: {
             /**
@@ -2052,6 +2353,41 @@ export interface operations {
             };
         };
     };
+    adjust_balance_route_api_wallets__id__adjustments_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BalanceAdjust"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntryOperate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_category_list_route_api_wallets__id__categories_get: {
         parameters: {
             query?: never;
@@ -2173,6 +2509,209 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CategoryOperate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_entry_list_route_api_wallets__id__entries_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string | null;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntryPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_entry_route_api_wallets__id__entries_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EntryCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntryOperate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_entry_route_api_wallets__id__entries__entry_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntryOperate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_entry_route_api_wallets__id__entries__entry_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EntryUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntryOperate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_entry_log_list_route_api_wallets__id__entries__entry_id__logs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntryLogList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_wallet_entry_log_list_route_api_wallets__id__entry_logs_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string | null;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntryLogPage"];
                 };
             };
             /** @description Validation Error */

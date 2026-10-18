@@ -1,3 +1,5 @@
+import base64
+import json
 import uuid
 from datetime import date, datetime, timedelta
 from enum import StrEnum
@@ -5,26 +7,31 @@ from typing import Literal, TypedDict, cast
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     CheckConstraint,
     Date,
     DateTime,
     ForeignKey,
     Index,
+    Select,
     String,
     UniqueConstraint,
     delete,
     desc,
     func,
     select,
+    tuple_,
+    update,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
 
 from shared.db.query import ilike_contains
 from shared.db.session import resolve_session
-from shared.db.table import BaseTable, Condition, PagedResult, parse_uuid
+from shared.db.table import BaseTable, Condition, PagedResult, PaginationError, parse_uuid
+from shared.http.errors import LangException
 from shared.time import utc_now
 
 
@@ -47,6 +54,22 @@ class CategoryType(StrEnum):
 
     INCOME = "income"
     EXPENSE = "expense"
+
+
+class EntryKind(StrEnum):
+    """一般錢包的帳目種類。"""
+
+    INCOME = "income"
+    EXPENSE = "expense"
+    ADJUSTMENT = "adjustment"
+
+
+class EntryLogAction(StrEnum):
+    """異動紀錄的動作。"""
+
+    CREATE = "create"
+    UPDATE = "update"
+    DELETE = "delete"
 
 
 class WalletDetail(TypedDict):
@@ -126,6 +149,31 @@ class WalletTable(BaseTable):
             return
         db = resolve_session(session)
         await db.execute(select(cls.id).where(cls.id == row_id).with_for_update())
+
+    @classmethod
+    async def lock_balance(cls, id: str) -> int | None:
+        """鎖住錢包這一列並讀出目前的餘額; 錢包不存在時是 None。
+
+        記帳、修改、刪除都先經過這裡再 `set_balance`: 兩筆同時記帳時, 後到的那一筆要等前一筆
+        的交易結束才讀得到餘額, 不鎖的話兩邊讀到同一個舊值, 其中一筆的金額就消失了。
+        只選欄位而不是整個 ORM 物件, 是為了繞過 session 的 identity map: 同一個請求稍早
+        (`open_wallet`) 讀過的錢包物件是鎖之前的值。
+        """
+        row_id = parse_uuid(id)
+        if row_id is None:
+            return None
+        return await resolve_session(None).scalar(
+            select(cls.balance).where(cls.id == row_id).with_for_update()
+        )
+
+    @classmethod
+    async def set_balance(cls, id: str, balance: int) -> None:
+        """只在 `lock_balance` 之後呼叫, 理由見那裡。"""
+        await resolve_session(None).execute(
+            update(cls)
+            .where(cls.id == parse_uuid(id))
+            .values(balance=balance, updated_at=utc_now())
+        )
 
     @classmethod
     async def find_joined(cls, user_id: str) -> list[JoinedWallet]:
@@ -340,6 +388,15 @@ class WalletCategoryTable(BaseTable):
         return cast(list[CategoryDetail], result["list_data"])
 
     @classmethod
+    async def find_detail_in_wallet(cls, wallet_id: str, id: str) -> CategoryDetail | None:
+        """含已封存的: 修改帳目時可以保留它原本 (已封存) 的分類。"""
+        row_id = parse_uuid(id)
+        if row_id is None or parse_uuid(wallet_id) is None:
+            return None
+        result = await cls.find_detail_one(cls.id == row_id, cls.wallet_id == parse_uuid(wallet_id))
+        return cast(CategoryDetail | None, result)
+
+    @classmethod
     async def find_detail_active(cls, wallet_id: str, id: str) -> CategoryDetail | None:
         row_id = parse_uuid(id)
         if row_id is None or parse_uuid(wallet_id) is None:
@@ -416,3 +473,232 @@ class WalletInviteTable(BaseTable):
         row_id = parse_uuid(wallet_id)
         if row_id is not None:
             await resolve_session(None).execute(delete(cls).where(cls.wallet_id == row_id))
+
+
+class EntryDetail(TypedDict):
+    id: str
+    wallet_id: str
+    kind: EntryKind
+    #: 收入與支出是正數; 調整是差額, 可以是負的。
+    amount: int
+    category_id: str | None
+    #: 分類目前的名稱 (含已封存的); 調整沒有分類。
+    category_name: str | None
+    entry_date: date
+    note: str
+    created_by: str
+    created_at: datetime
+
+
+class EntryPageResult(TypedDict):
+    list_data: list[EntryDetail]
+    next_cursor: str | None
+
+
+class EntryLogDetail(TypedDict):
+    id: str
+    entry_id: str
+    action: EntryLogAction
+    actor_id: str
+    as_super_admin: bool
+    before: dict | None
+    after: dict | None
+    created_at: datetime
+
+
+class EntryLogPageResult(TypedDict):
+    list_data: list[EntryLogDetail]
+    next_cursor: str | None
+
+
+def _encode_keys(*values: date | datetime | uuid.UUID) -> str:
+    raw = json.dumps(
+        [str(value) if isinstance(value, uuid.UUID) else value.isoformat() for value in values]
+    )
+    return base64.urlsafe_b64encode(raw.encode()).decode()
+
+
+def _decode_keys(cursor: str, count: int) -> list[str]:
+    try:
+        values = json.loads(base64.urlsafe_b64decode(cursor.encode()).decode())
+    except (ValueError, TypeError) as exc:
+        raise LangException(400, PaginationError.INVALID_CURSOR) from exc
+    if not isinstance(values, list) or len(values) != count:
+        raise LangException(400, PaginationError.INVALID_CURSOR)
+    return [str(value) for value in values]
+
+
+class WalletEntryTable(BaseTable):
+    __tablename__ = "wallet_entries"
+
+    wallet_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("wallets.id", ondelete="CASCADE")
+    )
+    kind: Mapped[str] = mapped_column(String)
+    amount: Mapped[int] = mapped_column(BigInteger)
+    # 分類只會被封存、不會被刪掉 (錢包刪除時兩邊一起 cascade), 所以外鍵不設 ON DELETE。
+    category_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("wallet_categories.id"), default=None
+    )
+    entry_date: Mapped[date] = mapped_column(Date)
+    note: Mapped[str] = mapped_column(String, default="")
+    # 指向使用者而不是成員紀錄: 記帳人離開錢包後帳目照樣保留 (見 docs/features.md〈離開與移除〉)。
+    # 不設 ON DELETE: 使用者只會被停用, 不會被刪除。
+    created_by: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
+
+    __table_args__ = (
+        CheckConstraint("kind IN ('income', 'expense', 'adjustment')", name="kind"),
+        # 只有調整的差額可以是負的 (見 docs/features.md〈金額〉)。
+        CheckConstraint(
+            "(kind = 'adjustment' AND amount <> 0) OR (kind <> 'adjustment' AND amount > 0)",
+            name="amount",
+        ),
+        CheckConstraint(
+            "(kind = 'adjustment') = (category_id IS NULL)", name="category_only_for_income_expense"
+        ),
+        # 錢包頁的列表: 日期新到舊, 同一天依記帳時間新到舊 (見 `find_page`)。
+        Index(
+            "ix_wallet_entries_wallet_list",
+            "wallet_id",
+            desc("entry_date"),
+            desc("created_at"),
+            desc("id"),
+        ),
+    )
+
+    @classmethod
+    def _detail_select(cls) -> Select:
+        return select(cls, WalletCategoryTable.name).outerjoin(
+            WalletCategoryTable, WalletCategoryTable.id == cls.category_id
+        )
+
+    @staticmethod
+    def _detail(row: WalletEntryTable, category_name: str | None) -> EntryDetail:
+        return {
+            "id": str(row.id),
+            "wallet_id": str(row.wallet_id),
+            "kind": EntryKind(row.kind),
+            "amount": row.amount,
+            "category_id": None if row.category_id is None else str(row.category_id),
+            "category_name": category_name,
+            "entry_date": row.entry_date,
+            "note": row.note,
+            "created_by": str(row.created_by),
+            "created_at": row.created_at,
+        }
+
+    @classmethod
+    async def find_detail_in_wallet(cls, wallet_id: str, id: str) -> EntryDetail | None:
+        """只找這個錢包裡的帳: 拿別的錢包的 id 打進來要是「帳目不存在」。"""
+        wallet_uuid, row_id = parse_uuid(wallet_id), parse_uuid(id)
+        if wallet_uuid is None or row_id is None:
+            return None
+        statement = cls._detail_select().where(cls.id == row_id, cls.wallet_id == wallet_uuid)
+        found = (await resolve_session(None).execute(statement)).first()
+        return None if found is None else cls._detail(*found)
+
+    @classmethod
+    async def find_page(
+        cls, wallet_id: str, limit: int, cursor: str | None = None
+    ) -> EntryPageResult:
+        """日期新到舊, 同一天依記帳時間新到舊, 只往下一頁 (「載入更多」)。
+
+        不用 `BaseTable.get_page`: 它的排序鍵只有一個欄位加 id, 這裡要先排日期再排記帳時間,
+        只用日期的話同一天的帳會依隨機的 uuid 排。
+        """
+        keys = (cls.entry_date, cls.created_at, cls.id)
+        statement = cls._detail_select().where(cls.wallet_id == parse_uuid(wallet_id))
+        if cursor is not None:
+            day, created_at, row_id = _decode_keys(cursor, 3)
+            try:
+                after = (
+                    date.fromisoformat(day),
+                    datetime.fromisoformat(created_at),
+                    uuid.UUID(row_id),
+                )
+            except ValueError as exc:
+                raise LangException(400, PaginationError.INVALID_CURSOR) from exc
+            statement = statement.where(tuple_(*keys) < tuple_(*after))
+        statement = statement.order_by(*(key.desc() for key in keys)).limit(limit + 1)
+        rows = (await resolve_session(None).execute(statement)).all()
+        page = [cls._detail(row, name) for row, name in rows[:limit]]
+        last = rows[limit - 1][0] if len(rows) > limit else None
+        next_cursor = (
+            None if last is None else _encode_keys(last.entry_date, last.created_at, last.id)
+        )
+        return {"list_data": page, "next_cursor": next_cursor}
+
+    @classmethod
+    async def delete_in_wallet(cls, wallet_id: str, id: str) -> None:
+        await resolve_session(None).execute(
+            delete(cls).where(cls.id == parse_uuid(id), cls.wallet_id == parse_uuid(wallet_id))
+        )
+
+
+class WalletEntryLogTable(BaseTable):
+    __tablename__ = "wallet_entry_logs"
+
+    wallet_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("wallets.id", ondelete="CASCADE")
+    )
+    # 刻意不設外鍵: 帳目刪掉之後, 它的異動紀錄 (含「刪除」那一筆) 要留著。
+    entry_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True)
+    action: Mapped[str] = mapped_column(String)
+    actor_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
+    as_super_admin: Mapped[bool] = mapped_column(Boolean, default=False)
+    # 存當時的快照 (含分類名稱) 而不是參照: 之後分類改名或帳目再被改, 舊紀錄不能跟著變。
+    before: Mapped[dict | None] = mapped_column(JSONB, default=None)
+    after: Mapped[dict | None] = mapped_column(JSONB, default=None)
+
+    __table_args__ = (
+        CheckConstraint("action IN ('create', 'update', 'delete')", name="action"),
+        Index("ix_wallet_entry_logs_wallet_list", "wallet_id", desc("created_at"), desc("id")),
+    )
+
+    @staticmethod
+    def _detail(row: WalletEntryLogTable) -> EntryLogDetail:
+        return {
+            "id": str(row.id),
+            "entry_id": str(row.entry_id),
+            "action": EntryLogAction(row.action),
+            "actor_id": str(row.actor_id),
+            "as_super_admin": row.as_super_admin,
+            "before": row.before,
+            "after": row.after,
+            "created_at": row.created_at,
+        }
+
+    @classmethod
+    async def list_for_entry(cls, wallet_id: str, entry_id: str) -> list[EntryLogDetail]:
+        """一筆帳的歷史, 新到舊。一筆帳的紀錄不多, 不分頁。"""
+        wallet_uuid, entry_uuid = parse_uuid(wallet_id), parse_uuid(entry_id)
+        if wallet_uuid is None or entry_uuid is None:
+            return []
+        rows = await resolve_session(None).scalars(
+            select(cls)
+            .where(cls.wallet_id == wallet_uuid, cls.entry_id == entry_uuid)
+            .order_by(cls.created_at.desc(), cls.id.desc())
+        )
+        return [cls._detail(row) for row in rows]
+
+    @classmethod
+    async def find_page(
+        cls, wallet_id: str, limit: int, cursor: str | None = None
+    ) -> EntryLogPageResult:
+        """整個錢包的紀錄, 新到舊, 只往下一頁。不用 `get_page` 的理由同帳目: 它只會由舊到新。"""
+        keys = (cls.created_at, cls.id)
+        statement = select(cls).where(cls.wallet_id == parse_uuid(wallet_id))
+        if cursor is not None:
+            created_at, row_id = _decode_keys(cursor, 2)
+            try:
+                after = (datetime.fromisoformat(created_at), uuid.UUID(row_id))
+            except ValueError as exc:
+                raise LangException(400, PaginationError.INVALID_CURSOR) from exc
+            statement = statement.where(tuple_(*keys) < tuple_(*after))
+        statement = statement.order_by(*(key.desc() for key in keys)).limit(limit + 1)
+        rows = list(await resolve_session(None).scalars(statement))
+        last = rows[limit - 1] if len(rows) > limit else None
+        return {
+            "list_data": [cls._detail(row) for row in rows[:limit]],
+            "next_cursor": None if last is None else _encode_keys(last.created_at, last.id),
+        }
