@@ -14,12 +14,15 @@ import pytest
 from modules.wallets import admin as admin_service
 from modules.wallets import entries as entry_service
 from modules.wallets import entry_logs as entry_log_service
+from modules.wallets import expenses as expense_service
 from modules.wallets import invites as invite_service
 from modules.wallets import members as member_service
 from modules.wallets.model import (
     CategoryType,
     EntryKind,
     MemberRole,
+    SplitMode,
+    TravelExpenseTable,
     WalletAdvanceTargetTable,
     WalletCategoryTable,
     WalletEntryLogTable,
@@ -65,6 +68,8 @@ class FakeStore:
     targets: dict[str, dict] = field(default_factory=dict)
     #: 寫入的順序。
     logs: list[dict] = field(default_factory=list)
+    #: 旅遊錢包的帳, id → {..., shares: [{user_id, amount}]} (shares 依存進來的順序)。
+    expenses: dict[str, dict] = field(default_factory=dict)
     #: invites.py 看到的「現在」, 測試改它來模擬過期。
     now: datetime = datetime(2026, 10, 18, 12, 0)
 
@@ -184,6 +189,36 @@ class FakeStore:
             advance_id=advance_id,
         )
 
+    def add_expense(
+        self,
+        wallet_id: str,
+        created_by: str,
+        payer_id: str,
+        shares: dict[str, int],
+        split_mode: SplitMode = SplitMode.CUSTOM,
+        entry_date: date = date(2026, 11, 2),
+        note: str = "",
+    ) -> str:
+        """直接放一筆旅遊錢包的帳 (不經過 service, 所以不留紀錄)。金額是分攤的加總。"""
+        id = str(uuid.uuid4())
+        self.expenses[id] = {
+            "id": id,
+            "wallet_id": wallet_id,
+            "amount": sum(shares.values()),
+            "payer_id": payer_id,
+            "split_mode": split_mode,
+            "entry_date": entry_date,
+            "note": note,
+            "created_by": created_by,
+            "created_at": datetime(2026, 11, 2) + timedelta(seconds=len(self.expenses)),
+            "shares": [{"user_id": uid, "amount": amount} for uid, amount in shares.items()],
+        }
+        return id
+
+    def shares_of(self, expense_id: str) -> dict[str, int]:
+        """一筆帳的分攤, 依存進來的順序。"""
+        return {share["user_id"]: share["amount"] for share in self.expenses[expense_id]["shares"]}
+
     def outstanding_of(self, wallet_id: str, name: str) -> int:
         return self.target(wallet_id, name)["outstanding"]
 
@@ -208,6 +243,11 @@ class FakeStore:
         }
         self.targets = {
             id: target for id, target in self.targets.items() if target["wallet_id"] != wallet_id
+        }
+        self.expenses = {
+            id: expense
+            for id, expense in self.expenses.items()
+            if expense["wallet_id"] != wallet_id
         }
         for entry in self.entries.values():
             if entry["counterpart_wallet_id"] == wallet_id:
@@ -316,7 +356,7 @@ def _install_members(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -> None:
         "add_if_absent": add_if_absent,
     }.items():
         monkeypatch.setattr(WalletMemberTable, name, fake)
-    for service in (member_service, entry_service, entry_log_service):
+    for service in (member_service, entry_service, entry_log_service, expense_service):
         monkeypatch.setattr(service, "find_nicknames", _find_nicknames)
     monkeypatch.setattr(admin_service, "find_nicknames", _find_nicknames)
 
@@ -550,6 +590,72 @@ def _install_entry_logs(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -> No
         monkeypatch.setattr(WalletEntryLogTable, name, fake)
 
 
+def _install_expenses(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -> None:
+    """旅遊錢包的帳: 連同分攤一起存取、每人的付款與分攤總額、成員有沒有紀錄。"""
+
+    def _copy(id: str) -> dict:
+        expense = store.expenses[id]
+        return {**expense, "shares": [dict(share) for share in expense["shares"]]}
+
+    async def create_with_shares(data, shares):
+        id = str(uuid.uuid4())
+        store.expenses[id] = {
+            "id": id,
+            "created_at": datetime(2026, 11, 2) + timedelta(seconds=len(store.expenses)),
+            **data,
+            "shares": [dict(share) for share in shares],
+        }
+        return id
+
+    async def find_detail_in_wallet(wallet_id, id):
+        found = store.expenses.get(id)
+        return None if found is None or found["wallet_id"] != wallet_id else _copy(id)
+
+    async def replace_in_wallet(wallet_id, id, data, shares):
+        store.expenses[id].update(data)
+        store.expenses[id]["shares"] = [dict(share) for share in shares]
+
+    async def delete_in_wallet(wallet_id, id):
+        if store.expenses.get(id, {}).get("wallet_id") == wallet_id:
+            del store.expenses[id]
+
+    def _in_wallet(wallet_id):
+        return [_copy(id) for id, e in store.expenses.items() if e["wallet_id"] == wallet_id]
+
+    async def find_page(wallet_id, limit, cursor=None):
+        # 排序與游標的 SQL 在 test_model.py 驗, 這裡只照日期新到舊回傳全部。
+        rows = _in_wallet(wallet_id)
+        rows.sort(key=lambda e: (e["entry_date"], e["created_at"]), reverse=True)
+        return {"list_data": rows, "next_cursor": None}
+
+    async def totals(wallet_id):
+        result: dict[str, dict] = {}
+        for expense in _in_wallet(wallet_id):
+            payer = result.setdefault(expense["payer_id"], {"paid": 0, "owed": 0})
+            payer["paid"] += expense["amount"]
+            for share in expense["shares"]:
+                result.setdefault(share["user_id"], {"paid": 0, "owed": 0})
+                result[share["user_id"]]["owed"] += share["amount"]
+        return result
+
+    async def has_records(wallet_id, user_id):
+        return any(
+            e["payer_id"] == user_id or any(s["user_id"] == user_id for s in e["shares"])
+            for e in _in_wallet(wallet_id)
+        )
+
+    for name, fake in {
+        "create_with_shares": create_with_shares,
+        "find_detail_in_wallet": find_detail_in_wallet,
+        "replace_in_wallet": replace_in_wallet,
+        "delete_in_wallet": delete_in_wallet,
+        "find_page": find_page,
+        "totals": totals,
+        "has_records": has_records,
+    }.items():
+        monkeypatch.setattr(TravelExpenseTable, name, fake)
+
+
 @pytest.fixture
 def store(monkeypatch: pytest.MonkeyPatch) -> FakeStore:
     fake = FakeStore()
@@ -563,6 +669,7 @@ def store(monkeypatch: pytest.MonkeyPatch) -> FakeStore:
     _install_transfers(monkeypatch, fake)
     _install_advances(monkeypatch, fake)
     _install_entry_logs(monkeypatch, fake)
+    _install_expenses(monkeypatch, fake)
     return fake
 
 
