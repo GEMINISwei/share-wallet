@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest"
 import {
-  counterpartName, entryTitle, formatAmount, formatEntryDate, localToday, signedAmount,
-  snapshotField, snapshotSummaryFields,
+  counterpartName, entryTitle, expenseSnapshotField, expenseSummaryFields, expenseTitle,
+  formatAmount, formatEntryDate, localToday, netStatus, signedAmount, snapshotField,
+  snapshotSummaryFields,
 } from "@/modules/wallets/format"
+import type { ExpenseSnapshot } from "@/modules/wallets/types"
 
 describe("formatAmount", () => {
   it("金額加上千分位", () => {
@@ -126,5 +128,42 @@ describe("代墊與還款的顯示", () => {
     expect(snapshotField("advance_target_name", snapshot, "zh"))
       .toEqual({ label: "對象", value: "小明" })
     expect(snapshotField("kind", snapshot, "zh").value).toBe("還款")
+  })
+})
+
+describe("旅遊錢包的顯示", () => {
+  const snapshot: ExpenseSnapshot = {
+    amount: 1000, payer_name: "Alice", split_mode: "custom",
+    shares: [{ name: "Alice", amount: 600 }, { name: "Bob", amount: 400 }],
+    entry_date: "2026-11-02", note: "",
+  }
+
+  it("淨額正的是應收、負的是應付、0 是已平衡", () => {
+    expect(netStatus(500)).toBe("receivable")
+    expect(netStatus(-1)).toBe("payable")
+    expect(netStatus(0)).toBe("settled")
+  })
+
+  it("列表標題有備註時用備註，沒有時是誰付的", () => {
+    expect(expenseTitle({ note: "晚餐", payer: { user_id: "a", nickname: "Alice" } }, "zh"))
+      .toBe("晚餐")
+    expect(expenseTitle({ note: "", payer: { user_id: "a", nickname: "Alice" } }, "zh"))
+      .toBe("Alice 付款")
+  })
+
+  it("異動紀錄的分攤列出每人的金額", () => {
+    expect(expenseSnapshotField("shares", snapshot, "zh"))
+      .toEqual({ label: "分攤", value: "Alice 600、Bob 400" })
+    expect(expenseSnapshotField("split_mode", snapshot, "en"))
+      .toEqual({ label: "Split", value: "Custom amounts" })
+    expect(expenseSnapshotField("payer_name", snapshot, "zh"))
+      .toEqual({ label: "付款人", value: "Alice" })
+  })
+
+  it("新增與刪除的紀錄列出付款人、分攤、金額與日期，有備註才列備註", () => {
+    expect(expenseSummaryFields(snapshot))
+      .toEqual(["payer_name", "shares", "amount", "entry_date"])
+    expect(expenseSummaryFields({ ...snapshot, note: "晚餐" }))
+      .toEqual(["payer_name", "shares", "amount", "entry_date", "note"])
   })
 })

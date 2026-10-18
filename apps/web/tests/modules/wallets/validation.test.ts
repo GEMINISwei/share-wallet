@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest"
 import {
-  canConfirmDelete, hasErrors, parseAmount, parsePositiveAmount, toAdjustRequest,
+  canConfirmDelete, hasErrors, parseAmount, shareRemainder, toExpenseRequest,
+  validateExpenseForm, parsePositiveAmount, toAdjustRequest,
   toAdminCreateRequest, toAdvanceRequest, toCreateRequest, toEntryRequest, toMoneyRequest,
   toTransferRequest, toTransferUpdateRequest, toUpdateRequest, validateAdjustForm,
   validateAdminUser, validateEntryForm, validateRepayForm, validateWalletForm,
 } from "@/modules/wallets/validation"
 import type {
-  AdjustFormValues, EntryFormValues, RepayFormValues, WalletFormValues,
+  AdjustFormValues, EntryFormValues, ExpenseFormValues, RepayFormValues, WalletFormValues,
 } from "@/modules/wallets/types"
 
 const GENERAL: WalletFormValues = {
@@ -214,5 +215,109 @@ describe("validateRepayForm", () => {
     expect(errors.entry_date).toBe("請選擇日期")
     expect(toMoneyRequest({ ...REPAY, note: " 現金 " }))
       .toEqual({ amount: 300, entry_date: "2026-10-18", note: "現金" })
+  })
+})
+
+describe("validateExpenseForm", () => {
+  const equal: ExpenseFormValues = {
+    amount: "1,000", payer_id: "alice", split_mode: "equal", participant_ids: ["alice", "bob"],
+    shares: [], entry_date: "2026-11-02", note: "",
+  }
+  const custom: ExpenseFormValues = {
+    ...equal, split_mode: "custom", participant_ids: [],
+    shares: [
+      { key: "1", user_id: "alice", amount: "600" },
+      { key: "2", user_id: "bob", amount: "400" },
+    ],
+  }
+
+  it("均分、指定金額填好時沒有錯誤", () => {
+    expect(hasErrors(validateExpenseForm(equal, "zh"))).toBe(false)
+    expect(hasErrors(validateExpenseForm(custom, "zh"))).toBe(false)
+  })
+
+  it("金額要大於 0、要選付款人與日期", () => {
+    const errors = validateExpenseForm({ ...equal, amount: "0", payer_id: "", entry_date: "" }, "zh")
+    expect(errors.amount).toBe("請輸入大於 0 的整數金額")
+    expect(errors.payer_id).toBe("請選擇付款人")
+    expect(errors.entry_date).toBe("請選擇日期")
+  })
+
+  it("均分至少要勾一個人", () => {
+    expect(validateExpenseForm({ ...equal, participant_ids: [] }, "zh").participant_ids)
+      .toBe("請選擇分攤對象")
+  })
+
+  it("指定金額至少要有一列", () => {
+    expect(validateExpenseForm({ ...custom, shares: [] }, "zh").shares).toBe("請新增分攤對象")
+  })
+
+  it("指定金額每一列都要選人", () => {
+    const shares = [{ key: "1", user_id: "", amount: "1000" }]
+    expect(validateExpenseForm({ ...custom, shares }, "zh").shares).toBe("每一列都要選人")
+  })
+
+  it("指定金額每一列的金額要大於 0", () => {
+    const shares = [...custom.shares, { key: "3", user_id: "carol", amount: "0" }]
+    expect(validateExpenseForm({ ...custom, shares }, "zh").shares).toBe("每人的金額要大於 0")
+  })
+
+  it("指定金額同一個人不能出現兩次", () => {
+    const shares = custom.shares.map((share) => ({ ...share, user_id: "alice" }))
+    expect(validateExpenseForm({ ...custom, shares }, "zh").shares).toBe("同一個人不能出現兩次")
+  })
+
+  it("指定金額加總不等於總額時顯示差多少", () => {
+    const shares = [custom.shares[0], { ...custom.shares[1], amount: "300" }]
+    expect(validateExpenseForm({ ...custom, shares }, "zh").shares)
+      .toBe("分攤加總 900，與總額 1,000 不符")
+  })
+
+  it("切到指定金額時不檢查均分的勾選", () => {
+    expect(validateExpenseForm(custom, "zh").participant_ids).toBeUndefined()
+  })
+})
+
+describe("shareRemainder", () => {
+  it("總額減去已填的分攤，空白的列不算", () => {
+    expect(shareRemainder("1,000", [
+      { key: "1", user_id: "alice", amount: "600" },
+      { key: "2", user_id: "bob", amount: "" },
+    ])).toBe(400)
+  })
+
+  it("總額或任何一列不是整數時是 null", () => {
+    expect(shareRemainder("", [])).toBeNull()
+    expect(shareRemainder("100", [{ key: "1", user_id: "a", amount: "1.5" }])).toBeNull()
+  })
+})
+
+describe("toExpenseRequest", () => {
+  it("均分送分攤對象，依加入順序", () => {
+    const values: ExpenseFormValues = {
+      amount: "1,000", payer_id: "alice", split_mode: "equal", participant_ids: ["bob", "alice"],
+      shares: [{ key: "1", user_id: "carol", amount: "5" }], entry_date: "2026-11-02",
+      note: " 晚餐 ",
+    }
+    expect(toExpenseRequest(values)).toEqual({
+      split_mode: "equal", amount: 1000, payer_id: "alice", participant_ids: ["bob", "alice"],
+      entry_date: "2026-11-02", note: "晚餐",
+    })
+  })
+
+  it("指定金額依表上的順序送每一列", () => {
+    const values: ExpenseFormValues = {
+      amount: "100", payer_id: "bob", split_mode: "custom", participant_ids: ["alice"],
+      shares: [
+        { key: "2", user_id: "carol", amount: "70" },
+        { key: "1", user_id: "alice", amount: "30" },
+      ],
+      entry_date: "2026-11-02", note: "",
+    }
+    expect(toExpenseRequest(values)).toEqual({
+      split_mode: "custom", amount: 100, payer_id: "bob",
+      shares: [{ user_id: "carol", amount: 70 }, { user_id: "alice", amount: 30 }],
+      entry_date: "2026-11-02", note: "",
+    })
   })
 })
