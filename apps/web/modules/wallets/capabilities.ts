@@ -1,18 +1,19 @@
 import type {
   AdvanceTargetInfo, CategoryInfo, CategoryType, EntryFormValues, EntryInfo, EntryKind,
-  EntryLogInfo, EntrySnapshot, MemberInfo, TransferKind, TransferTarget, WalletAdmin, WalletInfo,
+  EntryLogInfo, EntrySnapshot, ExpenseFormValues, ExpenseInfo, ExpenseLogInfo, ExpenseSnapshot,
+  MemberInfo, ShareRowValues, TransferKind, TransferTarget, WalletAdmin, WalletInfo,
 } from "./types"
 
 // 畫面上的分支。真正的授權在後端 (`modules/wallets/access.py`), 這裡只決定顯示哪些操作,
 // 規則要與後端同一組: 管理者 (或超級管理者, 後端給的 `can_manage`) 才能管理,
 // 錢包至少要有一位管理者。
 
-/** 錢包頁上要列出哪些入口。分類與異動紀錄只屬於一般錢包, 設定只給管理者。 */
+/** 錢包頁上要列出哪些入口。分類只屬於一般錢包, 設定只給管理者。 */
 export function walletSections(wallet: WalletInfo) {
   return {
     members: true,
     categories: wallet.kind === "general",
-    history: wallet.kind === "general",
+    history: true,
     settings: wallet.can_manage,
   }
 }
@@ -73,12 +74,16 @@ export function isTransfer(kind: EntryKind): kind is TransferKind {
   return kind === "transfer_out" || kind === "transfer_in"
 }
 
+function canModify(ownerId: string, viewer: Viewer) {
+  return ownerId === viewer.userId || viewer.canManage
+}
+
 /**
  * 這筆帳可以做的事。自己記的帳, 或管理者 (含超級管理者) 改任何人的; 調整只能刪不能改,
  * 對方錢包已刪除的轉帳也是。轉帳還要對方錢包的權限, 這裡看不到, 由後端擋。
  */
 export function entryActions(entry: EntryInfo, viewer: Viewer) {
-  const allowed = entry.created_by.user_id === viewer.userId || viewer.canManage
+  const allowed = canModify(entry.created_by.user_id, viewer)
   const orphan = isTransfer(entry.kind) && entry.counterpart_wallet === null
   return { edit: allowed && entry.kind !== "adjustment" && !orphan, delete: allowed }
 }
@@ -152,4 +157,97 @@ export function changedFields(log: EntryLogInfo): (keyof EntrySnapshot)[] {
   const { before, after } = log
   if (!before || !after) return []
   return SNAPSHOT_FIELDS.filter((field) => (before[field] ?? null) !== (after[field] ?? null))
+}
+
+// ── 旅遊錢包 ────────────────────────────────────────────────────────────────
+
+/** 旅遊錢包的帳: 權限同一般錢包, 所有欄位都可以改 (見 docs/features.md〈記帳〉)。 */
+export function expenseActions(expense: ExpenseInfo, viewer: Viewer) {
+  const allowed = canModify(expense.created_by.user_id, viewer)
+  return { edit: allowed, delete: allowed }
+}
+
+type Share = { user_id: string; amount: number }
+
+/**
+ * 均分的結果, 給記帳時預覽; 實際存的值由後端算 (`expenses.split_equally`), 規則要同一組:
+ * 零頭一人一份, 付款人優先, 其餘照加入順序 (`memberIds`); 結果依加入順序排列。
+ */
+export function splitEqually(
+  amount: number,
+  payerId: string,
+  participantIds: readonly string[],
+  memberIds: readonly string[],
+): Share[] {
+  const ordered = memberIds.filter((id) => participantIds.includes(id))
+  if (ordered.length === 0) return []
+  const base = Math.floor(amount / ordered.length)
+  const remainder = amount - base * ordered.length
+  const payerFirst = [
+    ...ordered.filter((id) => id === payerId), ...ordered.filter((id) => id !== payerId),
+  ]
+  const extra = new Set(payerFirst.slice(0, remainder))
+  return ordered.map((id) => ({ user_id: id, amount: base + (extra.has(id) ? 1 : 0) }))
+}
+
+let rowSeq = 0
+
+/** 指定金額表的新一列。 */
+export function newShareRow(userId = "", amount = ""): ShareRowValues {
+  rowSeq += 1
+  return { key: `row-${rowSeq}`, user_id: userId, amount }
+}
+
+/**
+ * 記一筆與修改的初始值。記一筆時付款人是自己 (不是成員, 例如超級管理者, 就留空)、
+ * 均分給所有成員; 修改時帶入原本的值, 指定金額的每一列照原本的順序。
+ */
+export function initialExpenseValues(
+  expense: ExpenseInfo | null,
+  members: readonly MemberInfo[],
+  currentUserId: string,
+  today: string,
+): ExpenseFormValues {
+  const memberIds = members.map((member) => member.user_id)
+  if (!expense) {
+    return {
+      amount: "", payer_id: memberIds.includes(currentUserId) ? currentUserId : "",
+      split_mode: "equal", participant_ids: memberIds, shares: [], entry_date: today, note: "",
+    }
+  }
+  const custom = expense.split_mode === "custom"
+  return {
+    amount: String(expense.amount),
+    payer_id: expense.payer.user_id,
+    split_mode: expense.split_mode,
+    participant_ids: custom ? memberIds : expense.shares.map((share) => share.user_id),
+    shares: custom
+      ? expense.shares.map((share) => newShareRow(share.user_id, String(share.amount)))
+      : [],
+    entry_date: expense.entry_date,
+    note: expense.note,
+  }
+}
+
+/** 指定金額表某一列能選的人: 其他列已經選的人不再出現 (同一個人不能出現兩次)。 */
+export function shareUserOptions(
+  members: readonly MemberInfo[],
+  rows: readonly ShareRowValues[],
+  rowKey: string,
+): MemberInfo[] {
+  const taken = new Set(rows.filter((row) => row.key !== rowKey).map((row) => row.user_id))
+  return members.filter((member) => !taken.has(member.user_id))
+}
+
+const EXPENSE_FIELDS = [
+  "payer_name", "split_mode", "shares", "amount", "entry_date", "note",
+] as const satisfies readonly (keyof ExpenseSnapshot)[]
+
+/** 旅遊錢包的修改紀錄改了哪些欄位, 依畫面上的順序。分攤比對每一人的名字與金額。 */
+export function expenseChangedFields(log: ExpenseLogInfo): (keyof ExpenseSnapshot)[] {
+  const { before, after } = log
+  if (!before || !after) return []
+  return EXPENSE_FIELDS.filter(
+    (field) => JSON.stringify(before[field]) !== JSON.stringify(after[field]),
+  )
 }

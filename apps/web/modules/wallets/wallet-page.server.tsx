@@ -9,6 +9,7 @@ import type { WalletArea } from "./paths"
 import type { WalletInfo } from "./types"
 import { loadWallet, type WalletPageProps } from "./wallet.server"
 import WalletNotFound from "./ui/WalletNotFound"
+import type { TravelLedger } from "./ui/TravelWalletView"
 import WalletView, { type WalletLedger } from "./ui/WalletView"
 
 export type { WalletPageProps } from "./wallet.server"
@@ -43,10 +44,35 @@ async function loadLedger(wallet: WalletInfo): Promise<WalletLedger | null> {
   }
 }
 
+/** 旅遊錢包頁是淨額與帳目; 一般錢包是 null。 */
+async function loadTravel(wallet: WalletInfo): Promise<TravelLedger | null> {
+  if (wallet.kind !== "travel") return null
+  const params = { id: wallet.id }
+  const [expensesRes, balancesRes, membersRes, currentUser, t] = await Promise.all([
+    apiGet({ url: "/wallets/{id}/expenses", params }),
+    // 淨額取不到時只是那一塊顯示錯誤, 不擋帳目列表。
+    apiGet({ url: "/wallets/{id}/net-balances", params }),
+    // 記一筆的付款人與分攤對象; 取不到就不能記帳。
+    apiGet({ url: "/wallets/{id}/members", params }),
+    getCurrentUser(),
+    getT(walletsMessages),
+  ])
+  const failed = expensesRes.status !== "success" || membersRes.status !== "success"
+  return {
+    expenses: expensesRes.status === "success" ? expensesRes.data : { list_data: [], next_cursor: null },
+    balances: getApiListData(balancesRes),
+    members: getApiListData(membersRes),
+    currentUserId: currentUser.data?.id ?? "",
+    errorMessage: failed ? t("entriesFailed") : "",
+    balancesFailed: balancesRes.status !== "success",
+  }
+}
+
 async function renderWalletPage({ params }: WalletPageProps, area: WalletArea) {
   const wallet = await loadWallet((await params).id)
   if (!wallet) return <WalletNotFound area={area} />
-  return <WalletView wallet={wallet} area={area} ledger={await loadLedger(wallet)} />
+  const [ledger, travel] = await Promise.all([loadLedger(wallet), loadTravel(wallet)])
+  return <WalletView wallet={wallet} area={area} ledger={ledger} travel={travel} />
 }
 
 export default async function WalletPage(props: WalletPageProps) {

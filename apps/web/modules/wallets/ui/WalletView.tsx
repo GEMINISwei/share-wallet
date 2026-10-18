@@ -1,23 +1,21 @@
 "use client"
 
-import Link from "next/link"
-import { ChevronRight, Plus, Scale } from "lucide-react"
+import { Plus, Scale } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { Button, ErrorState, ICON_SIZE, Notify, useNotify } from "@/shared/ui"
 import { useT } from "@/shared/i18n/context"
-import { owingTargets, walletSections } from "../capabilities"
+import { owingTargets } from "../capabilities"
 import { walletsMessages } from "../i18n"
-import {
-  type WalletArea, walletCategoriesPath, walletHistoryPath, walletMembersPath, walletSettingsPath,
-  walletsListPath,
-} from "../paths"
+import { type WalletArea, walletsListPath } from "../paths"
 import type {
   AdvanceTargetInfo, CategoryInfo, EntryPage, TransferTarget, WalletInfo,
 } from "../types"
 import Amount from "./Amount"
 import EntryList from "./EntryList"
 import LedgerDialogs, { type LedgerDialog } from "./LedgerDialogs"
+import TravelWalletView, { type TravelLedger } from "./TravelWalletView"
+import WalletLinks from "./WalletLinks"
 import WalletShell from "./WalletShell"
 import styles from "./wallets.module.css"
 
@@ -32,17 +30,26 @@ export type WalletLedger = {
   errorMessage: string
 }
 
-type WalletViewProps = { wallet: WalletInfo; area: WalletArea; ledger: WalletLedger | null }
+type WalletViewProps = {
+  wallet: WalletInfo
+  area: WalletArea
+  ledger: WalletLedger | null
+  /** 旅遊錢包的帳目資料; 一般錢包是 null。 */
+  travel: TravelLedger | null
+}
 
-export default function WalletView({ wallet, area, ledger }: WalletViewProps) {
+export default function WalletView({ wallet, area, ledger, travel }: WalletViewProps) {
+  if (travel) return <TravelWalletView wallet={wallet} area={area} travel={travel} />
+  return <GeneralWalletView wallet={wallet} area={area} ledger={ledger} />
+}
+
+function GeneralWalletView(
+  { wallet, area, ledger }: { wallet: WalletInfo; area: WalletArea; ledger: WalletLedger | null },
+) {
   const t = useT(walletsMessages)
   const router = useRouter()
   const [dialog, setDialog] = useState<LedgerDialog>(null)
   const { notify, notifyError, notifySuccess, closeNotify } = useNotify()
-  const isTravel = wallet.kind === "travel"
-  const subtitle = isTravel
-    ? `${wallet.destination} · ${t("dateRange", { start: wallet.start_date ?? "", end: wallet.end_date ?? "" })}`
-    : t("kindGeneral")
 
   function handleSaved(message: string) {
     setDialog(null)
@@ -58,7 +65,7 @@ export default function WalletView({ wallet, area, ledger }: WalletViewProps) {
 
   return (
     <WalletShell
-      title={wallet.name} subtitle={subtitle} backHref={walletsListPath(area)} backLabel={t("backToList")}
+      title={wallet.name} subtitle={t("kindGeneral")} backHref={walletsListPath(area)} backLabel={t("backToList")}
       actions={ledger && (
         <>
           <Button variant="outlined" icon={adjustIcon} onClick={openAdjust}>{t("adjustBalance")}</Button>
@@ -77,7 +84,6 @@ export default function WalletView({ wallet, area, ledger }: WalletViewProps) {
         </section>
       )}
       {ledger && <OwingList targets={ledger.advanceTargets} />}
-      {isTravel && <p className={styles.hint}>{t("travelLedgerComingSoon")}</p>}
       {ledger && (
         <section>
           <h2 className={styles.sectionTitle}>{t("entries")}</h2>
@@ -122,42 +128,5 @@ function OwingList({ targets }: { targets: AdvanceTargetInfo[] }) {
         ))}
       </ul>
     </section>
-  )
-}
-
-/** 錢包底下其他頁的入口。分類與異動紀錄只屬於一般錢包, 設定只給管理者。 */
-function WalletLinks({ wallet, area }: { wallet: WalletInfo; area: WalletArea }) {
-  const t = useT(walletsMessages)
-  const sections = walletSections(wallet)
-  const links = [
-    { href: walletMembersPath(wallet.id, area), title: t("members"), desc: t("membersDesc"), show: sections.members },
-    {
-      href: walletCategoriesPath(wallet.id, area), title: t("categories"), desc: t("categoriesDesc"),
-      show: sections.categories,
-    },
-    {
-      href: walletHistoryPath(wallet.id, area), title: t("history"), desc: t("historyDesc"),
-      show: sections.history,
-    },
-    {
-      href: walletSettingsPath(wallet.id, area), title: t("settings"),
-      desc: wallet.kind === "travel" ? t("travelSettingsDesc") : t("settingsDesc"), show: sections.settings,
-    },
-  ].filter((link) => link.show)
-
-  return (
-    <ul className={styles.list}>
-      {links.map((link) => (
-        <li key={link.href}>
-          <Link href={link.href} className={styles.row}>
-            <span className={styles.rowMain}>
-              <span className={styles.rowTitle}>{link.title}</span>
-              <span className={styles.rowMeta}>{link.desc}</span>
-            </span>
-            <ChevronRight size={ICON_SIZE.sm} aria-hidden="true" />
-          </Link>
-        </li>
-      ))}
-    </ul>
   )
 }
