@@ -93,9 +93,7 @@ async def rename_category(
     return CategoryOperate(id=id)
 
 
-async def archive_category(
-    wallet_id: str, id: str, current_user: CurrentUser
-) -> CategoryOperate:
+async def archive_category(wallet_id: str, id: str, current_user: CurrentUser) -> CategoryOperate:
     """刪除分類是封存 (見 docs/features.md〈分類〉)。"""
     _ensure_general(await manage_wallet(wallet_id, current_user))
     await _active_category(wallet_id, id)

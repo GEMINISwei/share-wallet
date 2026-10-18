@@ -3,9 +3,9 @@
 import { useActionSubmit } from "@/shared/ui"
 import { useT } from "@/shared/i18n/context"
 import { deleteEntry } from "../actions"
-import { entryActions } from "../capabilities"
+import { canTransfer, entryActions } from "../capabilities"
 import { walletsMessages } from "../i18n"
-import type { CategoryInfo, EntryInfo, WalletInfo } from "../types"
+import type { CategoryInfo, EntryInfo, TransferTarget, WalletInfo } from "../types"
 import AdjustDialog from "./AdjustDialog"
 import ConfirmDialog from "./ConfirmDialog"
 import EntryDetailDialog from "./EntryDetailDialog"
@@ -23,6 +23,7 @@ export type LedgerDialog =
 type LedgerDialogsProps = {
   wallet: WalletInfo
   categories: CategoryInfo[]
+  transferTargets: TransferTarget[]
   currentUserId: string
   dialog: LedgerDialog
   onChange: (dialog: LedgerDialog) => void
@@ -36,7 +37,7 @@ function entryOf(dialog: LedgerDialog, kind: "detail" | "edit" | "delete") {
 
 /** 記一筆、修改、調整餘額、帳目詳情與刪除確認。 */
 export default function LedgerDialogs({
-  wallet, categories, currentUserId, dialog, onChange, onSaved, onError,
+  wallet, categories, transferTargets, currentUserId, dialog, onChange, onSaved, onError,
 }: LedgerDialogsProps) {
   const t = useT(walletsMessages)
   const { isPending, submit } = useActionSubmit()
@@ -64,6 +65,7 @@ export default function LedgerDialogs({
       {(dialog?.kind === "add" || editing) && (
         <EntryDialog
           key={editing?.id ?? "new"} walletId={wallet.id} entry={editing} categories={categories}
+          transferTargets={transferTargets} transferable={canTransfer(wallet, transferTargets)}
           open onClose={close} onSuccess={onSaved} onError={onError}
         />
       )}

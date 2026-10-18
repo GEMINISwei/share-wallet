@@ -207,4 +207,3 @@ async def test_signed_up_user_has_user_role_and_can_log_in(db):
 
     login = await account.login_user(UserLogin(username="newbie", password="new-password"), ENV)
     assert parse_token(login.access_token, ENV)["username"] == "newbie"
-

@@ -2,7 +2,7 @@
 
 import { useLocale, useT } from "@/shared/i18n/context"
 import { loadMoreEntries } from "../actions"
-import { formatEntryDate, signedAmount } from "../format"
+import { entryTitle, formatEntryDate, signedAmount } from "../format"
 import { walletsMessages } from "../i18n"
 import type { EntryInfo, EntryPage } from "../types"
 import Amount from "./Amount"
@@ -38,14 +38,13 @@ export default function EntryList({ walletId, firstPage, onOpen }: EntryListProp
 }
 
 function EntryRow({ entry, onOpen }: { entry: EntryInfo; onOpen: () => void }) {
-  const t = useT(walletsMessages)
   const locale = useLocale()
   const meta = [formatEntryDate(entry.entry_date, locale), entry.created_by.nickname, entry.note]
     .filter(Boolean).join(" · ")
   return (
     <button type="button" className={`${styles.row} ${styles.rowButton}`} onClick={onOpen}>
       <span className={styles.rowMain}>
-        <span className={styles.rowTitle}>{entry.category?.name ?? t("adjustment")}</span>
+        <span className={styles.rowTitle}>{entryTitle(entry, locale)}</span>
         <span className={styles.rowMeta}>{meta}</span>
       </span>
       <Amount value={signedAmount(entry.kind, entry.amount)} />

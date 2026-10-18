@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/modules/auth/public.server"
 import { apiGet } from "@/shared/api/request.server"
 import { getApiListData } from "@/shared/api/response"
 import { getT } from "@/shared/i18n/locale.server"
+import { transferTargets } from "./capabilities"
 import { walletsMessages } from "./i18n"
 import type { WalletArea } from "./paths"
 import type { WalletInfo } from "./types"
@@ -21,9 +22,11 @@ export async function generateMetadata({ params }: WalletPageProps) {
 async function loadLedger(wallet: WalletInfo): Promise<WalletLedger | null> {
   if (wallet.kind !== "general") return null
   const params = { id: wallet.id }
-  const [entriesRes, categoriesRes, currentUser, t] = await Promise.all([
+  const [entriesRes, categoriesRes, walletsRes, currentUser, t] = await Promise.all([
     apiGet({ url: "/wallets/{id}/entries", params }),
     apiGet({ url: "/wallets/{id}/categories", params }),
+    // 轉帳的對方錢包選單; 取不到時只是不能轉帳, 不擋整頁。
+    apiGet({ url: "/wallets/" }),
     getCurrentUser(),
     getT(walletsMessages),
   ])
@@ -31,6 +34,7 @@ async function loadLedger(wallet: WalletInfo): Promise<WalletLedger | null> {
   return {
     entries: entriesRes.status === "success" ? entriesRes.data : { list_data: [], next_cursor: null },
     categories: getApiListData(categoriesRes),
+    transferTargets: transferTargets(getApiListData(walletsRes), wallet.id),
     currentUserId: currentUser.data?.id ?? "",
     errorMessage: failed ? t("entriesFailed") : "",
   }

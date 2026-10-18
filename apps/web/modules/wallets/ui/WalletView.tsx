@@ -12,7 +12,7 @@ import {
   type WalletArea, walletCategoriesPath, walletHistoryPath, walletMembersPath, walletSettingsPath,
   walletsListPath,
 } from "../paths"
-import type { CategoryInfo, EntryPage, WalletInfo } from "../types"
+import type { CategoryInfo, EntryPage, TransferTarget, WalletInfo } from "../types"
 import Amount from "./Amount"
 import EntryList from "./EntryList"
 import LedgerDialogs, { type LedgerDialog } from "./LedgerDialogs"
@@ -23,6 +23,7 @@ import styles from "./wallets.module.css"
 export type WalletLedger = {
   entries: EntryPage
   categories: CategoryInfo[]
+  transferTargets: TransferTarget[]
   currentUserId: string
   errorMessage: string
 }
@@ -88,7 +89,8 @@ export default function WalletView({ wallet, area, ledger }: WalletViewProps) {
       <WalletLinks wallet={wallet} area={area} />
       {ledger && (
         <LedgerDialogs
-          wallet={wallet} categories={ledger.categories} currentUserId={ledger.currentUserId}
+          wallet={wallet} categories={ledger.categories} transferTargets={ledger.transferTargets}
+          currentUserId={ledger.currentUserId}
           dialog={dialog} onChange={setDialog} onSaved={handleSaved} onError={notifyError}
         />
       )}

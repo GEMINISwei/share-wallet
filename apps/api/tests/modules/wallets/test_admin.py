@@ -152,9 +152,7 @@ async def test_admin_create_wallet_without_admin_returns_422(client: AsyncClient
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize(
-    ("language", "first_expense"), [("zh-TW", "餐飲"), ("en", "Food")]
-)
+@pytest.mark.parametrize(("language", "first_expense"), [("zh-TW", "餐飲"), ("en", "Food")])
 async def test_admin_create_general_wallet_seeds_default_categories_in_request_language(
     client: AsyncClient, store: FakeStore, language: str, first_expense: str
 ):

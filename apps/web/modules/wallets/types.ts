@@ -34,11 +34,20 @@ export type WalletFormValues = {
 
 export type WalletFormErrors = Partial<Record<keyof WalletFormValues, string>>
 
-/** 記一筆與修改共用的表單值。全部是字串: 金額在送出前才轉換。 */
+export type TransferKind = Extract<EntryKind, "transfer_out" | "transfer_in">
+
+/** 轉帳的對方錢包選單的一項。 */
+export type TransferTarget = { id: string; name: string }
+
+/**
+ * 記一筆與修改共用的表單值 (收支與轉帳)。全部是字串: 金額在送出前才轉換。
+ * 收支用 `category_id`, 轉帳用 `counterpart_wallet_id`, 另一個留空。
+ */
 export type EntryFormValues = {
   kind: Exclude<EntryKind, "adjustment">
   amount: string
   category_id: string
+  counterpart_wallet_id: string
   entry_date: string
   note: string
 }

@@ -3,18 +3,25 @@
 import { type FormEvent, useState } from "react"
 import { FormDialog, SelectInput, TextInput, useActionSubmit } from "@/shared/ui"
 import { useLocale, useT } from "@/shared/i18n/context"
-import { createEntry, updateEntry } from "../actions"
-import { entryCategoryOptions } from "../capabilities"
+import { createEntry, createTransfer, updateEntry, updateTransfer } from "../actions"
+import { entryCategoryOptions, entryKindOptions, isTransfer } from "../capabilities"
 import { localToday } from "../format"
 import { walletsMessages } from "../i18n"
-import type { CategoryInfo, EntryFormErrors, EntryFormValues, EntryInfo } from "../types"
-import { hasErrors, toEntryRequest, validateEntryForm } from "../validation"
+import type {
+  CategoryInfo, EntryFormErrors, EntryFormValues, EntryInfo, TransferTarget,
+} from "../types"
+import {
+  hasErrors, toEntryRequest, toTransferRequest, toTransferUpdateRequest, validateEntryForm,
+} from "../validation"
 
 type EntryDialogProps = {
   walletId: string
-  /** 有值是修改 (只會是收入或支出), 沒有是記一筆。 */
+  /** 有值是修改 (收支或轉帳, 不會是調整), 沒有是記一筆。 */
   entry: EntryInfo | null
   categories: CategoryInfo[]
+  transferTargets: TransferTarget[]
+  /** 能不能建立轉帳 (見 `canTransfer`)。 */
+  transferable: boolean
   open: boolean
   onClose: () => void
   onSuccess: (message: string) => void
@@ -22,27 +29,41 @@ type EntryDialogProps = {
 }
 
 function initialValues(entry: EntryInfo | null): EntryFormValues {
+  const blank = { amount: "", category_id: "", counterpart_wallet_id: "", note: "" }
   if (!entry || entry.kind === "adjustment") {
-    return { kind: "expense", amount: "", category_id: "", entry_date: localToday(), note: "" }
+    return { ...blank, kind: "expense", entry_date: localToday() }
   }
   return {
     kind: entry.kind,
     amount: String(entry.amount),
     category_id: entry.category?.id ?? "",
+    counterpart_wallet_id: entry.counterpart_wallet?.id ?? "",
     entry_date: entry.entry_date,
     note: entry.note,
   }
 }
 
+/** 收支與轉帳走不同的端點; 修改轉帳只送金額、日期、備註。 */
+function saveAction(walletId: string, entry: EntryInfo | null, values: EntryFormValues) {
+  const { kind } = values
+  if (isTransfer(kind)) {
+    return entry
+      ? () => updateTransfer(walletId, entry.id, toTransferUpdateRequest(values))
+      : () => createTransfer(walletId, toTransferRequest({ ...values, kind }))
+  }
+  const data = toEntryRequest({ ...values, kind })
+  return entry ? () => updateEntry(walletId, entry.id, data) : () => createEntry(walletId, data)
+}
+
 export default function EntryDialog({
-  walletId, entry, categories, open, onClose, onSuccess, onError,
+  walletId, entry, categories, transferTargets, transferable, open, onClose, onSuccess, onError,
 }: EntryDialogProps) {
   const t = useT(walletsMessages)
   const locale = useLocale()
   const [values, setValues] = useState(() => initialValues(entry))
   const [errors, setErrors] = useState<EntryFormErrors>({})
   const { isPending, submit, fieldError } = useActionSubmit()
-  const options = entryCategoryOptions(categories, values.kind, entry)
+  const kinds = entryKindOptions(entry, transferable)
 
   function change(field: keyof EntryFormValues, value: string) {
     setValues((current) => ({ ...current, [field]: value }))
@@ -59,11 +80,7 @@ export default function EntryDialog({
     const found = validateEntryForm(values, locale)
     setErrors(found)
     if (hasErrors(found)) return
-    const data = toEntryRequest(values)
-    const run = entry
-      ? () => updateEntry(walletId, entry.id, data)
-      : () => createEntry(walletId, data)
-    submit(run, {
+    submit(saveAction(walletId, entry, values), {
       onSuccess: () => onSuccess(entry ? t("entryUpdated") : t("entryCreated")),
       onError,
       errorFallback: t("entryFailed"),
@@ -76,23 +93,39 @@ export default function EntryDialog({
       submitText={t("save")} pendingText={t("saving")} onClose={onClose} onSubmit={handleSubmit}
     >
       <SelectInput
-        label={t("entryKind")} value={values.kind} disabled={isPending}
-        options={[{ value: "expense", label: t("expense") }, { value: "income", label: t("income") }]}
+        label={t("entryKind")} value={values.kind} disabled={isPending || kinds.length < 2}
+        options={kinds.map((kind) => ({ value: kind, label: t(kind) }))}
         onChange={(value) => changeKind(value as EntryFormValues["kind"])}
       />
       <TextInput
         label={t("amount")} value={values.amount} required disabled={isPending} autoFocus
         error={errors.amount ?? fieldError("amount")} onChange={(value) => change("amount", value)}
       />
-      <SelectInput
-        label={t("category")} value={values.category_id} required disabled={isPending}
-        error={errors.category_id ?? fieldError("category_id")}
-        options={[
-          { value: "", label: t("categoryPlaceholder") },
-          ...options.map((option) => ({ value: option.id, label: option.name })),
-        ]}
-        onChange={(value) => change("category_id", value)}
-      />
+      {isTransfer(values.kind) ? (
+        <SelectInput
+          label={t("counterpartWallet")} value={values.counterpart_wallet_id} required
+          // 轉帳不能換對方錢包, 轉錯就刪掉重記 (見 docs/features.md〈轉帳〉)。
+          disabled={isPending || entry !== null}
+          error={errors.counterpart_wallet_id ?? fieldError("counterpart_wallet_id")}
+          options={[
+            { value: "", label: t("categoryPlaceholder") },
+            ...(entry?.counterpart_wallet ? [entry.counterpart_wallet] : transferTargets)
+              .map((target) => ({ value: target.id, label: target.name })),
+          ]}
+          onChange={(value) => change("counterpart_wallet_id", value)}
+        />
+      ) : (
+        <SelectInput
+          label={t("category")} value={values.category_id} required disabled={isPending}
+          error={errors.category_id ?? fieldError("category_id")}
+          options={[
+            { value: "", label: t("categoryPlaceholder") },
+            ...entryCategoryOptions(categories, values.kind, entry)
+              .map((option) => ({ value: option.id, label: option.name })),
+          ]}
+          onChange={(value) => change("category_id", value)}
+        />
+      )}
       <TextInput
         label={t("entryDate")} type="date" value={values.entry_date} required disabled={isPending}
         error={errors.entry_date ?? fieldError("entry_date")}

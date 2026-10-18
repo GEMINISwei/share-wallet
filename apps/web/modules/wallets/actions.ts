@@ -109,6 +109,26 @@ export async function deleteEntry(id: string, entryId: string) {
   })
 }
 
+export async function createTransfer(
+  id: string,
+  data: ApiRequestBody<"/wallets/{id}/transfers", "post">,
+) {
+  return apiPost({ url: "/wallets/{id}/transfers", params: { id }, data, refresh: refreshWallets })
+}
+
+export async function updateTransfer(
+  id: string,
+  entryId: string,
+  data: ApiRequestBody<"/wallets/{id}/transfers/{entry_id}", "patch">,
+) {
+  return apiPatch({
+    url: "/wallets/{id}/transfers/{entry_id}",
+    params: { id, entry_id: entryId },
+    data,
+    refresh: refreshWallets,
+  })
+}
+
 export async function adjustBalance(
   id: string,
   data: ApiRequestBody<"/wallets/{id}/adjustments", "post">,

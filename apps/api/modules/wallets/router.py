@@ -7,7 +7,7 @@ from shared.auth.contracts import CurrentUser
 from shared.auth.dependency import check_user_permission
 from shared.http.schema import PaginationParams
 
-from . import admin, categories, entries, entry_logs, invites, members, service
+from . import admin, categories, entries, entry_logs, invites, members, service, transfers
 from .model import WalletKind
 from .schema import (
     AdminWalletCreate,
@@ -29,6 +29,8 @@ from .schema import (
     MemberList,
     MemberOperate,
     MemberRoleUpdate,
+    TransferCreate,
+    TransferUpdate,
     UuidText,
     WalletCreate,
     WalletInfo,
@@ -187,6 +189,27 @@ async def adjust_balance_route(
     return await entries.adjust_balance(id, form_data, current_user)
 
 
+@router.post("/{id}/transfers")
+async def create_transfer_route(
+    id: UuidText,
+    form_data: TransferCreate,
+    current_user: CurrentUser = Depends(check_user_permission()),
+) -> EntryOperate:
+    """記一筆轉帳, 兩個錢包各記一筆、餘額一起更新。要同時是兩個錢包的成員。"""
+    return await transfers.create_transfer(id, form_data, current_user)
+
+
+@router.patch("/{id}/transfers/{entry_id}")
+async def update_transfer_route(
+    id: UuidText,
+    entry_id: UuidText,
+    form_data: TransferUpdate,
+    current_user: CurrentUser = Depends(check_user_permission()),
+) -> EntryOperate:
+    """修改轉帳的金額、日期、備註, 兩邊一起改。要在兩個錢包都有改刪權限; 對方錢包已刪除時不能改。"""
+    return await transfers.update_transfer(id, entry_id, form_data, current_user)
+
+
 @router.patch("/{id}/entries/{entry_id}")
 async def update_entry_route(
     id: UuidText,
@@ -204,7 +227,10 @@ async def delete_entry_route(
     entry_id: UuidText,
     current_user: CurrentUser = Depends(check_user_permission()),
 ) -> EntryOperate:
-    """刪除自己記的帳; 錢包管理者可以刪除任何人的。餘額反向套用。"""
+    """刪除自己記的帳; 錢包管理者可以刪除任何人的。餘額反向套用。
+
+    轉帳兩邊一起刪, 要在兩個錢包都有改刪權限; 對方錢包已刪除時只刪這一邊。
+    """
     return await entries.delete_entry(id, entry_id, current_user)
 
 

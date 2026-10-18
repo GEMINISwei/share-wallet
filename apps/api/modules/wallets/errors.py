@@ -38,3 +38,26 @@ class WalletError(BaseError):
         zh="調整不能修改，請刪除後重新調整",
         en="Adjustments cannot be edited. Delete it and adjust again",
     )
+    ENTRY_KIND_IMMUTABLE = LangText(
+        zh="轉帳與收支不能互相切換", en="Transfers and income or expenses cannot be switched"
+    )
+    TRANSFER_SAME_WALLET = LangText(
+        zh="不能轉給同一個錢包", en="Cannot transfer to the same wallet"
+    )
+    # 沒加入也回這個: 跟 NOT_FOUND 一樣不透露別人的錢包存不存在。
+    TRANSFER_WALLET_NOT_FOUND = LangText(zh="對方錢包不存在", en="The other wallet was not found")
+    TRANSFER_NOT_GENERAL = LangText(
+        zh="只能轉到一般錢包", en="You can only transfer to a general wallet"
+    )
+    TRANSFER_NOT_MEMBER = LangText(
+        zh="要同時是兩個錢包的成員才能轉帳",
+        en="You need to be a member of both wallets to transfer",
+    )
+    TRANSFER_NO_ACCESS = LangText(
+        zh="要在兩個錢包都有權限才能修改、刪除這筆轉帳",
+        en="You need permission in both wallets to change this transfer",
+    )
+    TRANSFER_ORPHAN_IMMUTABLE = LangText(
+        zh="對方錢包已刪除，這筆轉帳只能刪除",
+        en="The other wallet was deleted. This transfer can only be deleted",
+    )

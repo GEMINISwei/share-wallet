@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest"
 import {
   canConfirmDelete, hasErrors, parseAmount, parsePositiveAmount, toAdjustRequest,
-  toAdminCreateRequest, toCreateRequest, toEntryRequest, toUpdateRequest, validateAdjustForm,
+  toAdminCreateRequest, toCreateRequest, toEntryRequest, toTransferRequest, toTransferUpdateRequest,
+  toUpdateRequest, validateAdjustForm,
   validateAdminUser, validateEntryForm, validateWalletForm,
 } from "@/modules/wallets/validation"
 import type { AdjustFormValues, EntryFormValues, WalletFormValues } from "@/modules/wallets/types"
@@ -92,9 +93,10 @@ describe("後台建立錢包", () => {
   })
 })
 
-const ENTRY: EntryFormValues = {
-  kind: "expense", amount: "1,200", category_id: "food", entry_date: "2026-10-18", note: " 午餐 ",
-}
+const ENTRY = {
+  kind: "expense", amount: "1,200", category_id: "food", counterpart_wallet_id: "",
+  entry_date: "2026-10-18", note: " 午餐 ",
+} satisfies EntryFormValues
 
 describe("validateEntryForm", () => {
   it("金額要是正整數", () => {
@@ -122,6 +124,30 @@ describe("validateEntryForm", () => {
     expect(hasErrors(validateEntryForm(ENTRY, "zh"))).toBe(false)
     expect(toEntryRequest(ENTRY)).toEqual({
       kind: "expense", amount: 1200, category_id: "food", entry_date: "2026-10-18", note: "午餐",
+    })
+  })
+})
+
+describe("validateEntryForm (轉帳)", () => {
+  const TRANSFER = {
+    ...ENTRY, kind: "transfer_out", category_id: "", counterpart_wallet_id: "w-2",
+  } satisfies EntryFormValues
+
+  it("轉帳要選對方錢包，不用選分類", () => {
+    expect(hasErrors(validateEntryForm(TRANSFER, "zh"))).toBe(false)
+    const errors = validateEntryForm({ ...TRANSFER, counterpart_wallet_id: "" }, "zh")
+    expect(errors.counterpart_wallet_id).toBe("請選擇對方錢包")
+    expect(errors.category_id).toBeUndefined()
+    expect(validateEntryForm(ENTRY, "zh").counterpart_wallet_id).toBeUndefined()
+  })
+
+  it("建立轉帳的請求帶對方錢包，修改只帶金額、日期、備註", () => {
+    expect(toTransferRequest(TRANSFER)).toEqual({
+      kind: "transfer_out", counterpart_wallet_id: "w-2", amount: 1200,
+      entry_date: "2026-10-18", note: "午餐",
+    })
+    expect(toTransferUpdateRequest(TRANSFER)).toEqual({
+      amount: 1200, entry_date: "2026-10-18", note: "午餐",
     })
   })
 })

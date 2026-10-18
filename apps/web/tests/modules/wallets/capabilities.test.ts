@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
-  adminsSummary, changedFields, entryActions, entryCategoryOptions, groupCategories, isLastAdmin,
-  memberActions, walletSections,
+  adminsSummary, canTransfer, changedFields, entryActions, entryCategoryOptions, entryKindOptions,
+  groupCategories, isLastAdmin, memberActions, transferTargets, walletSections,
 } from "@/modules/wallets/capabilities"
 import type {
   CategoryInfo, EntryInfo, EntryLogInfo, EntrySnapshot, MemberInfo, WalletInfo,
@@ -111,7 +111,7 @@ describe("adminsSummary", () => {
 function entry(overrides: Partial<EntryInfo>): EntryInfo {
   return {
     id: "e-1", kind: "expense", amount: 300, category: { id: "food", name: "餐飲" },
-    entry_date: "2026-10-18", note: "", created_by: { user_id: "bob", nickname: "Bob" },
+    counterpart_wallet: null, entry_date: "2026-10-18", note: "", created_by: { user_id: "bob", nickname: "Bob" },
     created_at: "2026-10-18T00:00:00Z", ...overrides,
   }
 }
@@ -182,5 +182,60 @@ describe("changedFields", () => {
   it("新增與刪除沒有改前改後", () => {
     expect(changedFields(log({ action: "create", before: null }))).toEqual([])
     expect(changedFields(log({ action: "delete", after: null }))).toEqual([])
+  })
+})
+
+const SAVINGS = { id: "w-2", name: "存款" }
+
+describe("transferTargets", () => {
+  it("對方錢包只列其他一般錢包，依列表順序", () => {
+    const wallets = [
+      wallet({ id: "w-1", name: "家用" }),
+      wallet({ id: "w-3", name: "旅遊", kind: "travel" }),
+      wallet({ id: "w-2", name: "存款" }),
+    ]
+    expect(transferTargets(wallets, "w-1")).toEqual([SAVINGS])
+  })
+})
+
+describe("canTransfer", () => {
+  it("沒加入這個錢包（超級管理者）或沒有對象時不能轉帳", () => {
+    expect(canTransfer(wallet({ my_role: "member" }), [SAVINGS])).toBe(true)
+    expect(canTransfer(wallet({ my_role: null, can_manage: true }), [SAVINGS])).toBe(false)
+    expect(canTransfer(wallet({ my_role: "admin" }), [])).toBe(false)
+  })
+})
+
+describe("entryKindOptions", () => {
+  it("記一筆時可以轉帳才列出轉出與轉入", () => {
+    expect(entryKindOptions(null, true)).toEqual(["expense", "income", "transfer_out", "transfer_in"])
+    expect(entryKindOptions(null, false)).toEqual(["expense", "income"])
+  })
+
+  it("修改時收支只能互換，轉帳不能切換類型", () => {
+    expect(entryKindOptions(entry({ kind: "income" }), true)).toEqual(["expense", "income"])
+    const transfer = entry({ kind: "transfer_in", category: null, counterpart_wallet: SAVINGS })
+    expect(entryKindOptions(transfer, true)).toEqual(["transfer_in"])
+  })
+})
+
+describe("entryActions (轉帳)", () => {
+  const viewer = { userId: "bob", canManage: false }
+
+  it("轉帳可以修改刪除", () => {
+    const transfer = entry({ kind: "transfer_out", category: null, counterpart_wallet: SAVINGS })
+    expect(entryActions(transfer, viewer)).toEqual({ edit: true, delete: true })
+  })
+
+  it("對方錢包已刪除的轉帳只能刪除", () => {
+    const orphan = entry({ kind: "transfer_out", category: null, counterpart_wallet: null })
+    expect(entryActions(orphan, viewer)).toEqual({ edit: false, delete: true })
+  })
+})
+
+describe("entryCategoryOptions (轉帳)", () => {
+  it("轉帳沒有分類可選", () => {
+    const categories = [{ id: "food", name: "餐飲", type: "expense" as const }]
+    expect(entryCategoryOptions(categories, "transfer_out", null)).toEqual([])
   })
 })

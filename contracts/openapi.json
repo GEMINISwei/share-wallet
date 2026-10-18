@@ -429,7 +429,7 @@
         "type": "object"
       },
       "EntryInfo": {
-        "description": "一筆帳。收入與支出的 `amount` 是正數; 調整的 `amount` 是差額, 可以是負的。",
+        "description": "一筆帳。收入、支出與轉帳的 `amount` 是正數; 調整的 `amount` 是差額, 可以是負的。",
         "properties": {
           "amount": {
             "title": "Amount",
@@ -439,6 +439,16 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/EntryCategory"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "counterpart_wallet": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EntryWallet"
               },
               {
                 "type": "null"
@@ -475,6 +485,7 @@
           "kind",
           "amount",
           "category",
+          "counterpart_wallet",
           "entry_date",
           "note",
           "created_by",
@@ -488,7 +499,9 @@
         "enum": [
           "income",
           "expense",
-          "adjustment"
+          "adjustment",
+          "transfer_out",
+          "transfer_in"
         ],
         "title": "EntryKind",
         "type": "string"
@@ -657,7 +670,7 @@
         "type": "object"
       },
       "EntrySnapshot": {
-        "description": "異動當時的帳目內容。`category_name` 是當時的分類名稱。",
+        "description": "異動當時的帳目內容。`category_name`、`counterpart_wallet_name` 是當時的名稱。",
         "properties": {
           "amount": {
             "title": "Amount",
@@ -673,6 +686,17 @@
               }
             ],
             "title": "Category Name"
+          },
+          "counterpart_wallet_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Counterpart Wallet Name"
           },
           "entry_date": {
             "format": "date",
@@ -755,6 +779,24 @@
           "nickname"
         ],
         "title": "EntryUser",
+        "type": "object"
+      },
+      "EntryWallet": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "EntryWallet",
         "type": "object"
       },
       "GeneralWalletCreate": {
@@ -1339,6 +1381,76 @@
           "nickname"
         ],
         "title": "SignupRequest",
+        "type": "object"
+      },
+      "TransferCreate": {
+        "description": "記一筆轉帳: `transfer_out` 是從這個錢包轉到對方, `transfer_in` 是從對方轉進來。\n\n兩個錢包各記一筆, 一起建立、一起修改、一起刪除。要同時是兩個錢包的成員。",
+        "properties": {
+          "amount": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 9007199254740991.0,
+            "title": "Amount",
+            "type": "integer"
+          },
+          "counterpart_wallet_id": {
+            "title": "Counterpart Wallet Id",
+            "type": "string"
+          },
+          "entry_date": {
+            "format": "date",
+            "title": "Entry Date",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "transfer_out",
+              "transfer_in"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "maxLength": 200,
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "counterpart_wallet_id",
+          "amount",
+          "entry_date"
+        ],
+        "title": "TransferCreate",
+        "type": "object"
+      },
+      "TransferUpdate": {
+        "description": "修改轉帳, 兩邊一起改。不能換對方錢包, 也不能切換轉出與轉入。",
+        "properties": {
+          "amount": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 9007199254740991.0,
+            "title": "Amount",
+            "type": "integer"
+          },
+          "entry_date": {
+            "format": "date",
+            "title": "Entry Date",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "maxLength": 200,
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "amount",
+          "entry_date"
+        ],
+        "title": "TransferUpdate",
         "type": "object"
       },
       "TravelWalletCreate": {
@@ -3771,7 +3883,7 @@
     },
     "/api/wallets/{id}/entries/{entry_id}": {
       "delete": {
-        "description": "刪除自己記的帳; 錢包管理者可以刪除任何人的。餘額反向套用。",
+        "description": "刪除自己記的帳; 錢包管理者可以刪除任何人的。餘額反向套用。\n\n轉帳兩邊一起刪, 要在兩個錢包都有改刪權限; 對方錢包已刪除時只刪這一邊。",
         "operationId": "delete_entry_route_api_wallets__id__entries__entry_id__delete",
         "parameters": [
           {
@@ -4279,6 +4391,121 @@
           }
         },
         "summary": "Update Member Role Route",
+        "tags": [
+          "wallets"
+        ]
+      }
+    },
+    "/api/wallets/{id}/transfers": {
+      "post": {
+        "description": "記一筆轉帳, 兩個錢包各記一筆、餘額一起更新。要同時是兩個錢包的成員。",
+        "operationId": "create_transfer_route_api_wallets__id__transfers_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "title": "Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransferCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntryOperate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Transfer Route",
+        "tags": [
+          "wallets"
+        ]
+      }
+    },
+    "/api/wallets/{id}/transfers/{entry_id}": {
+      "patch": {
+        "description": "修改轉帳的金額、日期、備註, 兩邊一起改。要在兩個錢包都有改刪權限; 對方錢包已刪除時不能改。",
+        "operationId": "update_transfer_route_api_wallets__id__transfers__entry_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "title": "Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "title": "Entry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransferUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntryOperate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Transfer Route",
         "tags": [
           "wallets"
         ]

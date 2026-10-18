@@ -1,4 +1,4 @@
-"""帳目的異動紀錄: 一筆帳的歷史、整個錢包的紀錄。寫入在 `entries.py`。
+"""帳目的異動紀錄: 一筆帳的歷史、整個錢包的紀錄。寫入在 `ledger.py`。
 
 所有成員都看得到 (見 docs/features.md〈紀錄〉), 所以只檢查打不打得開錢包。
 """
@@ -7,8 +7,8 @@ from modules.users.public import find_nicknames
 from shared.auth.contracts import CurrentUser
 from shared.http.errors import LangException
 
-from .entries import open_general_wallet
 from .errors import WalletError
+from .ledger import open_general_wallet
 from .model import EntryLogDetail, WalletEntryLogTable
 from .schema import EntryLogInfo, EntryLogList, EntryLogPage, EntrySnapshot, EntryUser
 

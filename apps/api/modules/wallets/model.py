@@ -26,7 +26,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, aliased, mapped_column
 
 from shared.db.query import ilike_contains
 from shared.db.session import resolve_session
@@ -62,6 +62,12 @@ class EntryKind(StrEnum):
     INCOME = "income"
     EXPENSE = "expense"
     ADJUSTMENT = "adjustment"
+    TRANSFER_OUT = "transfer_out"
+    TRANSFER_IN = "transfer_in"
+
+
+#: 轉帳的兩邊。一筆轉帳在兩個錢包各有一筆帳, 以 `transfer_id` 連在一起。
+TRANSFER_KINDS = frozenset({EntryKind.TRANSFER_OUT, EntryKind.TRANSFER_IN})
 
 
 class EntryLogAction(StrEnum):
@@ -479,11 +485,16 @@ class EntryDetail(TypedDict):
     id: str
     wallet_id: str
     kind: EntryKind
-    #: 收入與支出是正數; 調整是差額, 可以是負的。
+    #: 收入、支出與轉帳是正數; 調整是差額, 可以是負的。
     amount: int
     category_id: str | None
-    #: 分類目前的名稱 (含已封存的); 調整沒有分類。
+    #: 分類目前的名稱 (含已封存的); 只有收入與支出有分類。
     category_name: str | None
+    #: 轉帳的兩筆共用的 id; 不是轉帳時是 None。
+    transfer_id: str | None
+    #: 轉帳的對方錢包; 不是轉帳, 或對方錢包已刪除時是 None。
+    counterpart_wallet_id: str | None
+    counterpart_wallet_name: str | None
     entry_date: date
     note: str
     created_by: str
@@ -542,19 +553,40 @@ class WalletEntryTable(BaseTable):
     )
     entry_date: Mapped[date] = mapped_column(Date)
     note: Mapped[str] = mapped_column(String, default="")
+    # 轉帳的兩筆共用同一個值, 不設外鍵: 兩筆是對等的, 沒有哪一筆是另一筆的父。
+    transfer_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), default=None, index=True
+    )
+    # 對方錢包被刪除時設成 NULL 而不是連帶刪掉這一筆: 別人刪掉自己的錢包, 不該改到這個錢包的
+    # 帳與餘額 (見 docs/features.md〈轉帳〉)。
+    counterpart_wallet_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("wallets.id", ondelete="SET NULL"), default=None
+    )
     # 指向使用者而不是成員紀錄: 記帳人離開錢包後帳目照樣保留 (見 docs/features.md〈離開與移除〉)。
     # 不設 ON DELETE: 使用者只會被停用, 不會被刪除。
     created_by: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
 
     __table_args__ = (
-        CheckConstraint("kind IN ('income', 'expense', 'adjustment')", name="kind"),
+        CheckConstraint(
+            "kind IN ('income', 'expense', 'adjustment', 'transfer_out', 'transfer_in')",
+            name="kind",
+        ),
         # 只有調整的差額可以是負的 (見 docs/features.md〈金額〉)。
         CheckConstraint(
             "(kind = 'adjustment' AND amount <> 0) OR (kind <> 'adjustment' AND amount > 0)",
             name="amount",
         ),
         CheckConstraint(
-            "(kind = 'adjustment') = (category_id IS NULL)", name="category_only_for_income_expense"
+            "(kind IN ('income', 'expense')) = (category_id IS NOT NULL)",
+            name="category_only_for_income_expense",
+        ),
+        CheckConstraint(
+            "(kind IN ('transfer_out', 'transfer_in')) = (transfer_id IS NOT NULL)",
+            name="transfer_id_only_for_transfer",
+        ),
+        CheckConstraint(
+            "counterpart_wallet_id IS NULL OR kind IN ('transfer_out', 'transfer_in')",
+            name="counterpart_only_for_transfer",
         ),
         # 錢包頁的列表: 日期新到舊, 同一天依記帳時間新到舊 (見 `find_page`)。
         Index(
@@ -568,12 +600,17 @@ class WalletEntryTable(BaseTable):
 
     @classmethod
     def _detail_select(cls) -> Select:
-        return select(cls, WalletCategoryTable.name).outerjoin(
-            WalletCategoryTable, WalletCategoryTable.id == cls.category_id
+        counterpart = aliased(WalletTable)
+        return (
+            select(cls, WalletCategoryTable.name, counterpart.name)
+            .outerjoin(WalletCategoryTable, WalletCategoryTable.id == cls.category_id)
+            .outerjoin(counterpart, counterpart.id == cls.counterpart_wallet_id)
         )
 
     @staticmethod
-    def _detail(row: WalletEntryTable, category_name: str | None) -> EntryDetail:
+    def _detail(
+        row: WalletEntryTable, category_name: str | None, counterpart_name: str | None
+    ) -> EntryDetail:
         return {
             "id": str(row.id),
             "wallet_id": str(row.wallet_id),
@@ -583,9 +620,42 @@ class WalletEntryTable(BaseTable):
             "category_name": category_name,
             "entry_date": row.entry_date,
             "note": row.note,
+            "transfer_id": None if row.transfer_id is None else str(row.transfer_id),
+            "counterpart_wallet_id": (
+                None if row.counterpart_wallet_id is None else str(row.counterpart_wallet_id)
+            ),
+            "counterpart_wallet_name": counterpart_name,
             "created_by": str(row.created_by),
             "created_at": row.created_at,
         }
+
+    @classmethod
+    async def find_counterpart_wallet_id(cls, wallet_id: str, id: str) -> str | None:
+        """轉帳的對方錢包; 不是轉帳、對方已刪除或帳不存在時是 None。
+
+        改刪轉帳要先知道鎖哪兩個錢包, 所以在上鎖之前查。只選欄位, 不把帳目載進 session:
+        鎖好之後 `find_detail_in_wallet` 才是第一次載入, 讀到的是鎖之後的值
+        (理由同 `lock_balance`)。
+        """
+        wallet_uuid, row_id = parse_uuid(wallet_id), parse_uuid(id)
+        if wallet_uuid is None or row_id is None:
+            return None
+        found = await resolve_session(None).scalar(
+            select(cls.counterpart_wallet_id).where(cls.id == row_id, cls.wallet_id == wallet_uuid)
+        )
+        return None if found is None else str(found)
+
+    @classmethod
+    async def find_transfer_in_wallet(cls, wallet_id: str, transfer_id: str) -> EntryDetail | None:
+        """一筆轉帳在某個錢包的那一邊。"""
+        wallet_uuid, transfer_uuid = parse_uuid(wallet_id), parse_uuid(transfer_id)
+        if wallet_uuid is None or transfer_uuid is None:
+            return None
+        statement = cls._detail_select().where(
+            cls.transfer_id == transfer_uuid, cls.wallet_id == wallet_uuid
+        )
+        found = (await resolve_session(None).execute(statement)).first()
+        return None if found is None else cls._detail(*found)
 
     @classmethod
     async def find_detail_in_wallet(cls, wallet_id: str, id: str) -> EntryDetail | None:
@@ -621,7 +691,7 @@ class WalletEntryTable(BaseTable):
             statement = statement.where(tuple_(*keys) < tuple_(*after))
         statement = statement.order_by(*(key.desc() for key in keys)).limit(limit + 1)
         rows = (await resolve_session(None).execute(statement)).all()
-        page = [cls._detail(row, name) for row, name in rows[:limit]]
+        page = [cls._detail(*row) for row in rows[:limit]]
         last = rows[limit - 1][0] if len(rows) > limit else None
         next_cursor = (
             None if last is None else _encode_keys(last.entry_date, last.created_at, last.id)
