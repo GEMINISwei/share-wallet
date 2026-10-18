@@ -7,13 +7,16 @@ type Page<T> = { list_data: T[]; next_cursor: string | null }
 
 /**
  * 「載入更多」: 第一頁由伺服器 render, 之後的頁接在後面。第一頁換了 (記帳後 `router.refresh()`)
- * 時呼叫端要用 `key` 重新掛載, 不然接在後面的舊頁會跟新的第一頁重複或過時。
+ * 就丟掉接在後面的頁: 它們不會跟著更新, 留著會跟新的第一頁重複或過時。
+ * 不靠呼叫端換 `key` 重新掛載: 寫入成功當下重新掛載時 refresh 還沒回來, 拿到的仍是舊的第一頁。
  */
 export function useLoadMore<T>(
   first: Page<T>,
   load: (cursor: string) => Promise<ApiResponse<Page<T>>>,
 ) {
-  const [pages, setPages] = useState<Page<T>[]>([first])
+  const [loaded, setLoaded] = useState<{ first: Page<T>; more: Page<T>[] }>({ first, more: [] })
+  if (loaded.first !== first) setLoaded({ first, more: [] })
+  const pages = loaded.first === first ? [first, ...loaded.more] : [first]
   const [failed, setFailed] = useState(false)
   const [isPending, startTransition] = useTransition()
   const cursor = pages[pages.length - 1].next_cursor
@@ -27,7 +30,7 @@ export function useLoadMore<T>(
         setFailed(true)
         return
       }
-      setPages((current) => [...current, res.data])
+      setLoaded((current) => ({ ...current, more: [...current.more, res.data] }))
     })
   }
 

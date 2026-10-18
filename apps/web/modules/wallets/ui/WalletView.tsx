@@ -33,8 +33,6 @@ export default function WalletView({ wallet, area, ledger }: WalletViewProps) {
   const t = useT(walletsMessages)
   const router = useRouter()
   const [dialog, setDialog] = useState<LedgerDialog>(null)
-  // 每次寫入成功就換一個 key 讓列表重新掛載: 「載入更多」接上的頁不會跟著 refresh 更新。
-  const [version, setVersion] = useState(0)
   const { notify, notifyError, notifySuccess, closeNotify } = useNotify()
   const isTravel = wallet.kind === "travel"
   const subtitle = isTravel
@@ -43,7 +41,6 @@ export default function WalletView({ wallet, area, ledger }: WalletViewProps) {
 
   function handleSaved(message: string) {
     setDialog(null)
-    setVersion((current) => current + 1)
     notifySuccess(message)
     router.refresh()
   }
@@ -82,7 +79,7 @@ export default function WalletView({ wallet, area, ledger }: WalletViewProps) {
             ? <ErrorState>{ledger.errorMessage}</ErrorState>
             : (
               <EntryList
-                key={version} walletId={wallet.id} firstPage={ledger.entries}
+                walletId={wallet.id} firstPage={ledger.entries}
                 onOpen={(entry) => setDialog({ kind: "detail", entry })}
               />
             )}
