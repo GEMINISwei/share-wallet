@@ -1,6 +1,13 @@
 from shared.module import ModuleManifest
 
-from .model import WalletCategoryTable, WalletInviteTable, WalletMemberTable, WalletTable
+from .model import (
+    WalletCategoryTable,
+    WalletEntryLogTable,
+    WalletEntryTable,
+    WalletInviteTable,
+    WalletMemberTable,
+    WalletTable,
+)
 from .router import admin_router, invite_router, router
 
 # 沒有 permissions: 錢包功能不設全站權限 (見 docs/features.md〈不設全站權限〉);
@@ -8,5 +15,12 @@ from .router import admin_router, invite_router, router
 MODULE = ModuleManifest(
     name="wallets",
     routers=(router, admin_router, invite_router),
-    tables=(WalletTable, WalletMemberTable, WalletCategoryTable, WalletInviteTable),
+    tables=(
+        WalletTable,
+        WalletMemberTable,
+        WalletCategoryTable,
+        WalletInviteTable,
+        WalletEntryTable,
+        WalletEntryLogTable,
+    ),
 )

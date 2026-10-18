@@ -12,6 +12,12 @@ export type WalletAdmin = Schema<"WalletAdmin">
 export type UserOption = Schema<"UserOption">
 export type InviteInfo = Schema<"InviteInfo">
 export type InvitePreview = Schema<"InvitePreview">
+export type EntryInfo = Schema<"EntryInfo">
+export type EntryKind = Schema<"EntryKind">
+export type EntryPage = Schema<"EntryPage">
+export type EntryLogInfo = Schema<"EntryLogInfo">
+export type EntryLogPage = Schema<"EntryLogPage">
+export type EntrySnapshot = Schema<"EntrySnapshot">
 
 /** 後台列表的篩選條件 (網址參數)。空字串代表不篩選。 */
 export type AdminWalletFilters = { name: string; kind: WalletKind | "" }
@@ -27,3 +33,18 @@ export type WalletFormValues = {
 }
 
 export type WalletFormErrors = Partial<Record<keyof WalletFormValues, string>>
+
+/** 記一筆與修改共用的表單值。全部是字串: 金額在送出前才轉換。 */
+export type EntryFormValues = {
+  kind: Exclude<EntryKind, "adjustment">
+  amount: string
+  category_id: string
+  entry_date: string
+  note: string
+}
+
+export type EntryFormErrors = Partial<Record<keyof EntryFormValues, string>>
+
+export type AdjustFormValues = { balance: string; entry_date: string; note: string }
+
+export type AdjustFormErrors = Partial<Record<keyof AdjustFormValues, string>>

@@ -18,6 +18,10 @@ export {
   generateMetadata as generateWalletCategoriesMetadata,
 } from "./categories-page.server"
 export {
+  default as WalletHistoryPage, AdminWalletHistoryPage,
+  generateMetadata as generateWalletHistoryMetadata,
+} from "./history-page.server"
+export {
   default as AdminWalletsPage, generateMetadata as generateAdminWalletsMetadata,
 } from "./admin-page.server"
 export type { AdminWalletsPageProps } from "./admin-page.server"

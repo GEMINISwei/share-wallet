@@ -7,15 +7,22 @@ from shared.auth.contracts import CurrentUser
 from shared.auth.dependency import check_user_permission
 from shared.http.schema import PaginationParams
 
-from . import admin, categories, invites, members, service
+from . import admin, categories, entries, entry_logs, invites, members, service
 from .model import WalletKind
 from .schema import (
     AdminWalletCreate,
     AdminWalletList,
+    BalanceAdjust,
     CategoryCreate,
     CategoryList,
     CategoryOperate,
     CategoryRename,
+    EntryCreate,
+    EntryLogList,
+    EntryLogPage,
+    EntryOperate,
+    EntryPage,
+    EntryUpdate,
     InviteInfo,
     InvitePreview,
     InviteState,
@@ -142,6 +149,84 @@ async def archive_category_route(
 ) -> CategoryOperate:
     """刪除分類。分類會被封存: 不再出現在清單上, 舊帳仍顯示原本的名稱。"""
     return await categories.archive_category(id, category_id, current_user)
+
+
+# 「載入更多」一次取的筆數。
+PageLimit = Annotated[int, Query(ge=1, le=100)]
+PageCursor = Annotated[str | None, Query(max_length=500)]
+
+
+@router.get("/{id}/entries")
+async def get_entry_list_route(
+    id: UuidText,
+    limit: PageLimit = 20,
+    cursor: PageCursor = None,
+    current_user: CurrentUser = Depends(check_user_permission()),
+) -> EntryPage:
+    """一般錢包的帳目, 日期新到舊、同一天依記帳時間新到舊。下一頁帶上一頁的 `next_cursor`。"""
+    return await entries.list_entries(id, current_user, limit=limit, cursor=cursor)
+
+
+@router.post("/{id}/entries")
+async def create_entry_route(
+    id: UuidText,
+    form_data: EntryCreate,
+    current_user: CurrentUser = Depends(check_user_permission()),
+) -> EntryOperate:
+    """記一筆收入或支出, 餘額隨即更新。"""
+    return await entries.create_entry(id, form_data, current_user)
+
+
+@router.post("/{id}/adjustments")
+async def adjust_balance_route(
+    id: UuidText,
+    form_data: BalanceAdjust,
+    current_user: CurrentUser = Depends(check_user_permission()),
+) -> EntryOperate:
+    """把餘額調整成實際餘額, 記成一筆差額。餘額沒有變化時回 400。"""
+    return await entries.adjust_balance(id, form_data, current_user)
+
+
+@router.patch("/{id}/entries/{entry_id}")
+async def update_entry_route(
+    id: UuidText,
+    entry_id: UuidText,
+    form_data: EntryUpdate,
+    current_user: CurrentUser = Depends(check_user_permission()),
+) -> EntryOperate:
+    """修改自己記的收入或支出; 錢包管理者可以修改任何人的。調整不能修改。"""
+    return await entries.update_entry(id, entry_id, form_data, current_user)
+
+
+@router.delete("/{id}/entries/{entry_id}")
+async def delete_entry_route(
+    id: UuidText,
+    entry_id: UuidText,
+    current_user: CurrentUser = Depends(check_user_permission()),
+) -> EntryOperate:
+    """刪除自己記的帳; 錢包管理者可以刪除任何人的。餘額反向套用。"""
+    return await entries.delete_entry(id, entry_id, current_user)
+
+
+@router.get("/{id}/entries/{entry_id}/logs")
+async def get_entry_log_list_route(
+    id: UuidText,
+    entry_id: UuidText,
+    current_user: CurrentUser = Depends(check_user_permission()),
+) -> EntryLogList:
+    """一筆帳的異動紀錄, 新到舊。已刪除的帳也查得到。"""
+    return await entry_logs.list_entry_logs(id, entry_id, current_user)
+
+
+@router.get("/{id}/entry-logs")
+async def get_wallet_entry_log_list_route(
+    id: UuidText,
+    limit: PageLimit = 20,
+    cursor: PageCursor = None,
+    current_user: CurrentUser = Depends(check_user_permission()),
+) -> EntryLogPage:
+    """整個錢包的帳目異動紀錄, 新到舊, 包含已刪除的帳。"""
+    return await entry_logs.list_wallet_logs(id, current_user, limit=limit, cursor=cursor)
 
 
 @router.get("/{id}/invite")
