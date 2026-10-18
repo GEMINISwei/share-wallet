@@ -28,4 +28,4 @@
 
 ## [0.0.0]
 
-- 專案初始化：FastAPI + Next.js 全端模板，含認證、使用者與角色權限、多語系、Mirgation 機制。
+- 專案初始化：FastAPI + Next.js 全端模板，含認證、使用者與角色權限、多語系、Migration 機制。
