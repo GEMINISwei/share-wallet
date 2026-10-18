@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest"
 import {
-  adminsSummary, canTransfer, changedFields, entryActions, entryCategoryOptions, entryKindOptions,
-  groupCategories, isLastAdmin, memberActions, transferTargets, walletSections,
+  adminsSummary, canRepay, canTransfer, changedFields, entryActions, entryCategoryOptions,
+  entryKindOptions, groupCategories, isLastAdmin, memberActions, owingTargets, transferTargets,
+  walletSections,
 } from "@/modules/wallets/capabilities"
 import type {
   CategoryInfo, EntryInfo, EntryLogInfo, EntrySnapshot, MemberInfo, WalletInfo,
@@ -111,7 +112,8 @@ describe("adminsSummary", () => {
 function entry(overrides: Partial<EntryInfo>): EntryInfo {
   return {
     id: "e-1", kind: "expense", amount: 300, category: { id: "food", name: "餐飲" },
-    counterpart_wallet: null, entry_date: "2026-10-18", note: "", created_by: { user_id: "bob", nickname: "Bob" },
+    counterpart_wallet: null, advance_target_name: null, advance_id: null, outstanding: null,
+    entry_date: "2026-10-18", note: "", created_by: { user_id: "bob", nickname: "Bob" },
     created_at: "2026-10-18T00:00:00Z", ...overrides,
   }
 }
@@ -207,9 +209,15 @@ describe("canTransfer", () => {
 })
 
 describe("entryKindOptions", () => {
-  it("記一筆時可以轉帳才列出轉出與轉入", () => {
-    expect(entryKindOptions(null, true)).toEqual(["expense", "income", "transfer_out", "transfer_in"])
-    expect(entryKindOptions(null, false)).toEqual(["expense", "income"])
+  it("記一筆時可以轉帳才列出轉出與轉入，代墊一律列出", () => {
+    expect(entryKindOptions(null, true))
+      .toEqual(["expense", "income", "advance", "transfer_out", "transfer_in"])
+    expect(entryKindOptions(null, false)).toEqual(["expense", "income", "advance"])
+  })
+
+  it("修改代墊不能切換類型", () => {
+    const advance = entry({ kind: "advance", category: null, advance_target_name: "小明", outstanding: 500 })
+    expect(entryKindOptions(advance, true)).toEqual(["advance"])
   })
 
   it("修改時收支只能互換，轉帳不能切換類型", () => {
@@ -237,5 +245,51 @@ describe("entryCategoryOptions (轉帳)", () => {
   it("轉帳沒有分類可選", () => {
     const categories = [{ id: "food", name: "餐飲", type: "expense" as const }]
     expect(entryCategoryOptions(categories, "transfer_out", null)).toEqual([])
+  })
+})
+
+describe("entryCategoryOptions (代墊)", () => {
+  it("代墊沒有分類可選", () => {
+    const categories = [{ id: "food", name: "餐飲", type: "expense" as const }]
+    expect(entryCategoryOptions(categories, "advance", null)).toEqual([])
+  })
+})
+
+describe("canRepay", () => {
+  const advance = entry({ kind: "advance", category: null, advance_target_name: "小明" })
+
+  it("還有未還金額的代墊才能還款", () => {
+    expect(canRepay({ ...advance, outstanding: 300 })).toBe(true)
+    expect(canRepay({ ...advance, outstanding: 0 })).toBe(false)
+  })
+
+  it("代墊以外的帳不能還款", () => {
+    expect(canRepay(entry({}))).toBe(false)
+    expect(canRepay(entry({ kind: "repayment", category: null, advance_id: "e-0" }))).toBe(false)
+  })
+})
+
+describe("owingTargets", () => {
+  it("未還清單只列未還大於 0 的人", () => {
+    const targets = [
+      { name: "小明", outstanding: 0 },
+      { name: "小華", outstanding: 1200 },
+    ]
+    expect(owingTargets(targets)).toEqual([{ name: "小華", outstanding: 1200 }])
+  })
+})
+
+describe("changedFields (代墊)", () => {
+  it("快照裡的對象也比對", () => {
+    const before: EntrySnapshot = {
+      kind: "advance", amount: 500, category_name: null, advance_target_name: "小明",
+      entry_date: "2026-10-18", note: "",
+    }
+    const log: EntryLogInfo = {
+      id: "l-1", entry_id: "e-1", action: "update", actor: { user_id: "bob", nickname: "Bob" },
+      as_super_admin: false, before, after: { ...before, advance_target_name: "小華" },
+      created_at: "2026-10-18T00:00:00Z",
+    }
+    expect(changedFields(log)).toEqual(["advance_target_name"])
   })
 })

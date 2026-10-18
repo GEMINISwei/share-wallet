@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest"
 import {
   canConfirmDelete, hasErrors, parseAmount, parsePositiveAmount, toAdjustRequest,
-  toAdminCreateRequest, toCreateRequest, toEntryRequest, toTransferRequest, toTransferUpdateRequest,
-  toUpdateRequest, validateAdjustForm,
-  validateAdminUser, validateEntryForm, validateWalletForm,
+  toAdminCreateRequest, toAdvanceRequest, toCreateRequest, toEntryRequest, toMoneyRequest,
+  toTransferRequest, toTransferUpdateRequest, toUpdateRequest, validateAdjustForm,
+  validateAdminUser, validateEntryForm, validateRepayForm, validateWalletForm,
 } from "@/modules/wallets/validation"
-import type { AdjustFormValues, EntryFormValues, WalletFormValues } from "@/modules/wallets/types"
+import type {
+  AdjustFormValues, EntryFormValues, RepayFormValues, WalletFormValues,
+} from "@/modules/wallets/types"
 
 const GENERAL: WalletFormValues = {
   kind: "general", name: "家用", initial_balance: "", destination: "", start_date: "", end_date: "",
@@ -94,7 +96,7 @@ describe("後台建立錢包", () => {
 })
 
 const ENTRY = {
-  kind: "expense", amount: "1,200", category_id: "food", counterpart_wallet_id: "",
+  kind: "expense", amount: "1,200", category_id: "food", counterpart_wallet_id: "", target_name: "",
   entry_date: "2026-10-18", note: " 午餐 ",
 } satisfies EntryFormValues
 
@@ -164,5 +166,53 @@ describe("validateAdjustForm", () => {
   it("實際餘額要填整數", () => {
     expect(validateAdjustForm({ ...ADJUST, balance: " " }, "zh").balance).toBe("請輸入實際餘額")
     expect(validateAdjustForm({ ...ADJUST, balance: "1.5" }, "zh").balance).toBe("請輸入整數金額")
+  })
+})
+
+describe("validateEntryForm (代墊)", () => {
+  const ADVANCE = { ...ENTRY, kind: "advance", category_id: "", target_name: " 小明 " } satisfies EntryFormValues
+
+  it("代墊要填對象，不用選分類", () => {
+    expect(hasErrors(validateEntryForm(ADVANCE, "zh"))).toBe(false)
+    const errors = validateEntryForm({ ...ADVANCE, target_name: "  " }, "zh")
+    expect(errors.target_name).toBe("請輸入對象")
+    expect(errors.category_id).toBeUndefined()
+    expect(validateEntryForm(ENTRY, "zh").target_name).toBeUndefined()
+  })
+
+  it("對象最多 20 字", () => {
+    expect(validateEntryForm({ ...ADVANCE, target_name: "字".repeat(20) }, "zh").target_name)
+      .toBeUndefined()
+    expect(validateEntryForm({ ...ADVANCE, target_name: "字".repeat(21) }, "zh").target_name)
+      .toBe("對象最多 20 字")
+  })
+
+  it("建立代墊的請求帶對象，修改只帶金額、日期、備註", () => {
+    expect(toAdvanceRequest(ADVANCE)).toEqual({
+      target_name: "小明", amount: 1200, entry_date: "2026-10-18", note: "午餐",
+    })
+    expect(toMoneyRequest(ADVANCE)).toEqual({ amount: 1200, entry_date: "2026-10-18", note: "午餐" })
+  })
+})
+
+describe("validateRepayForm", () => {
+  const REPAY: RepayFormValues = { amount: "300", entry_date: "2026-10-18", note: "" }
+
+  it("還款不可超過未還金額", () => {
+    expect(hasErrors(validateRepayForm(REPAY, 300, "zh"))).toBe(false)
+    expect(validateRepayForm({ ...REPAY, amount: "301" }, 300, "zh").amount)
+      .toBe("還款不可超過未還金額 300")
+  })
+
+  it("修改還款時上限交給後端檢查", () => {
+    expect(hasErrors(validateRepayForm({ ...REPAY, amount: "99999" }, null, "zh"))).toBe(false)
+  })
+
+  it("金額要是正整數、日期必填", () => {
+    const errors = validateRepayForm({ ...REPAY, amount: "0", entry_date: "" }, 300, "zh")
+    expect(errors.amount).toBe("請輸入大於 0 的整數金額")
+    expect(errors.entry_date).toBe("請選擇日期")
+    expect(toMoneyRequest({ ...REPAY, note: " 現金 " }))
+      .toEqual({ amount: 300, entry_date: "2026-10-18", note: "現金" })
   })
 })
