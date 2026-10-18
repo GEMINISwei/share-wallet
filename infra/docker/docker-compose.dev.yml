@@ -1,5 +1,5 @@
 # api 與 migrate 掛同一組來源 (錨點只寫一次): 新增 migration 後不必重建 image,
-# 再跑一次 `make dev` 就會套用。migrate 漏掉 migrations/ 的話會說「沒有待執行的」。
+# 再跑一次 `make start` 就會套用。migrate 漏掉 migrations/ 的話會說「沒有待執行的」。
 #
 # 逐一列出而不是掛整個 apps/api: 整包會遮掉 image 裡的 .venv, 換成主機的 macOS 版本,
 # 症狀是看不出原因的 `exec format error`。
@@ -42,6 +42,6 @@ services:
 
 volumes:
   web_node_modules:
-    name: ${COMPOSE_PROJECT_NAME:?}_dev_web_node_modules
+    name: ${COMPOSE_PROJECT_NAME:?}_${MODE:?}_web_node_modules
   web_next_cache:
-    name: ${COMPOSE_PROJECT_NAME:?}_dev_web_next_cache
+    name: ${COMPOSE_PROJECT_NAME:?}_${MODE:?}_web_next_cache
