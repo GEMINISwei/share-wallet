@@ -1,6 +1,6 @@
 import type {
-  CategoryInfo, CategoryType, EntryInfo, EntryLogInfo, EntrySnapshot, MemberInfo, WalletAdmin,
-  WalletInfo,
+  CategoryInfo, CategoryType, EntryFormValues, EntryInfo, EntryKind, EntryLogInfo, EntrySnapshot,
+  MemberInfo, TransferKind, TransferTarget, WalletAdmin, WalletInfo,
 } from "./types"
 
 // 畫面上的分支。真正的授權在後端 (`modules/wallets/access.py`), 這裡只決定顯示哪些操作,
@@ -69,10 +69,43 @@ export function adminsSummary(admins: readonly WalletAdmin[]) {
   return { first: admins[0]?.nickname ?? "", count: admins.length, more: admins.length - 1 }
 }
 
-/** 這筆帳可以做的事。自己記的帳, 或管理者 (含超級管理者) 改任何人的; 調整只能刪不能改。 */
+export function isTransfer(kind: EntryKind): kind is TransferKind {
+  return kind === "transfer_out" || kind === "transfer_in"
+}
+
+/**
+ * 這筆帳可以做的事。自己記的帳, 或管理者 (含超級管理者) 改任何人的; 調整只能刪不能改,
+ * 對方錢包已刪除的轉帳也是。轉帳還要對方錢包的權限, 這裡看不到, 由後端擋。
+ */
 export function entryActions(entry: EntryInfo, viewer: Viewer) {
   const allowed = entry.created_by.user_id === viewer.userId || viewer.canManage
-  return { edit: allowed && entry.kind !== "adjustment", delete: allowed }
+  const orphan = isTransfer(entry.kind) && entry.counterpart_wallet === null
+  return { edit: allowed && entry.kind !== "adjustment" && !orphan, delete: allowed }
+}
+
+/** 轉帳的對方錢包選單: 自己加入的其他一般錢包, 依錢包列表的順序。 */
+export function transferTargets(
+  wallets: readonly WalletInfo[],
+  currentWalletId: string,
+): TransferTarget[] {
+  return wallets
+    .filter((wallet) => wallet.kind === "general" && wallet.id !== currentWalletId)
+    .map(({ id, name }) => ({ id, name }))
+}
+
+/** 建立轉帳要自己是這個錢包的成員 (超級管理者沒加入也不行), 而且有可以轉的對象。 */
+export function canTransfer(wallet: WalletInfo, targets: readonly TransferTarget[]) {
+  return wallet.my_role !== null && targets.length > 0
+}
+
+/** 記一筆能選的類型。修改時收支只能互換, 轉帳不能切換類型 (見 docs/features.md〈轉帳〉)。 */
+export function entryKindOptions(
+  entry: EntryInfo | null,
+  transferable: boolean,
+): EntryFormValues["kind"][] {
+  if (entry && isTransfer(entry.kind)) return [entry.kind]
+  if (entry || !transferable) return ["expense", "income"]
+  return ["expense", "income", "transfer_out", "transfer_in"]
 }
 
 type CategoryOption = { id: string; name: string }
@@ -83,9 +116,10 @@ type CategoryOption = { id: string; name: string }
  */
 export function entryCategoryOptions(
   categories: readonly CategoryInfo[],
-  type: CategoryType,
+  type: EntryFormValues["kind"],
   entry: EntryInfo | null,
 ): CategoryOption[] {
+  if (isTransfer(type)) return []
   const options = categories
     .filter((category) => category.type === type)
     .map(({ id, name }) => ({ id, name }))
@@ -94,11 +128,13 @@ export function entryCategoryOptions(
   return options
 }
 
-const SNAPSHOT_FIELDS = ["kind", "amount", "category_name", "entry_date", "note"] as const
+const SNAPSHOT_FIELDS = [
+  "kind", "amount", "category_name", "counterpart_wallet_name", "entry_date", "note",
+] as const
 
 /** 修改紀錄裡改了哪些欄位, 依畫面上的順序。新增與刪除沒有「改前改後」, 是空的。 */
 export function changedFields(log: EntryLogInfo): (keyof EntrySnapshot)[] {
   const { before, after } = log
   if (!before || !after) return []
-  return SNAPSHOT_FIELDS.filter((field) => before[field] !== after[field])
+  return SNAPSHOT_FIELDS.filter((field) => (before[field] ?? null) !== (after[field] ?? null))
 }

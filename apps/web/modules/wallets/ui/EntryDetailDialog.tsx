@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { Button, Modal } from "@/shared/ui"
 import { useLocale, useT } from "@/shared/i18n/context"
 import { loadEntryLogs } from "../actions"
-import { formatEntryDate, signedAmount } from "../format"
+import { counterpartName, formatEntryDate, signedAmount } from "../format"
 import { walletsMessages } from "../i18n"
 import type { EntryInfo, EntryLogInfo } from "../types"
 import Amount from "./Amount"
@@ -41,9 +41,12 @@ export default function EntryDetailDialog({
     return () => { cancelled = true }
   }, [walletId, entry.id])
 
+  const counterpart = counterpartName(entry.kind, entry.counterpart_wallet?.name, locale)
   const fields = [
     { label: t("entryKind"), value: t(entry.kind) },
-    { label: t("category"), value: entry.category?.name ?? t("emptyValue") },
+    counterpart === null
+      ? { label: t("category"), value: entry.category?.name ?? t("emptyValue") }
+      : { label: t("counterpartWallet"), value: counterpart },
     { label: t("entryDate"), value: formatEntryDate(entry.entry_date, locale) },
     { label: t("note"), value: entry.note || t("emptyValue") },
     { label: t("recordedBy"), value: entry.created_by.nickname },

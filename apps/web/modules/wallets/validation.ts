@@ -4,6 +4,7 @@
 import type { ApiRequestBody } from "@/shared/api/contract"
 import { translate, type Translator } from "@/shared/i18n/dictionary"
 import type { Locale } from "@/shared/i18n/locale"
+import { isTransfer } from "./capabilities"
 import { walletsMessages } from "./i18n"
 import type {
   AdjustFormErrors, AdjustFormValues, EntryFormErrors, EntryFormValues, WalletFormErrors,
@@ -15,6 +16,8 @@ type WalletUpdateRequest = ApiRequestBody<"/wallets/{id}", "patch">
 type AdminWalletCreateRequest = ApiRequestBody<"/admin/wallets/", "post">
 type EntryRequest = ApiRequestBody<"/wallets/{id}/entries", "post">
 type AdjustRequest = ApiRequestBody<"/wallets/{id}/adjustments", "post">
+type TransferRequest = ApiRequestBody<"/wallets/{id}/transfers", "post">
+type TransferUpdateRequest = ApiRequestBody<"/wallets/{id}/transfers/{entry_id}", "patch">
 
 /** 與後端 `EntryNote` 的上限相同。 */
 const NOTE_MAX_LENGTH = 200
@@ -67,24 +70,48 @@ function noteError(note: string, t: WalletsT) {
     : undefined
 }
 
+/** 收支要選分類, 轉帳要選對方錢包。 */
 export function validateEntryForm(values: EntryFormValues, locale: Locale): EntryFormErrors {
   const t = translate(walletsMessages, locale)
+  const transfer = isTransfer(values.kind)
   return {
     amount: parsePositiveAmount(values.amount) === null ? t("amountPositive") : undefined,
-    category_id: values.category_id ? undefined : t("categoryRequired"),
+    category_id: transfer || values.category_id ? undefined : t("categoryRequired"),
+    counterpart_wallet_id:
+      !transfer || values.counterpart_wallet_id ? undefined : t("counterpartRequired"),
     entry_date: values.entry_date ? undefined : t("dateRequired"),
     note: noteError(values.note, t),
   }
 }
 
-/** 已通過 `validateEntryForm` 的表單值 → 記一筆與修改的請求。 */
-export function toEntryRequest(values: EntryFormValues): EntryRequest {
+/** 已通過 `validateEntryForm` 的收支表單值 → 記一筆與修改的請求。 */
+export function toEntryRequest(values: EntryFormValues & { kind: EntryRequest["kind"] }): EntryRequest {
   return {
     kind: values.kind,
     amount: parsePositiveAmount(values.amount) ?? 0,
     category_id: values.category_id,
     entry_date: values.entry_date,
     note: values.note.trim(),
+  }
+}
+
+/** 已通過 `validateEntryForm` 的轉帳表單值 → 修改轉帳的請求 (只有金額、日期、備註)。 */
+export function toTransferUpdateRequest(values: EntryFormValues): TransferUpdateRequest {
+  return {
+    amount: parsePositiveAmount(values.amount) ?? 0,
+    entry_date: values.entry_date,
+    note: values.note.trim(),
+  }
+}
+
+/** 已通過 `validateEntryForm` 的轉帳表單值 → 記一筆轉帳的請求。 */
+export function toTransferRequest(
+  values: EntryFormValues & { kind: TransferRequest["kind"] },
+): TransferRequest {
+  return {
+    kind: values.kind,
+    counterpart_wallet_id: values.counterpart_wallet_id,
+    ...toTransferUpdateRequest(values),
   }
 }
 
