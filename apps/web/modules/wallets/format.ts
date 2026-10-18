@@ -25,18 +25,30 @@ export function formatDateTime(iso: string, locale: Locale, timeZone?: string) {
   }).format(new Date(iso))
 }
 
-/** 這筆帳讓餘額變多少: 支出與轉出是負的; 調整的金額本身就是帶正負號的差額。 */
+const OUTFLOW: readonly EntryKind[] = ["expense", "transfer_out", "advance"]
+
+/** 這筆帳讓餘額變多少: 支出、轉出與代墊是負的; 調整的金額本身就是帶正負號的差額。 */
 export function signedAmount(kind: EntryKind, amount: number) {
-  return kind === "expense" || kind === "transfer_out" ? -amount : amount
+  return OUTFLOW.includes(kind) ? -amount : amount
 }
 
-/** 列表上一筆帳的標題: 收支是分類, 轉帳是「轉出至 X／轉入自 Y」, 對方錢包已刪除時換成「已刪除的錢包」。 */
+const ADVANCE_TITLE: Partial<Record<EntryKind, "advanceTo" | "repaymentFrom">> = {
+  advance: "advanceTo", repayment: "repaymentFrom",
+}
+
+/**
+ * 列表上一筆帳的標題: 收支是分類, 轉帳是「轉出至 X／轉入自 Y」(對方錢包已刪除時換成
+ * 「已刪除的錢包」), 代墊是「代墊給 X」, 還款是「X 還款」。
+ */
 export function entryTitle(
-  entry: Pick<EntryInfo, "kind" | "category" | "counterpart_wallet">,
+  entry: Pick<EntryInfo, "kind" | "category" | "counterpart_wallet">
+    & Partial<Pick<EntryInfo, "advance_target_name">>,
   locale: Locale,
 ) {
   const t = translate(walletsMessages, locale)
   if (entry.kind === "adjustment") return t("adjustment")
+  const advance = ADVANCE_TITLE[entry.kind]
+  if (advance) return t(advance, { name: entry.advance_target_name ?? "" })
   if (isTransfer(entry.kind)) {
     const wallet = entry.counterpart_wallet?.name ?? t("deletedWallet")
     return t(entry.kind === "transfer_out" ? "transferTo" : "transferFrom", { wallet })
@@ -63,15 +75,21 @@ export function formatEntryDate(day: string, locale: Locale) {
 
 const FIELD_LABEL = {
   kind: "entryKind", amount: "amount", category_name: "category",
-  counterpart_wallet_name: "counterpartWallet", entry_date: "entryDate", note: "note",
+  counterpart_wallet_name: "counterpartWallet", advance_target_name: "advanceTarget",
+  entry_date: "entryDate", note: "note",
 } as const satisfies Record<keyof EntrySnapshot, keyof (typeof walletsMessages)["zh"]>
 
-/** 新增與刪除的紀錄要列出的欄位: 收支列分類, 轉帳列對方錢包, 調整兩個都不列; 沒有備註就不列。 */
+/** 收支列分類, 轉帳列對方錢包, 代墊與還款列對象, 調整都不列。 */
+function summaryTarget(kind: EntryKind): (keyof EntrySnapshot)[] {
+  if (isTransfer(kind)) return ["counterpart_wallet_name"]
+  if (kind === "advance" || kind === "repayment") return ["advance_target_name"]
+  return kind === "adjustment" ? [] : ["category_name"]
+}
+
+/** 新增與刪除的紀錄要列出的欄位; 沒有備註就不列。 */
 export function snapshotSummaryFields(snapshot: EntrySnapshot): (keyof EntrySnapshot)[] {
-  const target = isTransfer(snapshot.kind)
-    ? ["counterpart_wallet_name" as const]
-    : snapshot.kind === "adjustment" ? [] : ["category_name" as const]
-  return ["kind", ...target, "amount", "entry_date", ...(snapshot.note ? ["note" as const] : [])]
+  const note = snapshot.note ? ["note" as const] : []
+  return ["kind", ...summaryTarget(snapshot.kind), "amount", "entry_date", ...note]
 }
 
 /** 異動紀錄裡一個欄位的名稱與值。空的分類 (調整) 與備註顯示「（無）」。 */
@@ -83,6 +101,7 @@ export function snapshotField(field: keyof EntrySnapshot, snapshot: EntrySnapsho
     category_name: snapshot.category_name || t("emptyValue"),
     counterpart_wallet_name:
       counterpartName(snapshot.kind, snapshot.counterpart_wallet_name, locale) ?? t("emptyValue"),
+    advance_target_name: snapshot.advance_target_name || t("emptyValue"),
     entry_date: formatEntryDate(snapshot.entry_date, locale),
     note: snapshot.note || t("emptyValue"),
   }

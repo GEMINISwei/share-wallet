@@ -25,6 +25,7 @@ from .ledger import (
     write_log,
 )
 from .model import (
+    ADVANCE_KINDS,
     TRANSFER_KINDS,
     EntryDetail,
     EntryKind,
@@ -163,6 +164,8 @@ async def _reject_unpaired(
         raise LangException(404, WalletError.ENTRY_NOT_FOUND)
     if not can_modify(access, entry["created_by"], current_user):
         raise LangException(403, WalletError.NOT_ENTRY_OWNER)
+    if entry["kind"] in ADVANCE_KINDS:
+        raise LangException(400, WalletError.ADVANCE_KIND_IMMUTABLE)
     if entry["kind"] not in TRANSFER_KINDS:
         raise LangException(400, WalletError.ENTRY_KIND_IMMUTABLE)
     raise LangException(400, WalletError.TRANSFER_ORPHAN_IMMUTABLE)

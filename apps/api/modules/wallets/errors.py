@@ -61,3 +61,19 @@ class WalletError(BaseError):
         zh="對方錢包已刪除，這筆轉帳只能刪除",
         en="The other wallet was deleted. This transfer can only be deleted",
     )
+    ADVANCE_KIND_IMMUTABLE = LangText(
+        zh="代墊與還款不能與其他類型互相切換",
+        en="Advances and repayments cannot be switched to another type",
+    )
+    ADVANCE_NOT_FOUND = LangText(zh="代墊不存在", en="Advance Not Found")
+    REPAYMENT_EXCEEDS_OUTSTANDING = LangText(
+        zh="還款不可超過未還金額", en="The repayment cannot exceed the outstanding amount"
+    )
+    ADVANCE_BELOW_REPAID = LangText(
+        zh="代墊金額不可小於已還的金額",
+        en="The advance cannot be less than what has been repaid",
+    )
+    ADVANCE_HAS_REPAYMENTS = LangText(
+        zh="這筆代墊已有還款，請先刪除還款",
+        en="This advance has repayments. Delete them first",
+    )

@@ -98,3 +98,33 @@ describe("snapshotSummaryFields", () => {
       .toEqual({ label: "對方錢包", value: "存款" })
   })
 })
+
+describe("代墊與還款的顯示", () => {
+  const none = { category: null, counterpart_wallet: null }
+
+  it("代墊扣餘額、還款加回", () => {
+    expect(signedAmount("advance", 500)).toBe(-500)
+    expect(signedAmount("repayment", 200)).toBe(200)
+  })
+
+  it("列表標題寫出對象", () => {
+    expect(entryTitle({ ...none, kind: "advance", advance_target_name: "小明" }, "zh"))
+      .toBe("代墊給 小明")
+    expect(entryTitle({ ...none, kind: "repayment", advance_target_name: "小明" }, "zh"))
+      .toBe("小明 還款")
+    expect(entryTitle({ ...none, kind: "advance", advance_target_name: "Amy" }, "en"))
+      .toBe("Advance to Amy")
+  })
+
+  it("異動紀錄列出對象", () => {
+    const snapshot = {
+      kind: "repayment", amount: 200, category_name: null, advance_target_name: "小明",
+      entry_date: "2026-10-18", note: "",
+    } as const
+    expect(snapshotSummaryFields(snapshot))
+      .toEqual(["kind", "advance_target_name", "amount", "entry_date"])
+    expect(snapshotField("advance_target_name", snapshot, "zh"))
+      .toEqual({ label: "對象", value: "小明" })
+    expect(snapshotField("kind", snapshot, "zh").value).toBe("還款")
+  })
+})

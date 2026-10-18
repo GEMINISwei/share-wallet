@@ -18,6 +18,7 @@ export type EntryPage = Schema<"EntryPage">
 export type EntryLogInfo = Schema<"EntryLogInfo">
 export type EntryLogPage = Schema<"EntryLogPage">
 export type EntrySnapshot = Schema<"EntrySnapshot">
+export type AdvanceTargetInfo = Schema<"AdvanceTargetInfo">
 
 /** 後台列表的篩選條件 (網址參數)。空字串代表不篩選。 */
 export type AdminWalletFilters = { name: string; kind: WalletKind | "" }
@@ -40,14 +41,16 @@ export type TransferKind = Extract<EntryKind, "transfer_out" | "transfer_in">
 export type TransferTarget = { id: string; name: string }
 
 /**
- * 記一筆與修改共用的表單值 (收支與轉帳)。全部是字串: 金額在送出前才轉換。
- * 收支用 `category_id`, 轉帳用 `counterpart_wallet_id`, 另一個留空。
+ * 記一筆與修改共用的表單值 (收支、轉帳與代墊)。全部是字串: 金額在送出前才轉換。
+ * 收支用 `category_id`, 轉帳用 `counterpart_wallet_id`, 代墊用 `target_name`, 其他留空。
+ * 還款不從這裡記, 見 `RepayFormValues`。
  */
 export type EntryFormValues = {
-  kind: Exclude<EntryKind, "adjustment">
+  kind: Exclude<EntryKind, "adjustment" | "repayment">
   amount: string
   category_id: string
   counterpart_wallet_id: string
+  target_name: string
   entry_date: string
   note: string
 }
@@ -57,3 +60,8 @@ export type EntryFormErrors = Partial<Record<keyof EntryFormValues, string>>
 export type AdjustFormValues = { balance: string; entry_date: string; note: string }
 
 export type AdjustFormErrors = Partial<Record<keyof AdjustFormValues, string>>
+
+/** 新增與修改還款: 對著某一筆代墊, 只填金額、日期、備註。 */
+export type RepayFormValues = { amount: string; entry_date: string; note: string }
+
+export type RepayFormErrors = Partial<Record<keyof RepayFormValues, string>>

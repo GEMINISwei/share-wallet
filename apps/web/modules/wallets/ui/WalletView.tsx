@@ -6,13 +6,15 @@ import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { Button, ErrorState, ICON_SIZE, Notify, useNotify } from "@/shared/ui"
 import { useT } from "@/shared/i18n/context"
-import { walletSections } from "../capabilities"
+import { owingTargets, walletSections } from "../capabilities"
 import { walletsMessages } from "../i18n"
 import {
   type WalletArea, walletCategoriesPath, walletHistoryPath, walletMembersPath, walletSettingsPath,
   walletsListPath,
 } from "../paths"
-import type { CategoryInfo, EntryPage, TransferTarget, WalletInfo } from "../types"
+import type {
+  AdvanceTargetInfo, CategoryInfo, EntryPage, TransferTarget, WalletInfo,
+} from "../types"
 import Amount from "./Amount"
 import EntryList from "./EntryList"
 import LedgerDialogs, { type LedgerDialog } from "./LedgerDialogs"
@@ -23,6 +25,8 @@ import styles from "./wallets.module.css"
 export type WalletLedger = {
   entries: EntryPage
   categories: CategoryInfo[]
+  /** 這個錢包用過的代墊對象 (含已還清的), 依名字排序。 */
+  advanceTargets: AdvanceTargetInfo[]
   transferTargets: TransferTarget[]
   currentUserId: string
   errorMessage: string
@@ -72,6 +76,7 @@ export default function WalletView({ wallet, area, ledger }: WalletViewProps) {
           <Amount value={wallet.balance} className={styles.summaryValue} />
         </section>
       )}
+      {ledger && <OwingList targets={ledger.advanceTargets} />}
       {isTravel && <p className={styles.hint}>{t("travelLedgerComingSoon")}</p>}
       {ledger && (
         <section>
@@ -90,12 +95,33 @@ export default function WalletView({ wallet, area, ledger }: WalletViewProps) {
       {ledger && (
         <LedgerDialogs
           wallet={wallet} categories={ledger.categories} transferTargets={ledger.transferTargets}
+          targetNames={ledger.advanceTargets.map((target) => target.name)}
           currentUserId={ledger.currentUserId}
           dialog={dialog} onChange={setDialog} onSaved={handleSaved} onError={notifyError}
         />
       )}
       <Notify {...notify} onOpenChange={(open) => { if (!open) closeNotify() }} />
     </WalletShell>
+  )
+}
+
+/** 代墊未還的清單, 只是顯示: 還款一律從代墊的詳情操作 (見 docs/features.md〈代墊與還款〉)。 */
+function OwingList({ targets }: { targets: AdvanceTargetInfo[] }) {
+  const t = useT(walletsMessages)
+  const owing = owingTargets(targets)
+  if (owing.length === 0) return null
+  return (
+    <section>
+      <h2 className={styles.sectionTitle}>{t("owingList")}</h2>
+      <ul className={`${styles.fieldList} ${styles.owingList}`}>
+        {owing.map((target) => (
+          <li key={target.name} className={styles.fieldRow}>
+            <span>{target.name}</span>
+            <Amount value={target.outstanding} />
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }
 

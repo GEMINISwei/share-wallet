@@ -89,6 +89,7 @@ async def test_create_entry_records_creator_and_log(client, store, wallet, food)
         "amount": 300,
         "category_name": "餐飲",
         "counterpart_wallet_name": None,
+        "advance_target_name": None,
         "entry_date": DAY,
         "note": "午餐",
     }
@@ -375,6 +376,7 @@ async def test_update_entry_logs_before_and_after(client, store, wallet, food, s
         "amount": 300,
         "category_name": "餐飲",
         "counterpart_wallet_name": None,
+        "advance_target_name": None,
         "entry_date": DAY,
         "note": "午餐",
     }
@@ -383,6 +385,7 @@ async def test_update_entry_logs_before_and_after(client, store, wallet, food, s
         "amount": 500,
         "category_name": "薪資",
         "counterpart_wallet_name": None,
+        "advance_target_name": None,
         "entry_date": DAY,
         "note": "",
     }

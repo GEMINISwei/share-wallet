@@ -225,6 +225,81 @@
         "title": "AdminWalletList",
         "type": "object"
       },
+      "AdvanceCreate": {
+        "description": "記一筆代墊: 錢包替 `target_name` 墊付, 餘額扣掉、對象的未還金額加上。\n\n對象不需要是成員; 名字去掉前後空白後相同 (大小寫視為不同) 就是同一個對象。",
+        "properties": {
+          "amount": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 9007199254740991.0,
+            "title": "Amount",
+            "type": "integer"
+          },
+          "entry_date": {
+            "format": "date",
+            "title": "Entry Date",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "maxLength": 200,
+            "title": "Note",
+            "type": "string"
+          },
+          "target_name": {
+            "maxLength": 20,
+            "minLength": 1,
+            "title": "Target Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target_name",
+          "amount",
+          "entry_date"
+        ],
+        "title": "AdvanceCreate",
+        "type": "object"
+      },
+      "AdvanceTargetInfo": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "outstanding": {
+            "title": "Outstanding",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "outstanding"
+        ],
+        "title": "AdvanceTargetInfo",
+        "type": "object"
+      },
+      "AdvanceTargetList": {
+        "description": "這個錢包用過的代墊對象, 依名字排序。",
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "list_data": {
+            "items": {
+              "$ref": "#/components/schemas/AdvanceTargetInfo"
+            },
+            "title": "List Data",
+            "type": "array"
+          }
+        },
+        "required": [
+          "list_data",
+          "count"
+        ],
+        "title": "AdvanceTargetList",
+        "type": "object"
+      },
       "AppVersion": {
         "description": "系統目前執行的版本。",
         "properties": {
@@ -431,6 +506,28 @@
       "EntryInfo": {
         "description": "一筆帳。收入、支出與轉帳的 `amount` 是正數; 調整的 `amount` 是差額, 可以是負的。",
         "properties": {
+          "advance_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Advance Id"
+          },
+          "advance_target_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Advance Target Name"
+          },
           "amount": {
             "title": "Amount",
             "type": "integer"
@@ -478,6 +575,17 @@
           "note": {
             "title": "Note",
             "type": "string"
+          },
+          "outstanding": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outstanding"
           }
         },
         "required": [
@@ -486,6 +594,9 @@
           "amount",
           "category",
           "counterpart_wallet",
+          "advance_target_name",
+          "advance_id",
+          "outstanding",
           "entry_date",
           "note",
           "created_by",
@@ -501,7 +612,9 @@
           "expense",
           "adjustment",
           "transfer_out",
-          "transfer_in"
+          "transfer_in",
+          "advance",
+          "repayment"
         ],
         "title": "EntryKind",
         "type": "string"
@@ -670,8 +783,19 @@
         "type": "object"
       },
       "EntrySnapshot": {
-        "description": "異動當時的帳目內容。`category_name`、`counterpart_wallet_name` 是當時的名稱。",
+        "description": "異動當時的帳目內容。各個 `*_name` 是當時的名稱。",
         "properties": {
+          "advance_target_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Advance Target Name"
+          },
           "amount": {
             "title": "Amount",
             "type": "integer"
@@ -1091,6 +1215,34 @@
         "title": "MemberRoleUpdate",
         "type": "object"
       },
+      "MoneyUpdate": {
+        "description": "修改代墊、新增或修改還款: 不能改對象, 也不能把還款換到另一筆代墊。",
+        "properties": {
+          "amount": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 9007199254740991.0,
+            "title": "Amount",
+            "type": "integer"
+          },
+          "entry_date": {
+            "format": "date",
+            "title": "Entry Date",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "maxLength": 200,
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "amount",
+          "entry_date"
+        ],
+        "title": "MoneyUpdate",
+        "type": "object"
+      },
       "PasswordChange": {
         "description": "使用者更換**自己**的密碼 (`UserResetPassword` 是管理者替別人重設, 不需要舊密碼)。\n\n`current_password` 用 `Password` (只要求非空) 而不是 `NewPassword`: 它要比對的是一把\n**已經存在**的密碼, 可能是在規則變嚴之前設的。拿新規則去擋它, 會讓最應該換密碼的那批\n人反而換不了 —— 而且那個錯誤會出現在「目前密碼」欄位上, 看起來像打錯了。",
         "properties": {
@@ -1176,6 +1328,28 @@
           "nickname"
         ],
         "title": "ProfileUpdate",
+        "type": "object"
+      },
+      "RepaymentList": {
+        "description": "一筆代墊的還款, 日期新到舊。",
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "list_data": {
+            "items": {
+              "$ref": "#/components/schemas/EntryInfo"
+            },
+            "title": "List Data",
+            "type": "array"
+          }
+        },
+        "required": [
+          "list_data",
+          "count"
+        ],
+        "title": "RepaymentList",
         "type": "object"
       },
       "RoleCreate": {
@@ -3555,6 +3729,276 @@
         ]
       }
     },
+    "/api/wallets/{id}/advance-targets": {
+      "get": {
+        "description": "這個錢包用過的代墊對象與各自的未還金額, 依名字排序。",
+        "operationId": "get_advance_target_list_route_api_wallets__id__advance_targets_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "title": "Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdvanceTargetList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Advance Target List Route",
+        "tags": [
+          "wallets"
+        ]
+      }
+    },
+    "/api/wallets/{id}/advances": {
+      "post": {
+        "description": "記一筆代墊: 餘額扣掉金額, 對象的未還金額加上。對象不需要是成員。",
+        "operationId": "create_advance_route_api_wallets__id__advances_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "title": "Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdvanceCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntryOperate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Advance Route",
+        "tags": [
+          "wallets"
+        ]
+      }
+    },
+    "/api/wallets/{id}/advances/{entry_id}": {
+      "patch": {
+        "description": "修改代墊的金額、日期、備註, 不能改對象。金額不能小於已還的。",
+        "operationId": "update_advance_route_api_wallets__id__advances__entry_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "title": "Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "title": "Entry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoneyUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntryOperate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Advance Route",
+        "tags": [
+          "wallets"
+        ]
+      }
+    },
+    "/api/wallets/{id}/advances/{entry_id}/repayments": {
+      "get": {
+        "description": "一筆代墊的還款, 日期新到舊。",
+        "operationId": "get_repayment_list_route_api_wallets__id__advances__entry_id__repayments_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "title": "Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "title": "Entry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepaymentList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Repayment List Route",
+        "tags": [
+          "wallets"
+        ]
+      },
+      "post": {
+        "description": "替一筆代墊記還款: 餘額加回金額。不可超過那一筆的未還金額。",
+        "operationId": "create_repayment_route_api_wallets__id__advances__entry_id__repayments_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "title": "Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "title": "Entry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoneyUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntryOperate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Repayment Route",
+        "tags": [
+          "wallets"
+        ]
+      }
+    },
     "/api/wallets/{id}/categories": {
       "get": {
         "operationId": "get_category_list_route_api_wallets__id__categories_get",
@@ -3883,7 +4327,7 @@
     },
     "/api/wallets/{id}/entries/{entry_id}": {
       "delete": {
-        "description": "刪除自己記的帳; 錢包管理者可以刪除任何人的。餘額反向套用。\n\n轉帳兩邊一起刪, 要在兩個錢包都有改刪權限; 對方錢包已刪除時只刪這一邊。",
+        "description": "刪除自己記的帳; 錢包管理者可以刪除任何人的。餘額反向套用。\n\n轉帳兩邊一起刪, 要在兩個錢包都有改刪權限; 對方錢包已刪除時只刪這一邊。\n有還款的代墊不能刪, 要先刪掉它的還款。",
         "operationId": "delete_entry_route_api_wallets__id__entries__entry_id__delete",
         "parameters": [
           {
@@ -4391,6 +4835,68 @@
           }
         },
         "summary": "Update Member Role Route",
+        "tags": [
+          "wallets"
+        ]
+      }
+    },
+    "/api/wallets/{id}/repayments/{entry_id}": {
+      "patch": {
+        "description": "修改還款的金額、日期、備註。金額上限是代墊目前的未還加上這筆原本的金額。",
+        "operationId": "update_repayment_route_api_wallets__id__repayments__entry_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "title": "Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "title": "Entry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoneyUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntryOperate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Repayment Route",
         "tags": [
           "wallets"
         ]

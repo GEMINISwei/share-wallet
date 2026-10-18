@@ -3,12 +3,15 @@
 import { useEffect, useState } from "react"
 import { Button, Modal } from "@/shared/ui"
 import { useLocale, useT } from "@/shared/i18n/context"
+import type { Translator } from "@/shared/i18n/dictionary"
+import type { Locale } from "@/shared/i18n/locale"
 import { loadEntryLogs } from "../actions"
-import { counterpartName, formatEntryDate, signedAmount } from "../format"
+import { counterpartName, formatAmount, formatEntryDate, signedAmount } from "../format"
 import { walletsMessages } from "../i18n"
 import type { EntryInfo, EntryLogInfo } from "../types"
 import Amount from "./Amount"
 import EntryLogItem from "./EntryLogItem"
+import RepaymentList from "./RepaymentList"
 import styles from "./wallets.module.css"
 
 type EntryDetailDialogProps = {
@@ -16,16 +19,32 @@ type EntryDetailDialogProps = {
   entry: EntryInfo
   canEdit: boolean
   canDelete: boolean
+  /** 還有未還金額的代墊 (見 `canRepay`)。 */
+  canRepay: boolean
   onEdit: () => void
+  onRepay: () => void
   onDelete: () => void
   onClose: () => void
 }
 
 type Logs = { status: "loading" } | { status: "failed" } | { status: "ready"; logs: EntryLogInfo[] }
 
-/** 帳目詳情: 欄位、記帳人、這一筆的異動紀錄, 有權限時修改與刪除。 */
+type T = Translator<(typeof walletsMessages)["zh"]>
+
+/** 分類那一欄: 收支是分類, 轉帳是對方錢包, 代墊與還款是對象 (代墊再加上未還)。 */
+function targetFields(entry: EntryInfo, t: T, counterpart: string | null, locale: Locale) {
+  if (counterpart !== null) return [{ label: t("counterpartWallet"), value: counterpart }]
+  if (entry.kind === "advance" || entry.kind === "repayment") {
+    const target = { label: t("advanceTarget"), value: entry.advance_target_name ?? "" }
+    if (entry.outstanding === null) return [target]
+    return [target, { label: t("outstanding"), value: formatAmount(entry.outstanding, locale) }]
+  }
+  return [{ label: t("category"), value: entry.category?.name ?? t("emptyValue") }]
+}
+
+/** 帳目詳情: 欄位、記帳人、這一筆的異動紀錄, 有權限時修改與刪除; 代墊另有還款紀錄與還款。 */
 export default function EntryDetailDialog({
-  walletId, entry, canEdit, canDelete, onEdit, onDelete, onClose,
+  walletId, entry, canEdit, canDelete, canRepay, onEdit, onDelete, onRepay, onClose,
 }: EntryDetailDialogProps) {
   const t = useT(walletsMessages)
   const locale = useLocale()
@@ -44,9 +63,7 @@ export default function EntryDetailDialog({
   const counterpart = counterpartName(entry.kind, entry.counterpart_wallet?.name, locale)
   const fields = [
     { label: t("entryKind"), value: t(entry.kind) },
-    counterpart === null
-      ? { label: t("category"), value: entry.category?.name ?? t("emptyValue") }
-      : { label: t("counterpartWallet"), value: counterpart },
+    ...targetFields(entry, t, counterpart, locale),
     { label: t("entryDate"), value: formatEntryDate(entry.entry_date, locale) },
     { label: t("note"), value: entry.note || t("emptyValue") },
     { label: t("recordedBy"), value: entry.created_by.nickname },
@@ -64,6 +81,7 @@ export default function EntryDetailDialog({
             </div>
           ))}
         </dl>
+        {entry.kind === "advance" && <RepaymentList walletId={walletId} advanceId={entry.id} />}
         <section>
           <h3 className={styles.sectionTitle}>{t("history")}</h3>
           {logs.status === "loading" && <p className={styles.hint}>{t("loadingMore")}</p>}
@@ -74,10 +92,13 @@ export default function EntryDetailDialog({
             </ul>
           )}
         </section>
-        {(canEdit || canDelete) && (
+        {(canEdit || canDelete || canRepay) && (
           <div className={styles.dialogActions}>
             {canDelete && <Button variant="outlined" onClick={onDelete}>{t("deleteEntry")}</Button>}
-            {canEdit && <Button onClick={onEdit}>{t("edit")}</Button>}
+            {canEdit && (
+              <Button variant={canRepay ? "outlined" : undefined} onClick={onEdit}>{t("edit")}</Button>
+            )}
+            {canRepay && <Button onClick={onRepay}>{t("repay")}</Button>}
           </div>
         )}
       </div>

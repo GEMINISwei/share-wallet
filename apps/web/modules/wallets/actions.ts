@@ -129,6 +129,42 @@ export async function updateTransfer(
   })
 }
 
+type MoneyRequest = ApiRequestBody<"/wallets/{id}/advances/{entry_id}", "patch">
+
+export async function createAdvance(
+  id: string,
+  data: ApiRequestBody<"/wallets/{id}/advances", "post">,
+) {
+  return apiPost({ url: "/wallets/{id}/advances", params: { id }, data, refresh: refreshWallets })
+}
+
+export async function updateAdvance(id: string, entryId: string, data: MoneyRequest) {
+  return apiPatch({
+    url: "/wallets/{id}/advances/{entry_id}",
+    params: { id, entry_id: entryId },
+    data,
+    refresh: refreshWallets,
+  })
+}
+
+export async function createRepayment(id: string, advanceId: string, data: MoneyRequest) {
+  return apiPost({
+    url: "/wallets/{id}/advances/{entry_id}/repayments",
+    params: { id, entry_id: advanceId },
+    data,
+    refresh: refreshWallets,
+  })
+}
+
+export async function updateRepayment(id: string, entryId: string, data: MoneyRequest) {
+  return apiPatch({
+    url: "/wallets/{id}/repayments/{entry_id}",
+    params: { id, entry_id: entryId },
+    data,
+    refresh: refreshWallets,
+  })
+}
+
 export async function adjustBalance(
   id: string,
   data: ApiRequestBody<"/wallets/{id}/adjustments", "post">,
@@ -150,4 +186,10 @@ export async function loadEntryLogs(id: string, entryId: string) {
 
 export async function loadMoreWalletLogs(id: string, cursor: string) {
   return apiGet({ url: "/wallets/{id}/entry-logs", params: { id }, query: { cursor } })
+}
+
+export async function loadRepayments(id: string, advanceId: string) {
+  return apiGet({
+    url: "/wallets/{id}/advances/{entry_id}/repayments", params: { id, entry_id: advanceId },
+  })
 }

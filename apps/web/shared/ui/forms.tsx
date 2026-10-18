@@ -32,6 +32,8 @@ type TextInputProps = {
   trailing?: ReactNode
   /** lg 給登入這類刻意放大的表單; 預設 md。 */
   size?: "md" | "lg"
+  /** 輸入時提示的值 (瀏覽器原生的 datalist), 仍然可以輸入清單以外的值。 */
+  suggestions?: readonly string[]
   onChange?: (value: string) => void
 }
 
@@ -77,6 +79,7 @@ export function TextInput({
   icon,
   trailing,
   size = "md",
+  suggestions,
   ...props
 }: TextInputProps) {
   // id 一律由 useId 產生, **不要退回用 name**: 同一頁出現兩個同名欄位時 name 會產生
@@ -85,6 +88,7 @@ export function TextInput({
   const generatedId = useId()
   const inputId = id ?? generatedId
   const errorId = error ? `${inputId}-error` : undefined
+  const listId = suggestions?.length ? `${inputId}-suggestions` : undefined
   const { onChange, ...inputProps } = props
   const accessibility = {
     id: inputId,
@@ -107,10 +111,16 @@ export function TextInput({
             error && styles.inputError,
           )}
           onChange={(event) => onChange?.(event.target.value)}
+          list={listId}
           {...accessibility}
           {...inputProps}
         />
       </AdornedInput>
+      {listId && (
+        <datalist id={listId}>
+          {suggestions?.map((value) => <option key={value} value={value} />)}
+        </datalist>
+      )}
       <FieldError id={errorId} error={error} />
     </label>
   )

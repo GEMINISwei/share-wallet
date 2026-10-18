@@ -3,7 +3,9 @@
 import { type FormEvent, useState } from "react"
 import { FormDialog, SelectInput, TextInput, useActionSubmit } from "@/shared/ui"
 import { useLocale, useT } from "@/shared/i18n/context"
-import { createEntry, createTransfer, updateEntry, updateTransfer } from "../actions"
+import {
+  createAdvance, createEntry, createTransfer, updateAdvance, updateEntry, updateTransfer,
+} from "../actions"
 import { entryCategoryOptions, entryKindOptions, isTransfer } from "../capabilities"
 import { localToday } from "../format"
 import { walletsMessages } from "../i18n"
@@ -11,14 +13,17 @@ import type {
   CategoryInfo, EntryFormErrors, EntryFormValues, EntryInfo, TransferTarget,
 } from "../types"
 import {
-  hasErrors, toEntryRequest, toTransferRequest, toTransferUpdateRequest, validateEntryForm,
+  hasErrors, toAdvanceRequest, toEntryRequest, toMoneyRequest, toTransferRequest,
+  toTransferUpdateRequest, validateEntryForm,
 } from "../validation"
 
 type EntryDialogProps = {
   walletId: string
-  /** 有值是修改 (收支或轉帳, 不會是調整), 沒有是記一筆。 */
+  /** 有值是修改 (收支、轉帳或代墊; 調整與還款不從這裡改), 沒有是記一筆。 */
   entry: EntryInfo | null
   categories: CategoryInfo[]
+  /** 代墊對象的輸入提示: 這個錢包用過的名字。 */
+  targetNames: string[]
   transferTargets: TransferTarget[]
   /** 能不能建立轉帳 (見 `canTransfer`)。 */
   transferable: boolean
@@ -29,8 +34,8 @@ type EntryDialogProps = {
 }
 
 function initialValues(entry: EntryInfo | null): EntryFormValues {
-  const blank = { amount: "", category_id: "", counterpart_wallet_id: "", note: "" }
-  if (!entry || entry.kind === "adjustment") {
+  const blank = { amount: "", category_id: "", counterpart_wallet_id: "", target_name: "", note: "" }
+  if (!entry || entry.kind === "adjustment" || entry.kind === "repayment") {
     return { ...blank, kind: "expense", entry_date: localToday() }
   }
   return {
@@ -38,14 +43,20 @@ function initialValues(entry: EntryInfo | null): EntryFormValues {
     amount: String(entry.amount),
     category_id: entry.category?.id ?? "",
     counterpart_wallet_id: entry.counterpart_wallet?.id ?? "",
+    target_name: entry.advance_target_name ?? "",
     entry_date: entry.entry_date,
     note: entry.note,
   }
 }
 
-/** 收支與轉帳走不同的端點; 修改轉帳只送金額、日期、備註。 */
+/** 收支、轉帳與代墊走不同的端點; 修改轉帳與代墊只送金額、日期、備註。 */
 function saveAction(walletId: string, entry: EntryInfo | null, values: EntryFormValues) {
   const { kind } = values
+  if (kind === "advance") {
+    return entry
+      ? () => updateAdvance(walletId, entry.id, toMoneyRequest(values))
+      : () => createAdvance(walletId, toAdvanceRequest(values))
+  }
   if (isTransfer(kind)) {
     return entry
       ? () => updateTransfer(walletId, entry.id, toTransferUpdateRequest(values))
@@ -56,7 +67,8 @@ function saveAction(walletId: string, entry: EntryInfo | null, values: EntryForm
 }
 
 export default function EntryDialog({
-  walletId, entry, categories, transferTargets, transferable, open, onClose, onSuccess, onError,
+  walletId, entry, categories, targetNames, transferTargets, transferable, open, onClose, onSuccess,
+  onError,
 }: EntryDialogProps) {
   const t = useT(walletsMessages)
   const locale = useLocale()
@@ -101,7 +113,16 @@ export default function EntryDialog({
         label={t("amount")} value={values.amount} required disabled={isPending} autoFocus
         error={errors.amount ?? fieldError("amount")} onChange={(value) => change("amount", value)}
       />
-      {isTransfer(values.kind) ? (
+      {values.kind === "advance" ? (
+        <TextInput
+          label={t("advanceTarget")} value={values.target_name} required
+          placeholder={t("advanceTargetHint")} suggestions={targetNames}
+          // 代墊不能改對象, 打錯就刪掉重記 (見 docs/features.md〈代墊與還款〉)。
+          disabled={isPending || entry !== null}
+          error={errors.target_name ?? fieldError("target_name")}
+          onChange={(value) => change("target_name", value)}
+        />
+      ) : isTransfer(values.kind) ? (
         <SelectInput
           label={t("counterpartWallet")} value={values.counterpart_wallet_id} required
           // 轉帳不能換對方錢包, 轉錯就刪掉重記 (見 docs/features.md〈轉帳〉)。

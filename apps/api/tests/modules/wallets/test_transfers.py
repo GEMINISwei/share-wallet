@@ -135,6 +135,7 @@ async def test_create_transfer_links_both_entries_and_logs_each_wallet(
         "amount": 300,
         "category_name": None,
         "counterpart_wallet_name": "家用",
+        "advance_target_name": None,
         "entry_date": DAY,
         "note": "存錢",
     }

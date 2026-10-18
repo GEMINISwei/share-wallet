@@ -5,10 +5,11 @@ import type { ApiRequestBody } from "@/shared/api/contract"
 import { translate, type Translator } from "@/shared/i18n/dictionary"
 import type { Locale } from "@/shared/i18n/locale"
 import { isTransfer } from "./capabilities"
+import { formatAmount } from "./format"
 import { walletsMessages } from "./i18n"
 import type {
-  AdjustFormErrors, AdjustFormValues, EntryFormErrors, EntryFormValues, WalletFormErrors,
-  WalletFormValues,
+  AdjustFormErrors, AdjustFormValues, EntryFormErrors, EntryFormValues, RepayFormErrors,
+  RepayFormValues, WalletFormErrors, WalletFormValues,
 } from "./types"
 
 type WalletCreateRequest = ApiRequestBody<"/wallets/", "post">
@@ -18,9 +19,14 @@ type EntryRequest = ApiRequestBody<"/wallets/{id}/entries", "post">
 type AdjustRequest = ApiRequestBody<"/wallets/{id}/adjustments", "post">
 type TransferRequest = ApiRequestBody<"/wallets/{id}/transfers", "post">
 type TransferUpdateRequest = ApiRequestBody<"/wallets/{id}/transfers/{entry_id}", "patch">
+type AdvanceRequest = ApiRequestBody<"/wallets/{id}/advances", "post">
+type MoneyRequest = ApiRequestBody<"/wallets/{id}/advances/{entry_id}", "patch">
 
 /** 與後端 `EntryNote` 的上限相同。 */
 const NOTE_MAX_LENGTH = 200
+
+/** 與後端 `TargetName` 的上限相同。 */
+const TARGET_MAX_LENGTH = 20
 
 const INTEGER = /^-?\d+$/
 
@@ -63,25 +69,76 @@ export function parsePositiveAmount(text: string): number | null {
   return value !== null && value > 0 ? value : null
 }
 
+// 以字元 (code point) 計, 與後端 pydantic 的 max_length 相同; `length` 會把 emoji 算成兩個。
+function charCount(text: string) {
+  return [...text.trim()].length
+}
+
 function noteError(note: string, t: WalletsT) {
-  // 以字元 (code point) 計, 與後端 pydantic 的 max_length 相同; `length` 會把 emoji 算成兩個。
-  return [...note.trim()].length > NOTE_MAX_LENGTH
+  return charCount(note) > NOTE_MAX_LENGTH
     ? t("noteTooLong", { max: String(NOTE_MAX_LENGTH) })
     : undefined
 }
 
-/** 收支要選分類, 轉帳要選對方錢包。 */
+function targetError(values: EntryFormValues, t: WalletsT) {
+  if (values.kind !== "advance") return undefined
+  if (!values.target_name.trim()) return t("targetRequired")
+  return charCount(values.target_name) > TARGET_MAX_LENGTH
+    ? t("targetTooLong", { max: String(TARGET_MAX_LENGTH) })
+    : undefined
+}
+
+/** 收支要選分類, 轉帳要選對方錢包, 代墊要填對象。 */
 export function validateEntryForm(values: EntryFormValues, locale: Locale): EntryFormErrors {
   const t = translate(walletsMessages, locale)
   const transfer = isTransfer(values.kind)
+  const categorized = values.kind === "income" || values.kind === "expense"
   return {
     amount: parsePositiveAmount(values.amount) === null ? t("amountPositive") : undefined,
-    category_id: transfer || values.category_id ? undefined : t("categoryRequired"),
+    category_id: !categorized || values.category_id ? undefined : t("categoryRequired"),
     counterpart_wallet_id:
       !transfer || values.counterpart_wallet_id ? undefined : t("counterpartRequired"),
+    target_name: targetError(values, t),
     entry_date: values.entry_date ? undefined : t("dateRequired"),
     note: noteError(values.note, t),
   }
+}
+
+/**
+ * 還款的上限是那一筆代墊的未還金額。修改還款時畫面上沒有代墊目前的未還, 傳 null,
+ * 上限 (未還 + 原本的金額) 交給後端檢查。
+ */
+export function validateRepayForm(
+  values: RepayFormValues,
+  max: number | null,
+  locale: Locale,
+): RepayFormErrors {
+  const t = translate(walletsMessages, locale)
+  const amount = parsePositiveAmount(values.amount)
+  const amountError = amount === null
+    ? t("amountPositive")
+    : max !== null && amount > max
+      ? t("repaymentExceeds", { amount: formatAmount(max, locale) })
+      : undefined
+  return {
+    amount: amountError,
+    entry_date: values.entry_date ? undefined : t("dateRequired"),
+    note: noteError(values.note, t),
+  }
+}
+
+/** 修改代墊、新增或修改還款: 只有金額、日期、備註。 */
+export function toMoneyRequest(values: RepayFormValues): MoneyRequest {
+  return {
+    amount: parsePositiveAmount(values.amount) ?? 0,
+    entry_date: values.entry_date,
+    note: values.note.trim(),
+  }
+}
+
+/** 已通過 `validateEntryForm` 的代墊表單值 → 記一筆代墊的請求。 */
+export function toAdvanceRequest(values: EntryFormValues): AdvanceRequest {
+  return { target_name: values.target_name.trim(), ...toMoneyRequest(values) }
 }
 
 /** 已通過 `validateEntryForm` 的收支表單值 → 記一筆與修改的請求。 */
@@ -97,11 +154,7 @@ export function toEntryRequest(values: EntryFormValues & { kind: EntryRequest["k
 
 /** 已通過 `validateEntryForm` 的轉帳表單值 → 修改轉帳的請求 (只有金額、日期、備註)。 */
 export function toTransferUpdateRequest(values: EntryFormValues): TransferUpdateRequest {
-  return {
-    amount: parsePositiveAmount(values.amount) ?? 0,
-    entry_date: values.entry_date,
-    note: values.note.trim(),
-  }
+  return toMoneyRequest(values)
 }
 
 /** 已通過 `validateEntryForm` 的轉帳表單值 → 記一筆轉帳的請求。 */

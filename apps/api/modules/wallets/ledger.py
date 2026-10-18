@@ -1,4 +1,6 @@
-"""收支 (`entries.py`) 與轉帳 (`transfers.py`) 共用的記帳步驟: 鎖餘額、檢查範圍、留異動紀錄。
+"""收支、轉帳與代墊 (`entries.py`、`transfers.py`、`advances.py`) 共用的記帳步驟。
+
+鎖餘額、檢查範圍、留異動紀錄。
 
 餘額是存起來的值 (見 docs/features.md〈餘額〉): 每個寫入都先 `WalletTable.lock_balance` 鎖住
 錢包, 再在同一個請求的交易裡改帳目、改餘額、留異動紀錄 —— 任何一步丟出例外時 middleware
@@ -18,15 +20,19 @@ from .model import (
     EntryLogAction,
     MemberRole,
     WalletEntryLogTable,
+    WalletEntryTable,
     WalletKind,
     WalletTable,
 )
 from .schema import MAX_SAFE_AMOUNT, EntrySnapshot
 
+#: 讓餘額變少的種類。代墊是錢包替別人付出去的錢。
+_OUTFLOW = frozenset({EntryKind.EXPENSE, EntryKind.TRANSFER_OUT, EntryKind.ADVANCE})
+
 
 def balance_effect(kind: EntryKind, amount: int) -> int:
     """這筆帳讓餘額變多少。調整的 `amount` 本身就是帶正負號的差額。"""
-    return -amount if kind in (EntryKind.EXPENSE, EntryKind.TRANSFER_OUT) else amount
+    return -amount if kind in _OUTFLOW else amount
 
 
 async def open_general_wallet(wallet_id: str, current_user: CurrentUser) -> WalletAccess:
@@ -40,6 +46,17 @@ async def open_general_wallet(wallet_id: str, current_user: CurrentUser) -> Wall
 def can_modify(access: WalletAccess, owner_id: str, current_user: CurrentUser) -> bool:
     """自己記的帳, 或管理者 (含超級管理者) 改任何人的帳。"""
     return owner_id == current_user["id"] or access.can_manage
+
+
+async def modifiable_entry(
+    access: WalletAccess, entry_id: str, current_user: CurrentUser
+) -> EntryDetail:
+    entry = await WalletEntryTable.find_detail_in_wallet(access.wallet["id"], entry_id)
+    if entry is None:
+        raise LangException(404, WalletError.ENTRY_NOT_FOUND)
+    if not can_modify(access, entry["created_by"], current_user):
+        raise LangException(403, WalletError.NOT_ENTRY_OWNER)
+    return entry
 
 
 def as_super_admin(access: WalletAccess, owner_id: str, current_user: CurrentUser) -> bool:
@@ -73,12 +90,14 @@ def snapshot_of(
     *,
     category_name: str | None = None,
     counterpart_wallet_name: str | None = None,
+    advance_target_name: str | None = None,
 ) -> dict:
     return EntrySnapshot(
         kind=kind,
         amount=amount,
         category_name=category_name,
         counterpart_wallet_name=counterpart_wallet_name,
+        advance_target_name=advance_target_name,
         entry_date=entry_date,
         note=note,
     ).model_dump(mode="json")
@@ -92,6 +111,7 @@ def snapshot(entry: EntryDetail) -> dict:
         entry["note"],
         category_name=entry["category_name"],
         counterpart_wallet_name=entry["counterpart_wallet_name"],
+        advance_target_name=entry["advance_target_name"],
     )
 
 

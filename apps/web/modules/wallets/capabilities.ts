@@ -1,6 +1,6 @@
 import type {
-  CategoryInfo, CategoryType, EntryFormValues, EntryInfo, EntryKind, EntryLogInfo, EntrySnapshot,
-  MemberInfo, TransferKind, TransferTarget, WalletAdmin, WalletInfo,
+  AdvanceTargetInfo, CategoryInfo, CategoryType, EntryFormValues, EntryInfo, EntryKind,
+  EntryLogInfo, EntrySnapshot, MemberInfo, TransferKind, TransferTarget, WalletAdmin, WalletInfo,
 } from "./types"
 
 // 畫面上的分支。真正的授權在後端 (`modules/wallets/access.py`), 這裡只決定顯示哪些操作,
@@ -98,14 +98,28 @@ export function canTransfer(wallet: WalletInfo, targets: readonly TransferTarget
   return wallet.my_role !== null && targets.length > 0
 }
 
-/** 記一筆能選的類型。修改時收支只能互換, 轉帳不能切換類型 (見 docs/features.md〈轉帳〉)。 */
+/**
+ * 記一筆能選的類型。修改時收支只能互換, 轉帳與代墊不能切換類型
+ * (見 docs/features.md〈轉帳〉〈代墊與還款〉)。還款不從記一筆記, 而是從代墊的詳情。
+ */
 export function entryKindOptions(
   entry: EntryInfo | null,
   transferable: boolean,
 ): EntryFormValues["kind"][] {
-  if (entry && isTransfer(entry.kind)) return [entry.kind]
-  if (entry || !transferable) return ["expense", "income"]
-  return ["expense", "income", "transfer_out", "transfer_in"]
+  if (entry && (isTransfer(entry.kind) || entry.kind === "advance")) return [entry.kind]
+  if (entry) return ["expense", "income"]
+  const transfers = transferable ? (["transfer_out", "transfer_in"] as const) : []
+  return ["expense", "income", "advance", ...transfers]
+}
+
+/** 還有未還金額的代墊才能還款。任何看得到錢包的人都能記, 不限代墊的記帳人。 */
+export function canRepay(entry: EntryInfo) {
+  return entry.kind === "advance" && (entry.outstanding ?? 0) > 0
+}
+
+/** 錢包頁的代墊未還清單: 只列還沒還清的人, 順序照後端 (依名字)。 */
+export function owingTargets(targets: readonly AdvanceTargetInfo[]) {
+  return targets.filter((target) => target.outstanding > 0)
 }
 
 type CategoryOption = { id: string; name: string }
@@ -119,7 +133,7 @@ export function entryCategoryOptions(
   type: EntryFormValues["kind"],
   entry: EntryInfo | null,
 ): CategoryOption[] {
-  if (isTransfer(type)) return []
+  if (isTransfer(type) || type === "advance") return []
   const options = categories
     .filter((category) => category.type === type)
     .map(({ id, name }) => ({ id, name }))
@@ -129,7 +143,8 @@ export function entryCategoryOptions(
 }
 
 const SNAPSHOT_FIELDS = [
-  "kind", "amount", "category_name", "counterpart_wallet_name", "entry_date", "note",
+  "kind", "amount", "category_name", "counterpart_wallet_name", "advance_target_name",
+  "entry_date", "note",
 ] as const
 
 /** 修改紀錄裡改了哪些欄位, 依畫面上的順序。新增與刪除沒有「改前改後」, 是空的。 */
