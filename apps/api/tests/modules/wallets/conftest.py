@@ -18,6 +18,7 @@ from modules.wallets import invites as invite_service
 from modules.wallets import members as member_service
 from modules.wallets.model import (
     CategoryType,
+    WalletAdvanceTargetTable,
     EntryKind,
     MemberRole,
     WalletCategoryTable,
@@ -60,6 +61,8 @@ class FakeStore:
     invites: dict[str, dict] = field(default_factory=dict)
     locked: list[str] = field(default_factory=list)
     entries: dict[str, dict] = field(default_factory=dict)
+    #: 代墊對象, id → {id, wallet_id, name, outstanding}。
+    targets: dict[str, dict] = field(default_factory=dict)
     #: 寫入的順序。
     logs: list[dict] = field(default_factory=list)
     #: invites.py 看到的「現在」, 測試改它來模擬過期。
@@ -116,6 +119,9 @@ class FakeStore:
         note: str = "",
         transfer_id: str | None = None,
         counterpart_wallet_id: str | None = None,
+        advance_target_id: str | None = None,
+        advance_id: str | None = None,
+        outstanding: int | None = None,
     ) -> str:
         """直接放一筆帳 (不經過 service, 所以不動餘額、不留紀錄)。"""
         id = str(uuid.uuid4())
@@ -129,19 +135,68 @@ class FakeStore:
             "note": note,
             "transfer_id": transfer_id,
             "counterpart_wallet_id": counterpart_wallet_id,
+            "advance_target_id": advance_target_id,
+            "advance_id": advance_id,
+            "outstanding": outstanding,
             "created_by": created_by,
             "created_at": datetime(2026, 10, 18) + timedelta(seconds=len(self.entries)),
         }
         return id
 
+    def target(self, wallet_id: str, name: str) -> dict:
+        """取得或建立代墊對象 (比照 `WalletAdvanceTargetTable.find_or_create`)。"""
+        for found in self.targets.values():
+            if found["wallet_id"] == wallet_id and found["name"] == name:
+                return found
+        id = str(uuid.uuid4())
+        self.targets[id] = {"id": id, "wallet_id": wallet_id, "name": name, "outstanding": 0}
+        return self.targets[id]
+
+    def add_advance(
+        self,
+        wallet_id: str,
+        created_by: str,
+        target_name: str = "小明",
+        amount: int = 500,
+        outstanding: int | None = None,
+    ) -> str:
+        """直接放一筆代墊, 對象的未還金額一起加上 (不動餘額、不留紀錄)。"""
+        left = amount if outstanding is None else outstanding
+        target = self.target(wallet_id, target_name)
+        target["outstanding"] += left
+        return self.add_entry(
+            wallet_id,
+            created_by,
+            kind=EntryKind.ADVANCE,
+            amount=amount,
+            advance_target_id=target["id"],
+            outstanding=left,
+        )
+
+    def add_repayment(self, wallet_id: str, created_by: str, advance_id: str, amount: int) -> str:
+        """直接放一筆還款, 不動任何金額: 搭配 `add_advance(outstanding=...)` 使用。"""
+        return self.add_entry(
+            wallet_id,
+            created_by,
+            kind=EntryKind.REPAYMENT,
+            amount=amount,
+            advance_target_id=self.entries[advance_id]["advance_target_id"],
+            advance_id=advance_id,
+        )
+
+    def outstanding_of(self, wallet_id: str, name: str) -> int:
+        return self.target(wallet_id, name)["outstanding"]
+
     def entry_detail(self, id: str) -> dict:
         entry = self.entries[id]
         category = self.categories.get(entry["category_id"] or "")
         counterpart = self.wallets.get(entry["counterpart_wallet_id"] or "")
+        target = self.targets.get(entry["advance_target_id"] or "")
         return {
             **entry,
             "category_name": None if category is None else category["name"],
             "counterpart_wallet_name": None if counterpart is None else counterpart["name"],
+            "advance_target_name": None if target is None else target["name"],
         }
 
     def delete_wallet(self, wallet_id: str) -> None:
@@ -150,6 +205,9 @@ class FakeStore:
         self.members = {key: role for key, role in self.members.items() if key[0] != wallet_id}
         self.entries = {
             id: entry for id, entry in self.entries.items() if entry["wallet_id"] != wallet_id
+        }
+        self.targets = {
+            id: target for id, target in self.targets.items() if target["wallet_id"] != wallet_id
         }
         for entry in self.entries.values():
             if entry["counterpart_wallet_id"] == wallet_id:
@@ -440,6 +498,35 @@ def _install_transfers(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -> Non
     monkeypatch.setattr(WalletEntryTable, "find_transfer_in_wallet", find_transfer_in_wallet)
 
 
+def _install_advances(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -> None:
+    """代墊才用到的查詢: 對象的取得或建立、未還金額、某筆代墊的還款。"""
+
+    async def find_or_create(wallet_id, name):
+        return dict(store.target(wallet_id, name))
+
+    async def add_outstanding(id, delta):
+        store.targets[id]["outstanding"] += delta
+        return store.targets[id]["outstanding"]
+
+    async def list_in_wallet(wallet_id):
+        found = [dict(t) for t in store.targets.values() if t["wallet_id"] == wallet_id]
+        return sorted(found, key=lambda t: t["name"])
+
+    async def list_repayments(wallet_id, advance_id):
+        rows = [
+            store.entry_detail(id)
+            for id, e in store.entries.items()
+            if e["wallet_id"] == wallet_id and e["advance_id"] == advance_id
+        ]
+        rows.sort(key=lambda e: (e["entry_date"], e["created_at"]), reverse=True)
+        return rows
+
+    monkeypatch.setattr(WalletAdvanceTargetTable, "find_or_create", find_or_create)
+    monkeypatch.setattr(WalletAdvanceTargetTable, "add_outstanding", add_outstanding)
+    monkeypatch.setattr(WalletAdvanceTargetTable, "list_in_wallet", list_in_wallet)
+    monkeypatch.setattr(WalletEntryTable, "list_repayments", list_repayments)
+
+
 def _install_entry_logs(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -> None:
     async def create_log(data, session=None):
         log = {"id": str(uuid.uuid4()), "created_at": store.now, **data}
@@ -474,6 +561,7 @@ def store(monkeypatch: pytest.MonkeyPatch) -> FakeStore:
     _install_ledger_lookups(monkeypatch, fake)
     _install_entries(monkeypatch, fake)
     _install_transfers(monkeypatch, fake)
+    _install_advances(monkeypatch, fake)
     _install_entry_logs(monkeypatch, fake)
     return fake
 

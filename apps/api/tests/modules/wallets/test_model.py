@@ -12,6 +12,7 @@ from sqlalchemy.exc import IntegrityError
 
 from modules.users.model import UserTable
 from modules.wallets.model import (
+    AdvanceTargetDetail,
     CategoryDetail,
     CategoryType,
     EntryDetail,
@@ -21,6 +22,7 @@ from modules.wallets.model import (
     MemberRole,
     WalletCategoryTable,
     WalletDetail,
+    WalletAdvanceTargetTable,
     WalletEntryLogTable,
     WalletEntryTable,
     WalletInviteTable,
@@ -449,6 +451,149 @@ async def test_entry_logs_survive_entry_deletion(db):
     ]
     assert rest["next_cursor"] is None
     assert await WalletEntryTable.find_detail_in_wallet(wallet_id, entry_id) is None
+
+
+async def _advance(wallet_id: str, user_id: str, target_id: str, amount: int = 500) -> str:
+    created = await WalletEntryTable.create(
+        data={
+            "wallet_id": wallet_id,
+            "kind": EntryKind.ADVANCE,
+            "amount": amount,
+            "advance_target_id": target_id,
+            "outstanding": amount,
+            "entry_date": date(2026, 10, 18),
+            "created_by": user_id,
+        }
+    )
+    return created["id"]
+
+
+async def _repayment(
+    wallet_id: str, user_id: str, target_id: str, advance_id: str, day: date, amount: int = 100
+) -> str:
+    created = await WalletEntryTable.create(
+        data={
+            "wallet_id": wallet_id,
+            "kind": EntryKind.REPAYMENT,
+            "amount": amount,
+            "advance_target_id": target_id,
+            "advance_id": advance_id,
+            "entry_date": day,
+            "created_by": user_id,
+        }
+    )
+    return created["id"]
+
+
+async def test_find_or_create_target_reuses_same_name_and_is_case_sensitive(db):
+    wallet_id = await _wallet()
+    other = await _wallet(name="別的")
+
+    first = await WalletAdvanceTargetTable.find_or_create(wallet_id, "Amy")
+    again = await WalletAdvanceTargetTable.find_or_create(wallet_id, "Amy")
+    lower = await WalletAdvanceTargetTable.find_or_create(wallet_id, "amy")
+    elsewhere = await WalletAdvanceTargetTable.find_or_create(other, "Amy")
+
+    assert first == again
+    assert first == {"id": first["id"], "name": "Amy", "outstanding": 0}
+    assert len({first["id"], lower["id"], elsewhere["id"]}) == 3
+    assert_covers(AdvanceTargetDetail, first, "AdvanceTargetDetail")
+
+
+async def test_add_outstanding_returns_new_value_and_rejects_negative(db):
+    wallet_id = await _wallet()
+    target = await WalletAdvanceTargetTable.find_or_create(wallet_id, "小明")
+
+    assert await WalletAdvanceTargetTable.add_outstanding(target["id"], 500) == 500
+    assert await WalletAdvanceTargetTable.add_outstanding(target["id"], -200) == 300
+    with pytest.raises(IntegrityError):
+        async with transaction():
+            await WalletAdvanceTargetTable.add_outstanding(target["id"], -301)
+
+
+async def test_list_targets_in_wallet_orders_by_name(db):
+    wallet_id = await _wallet()
+    await WalletAdvanceTargetTable.find_or_create(wallet_id, "小華")
+    await WalletAdvanceTargetTable.find_or_create(wallet_id, "Amy")
+    await WalletAdvanceTargetTable.find_or_create(await _wallet(name="別的"), "別人")
+
+    targets = await WalletAdvanceTargetTable.list_in_wallet(wallet_id)
+
+    assert [target["name"] for target in targets] == ["Amy", "小華"]
+
+
+async def test_advance_detail_includes_target_name_and_outstanding(db):
+    alice = await _user("alice")
+    wallet_id = await _wallet({alice: MemberRole.ADMIN})
+    target = await WalletAdvanceTargetTable.find_or_create(wallet_id, "小明")
+    advance = await _advance(wallet_id, alice, target["id"])
+    repayment = await _repayment(wallet_id, alice, target["id"], advance, date(2026, 10, 18))
+
+    found = await WalletEntryTable.find_detail_in_wallet(wallet_id, advance)
+    repaid = await WalletEntryTable.find_detail_in_wallet(wallet_id, repayment)
+
+    assert found is not None and repaid is not None
+    assert (found["advance_target_name"], found["outstanding"], found["advance_id"]) == (
+        "小明",
+        500,
+        None,
+    )
+    assert (repaid["advance_target_name"], repaid["advance_id"]) == ("小明", advance)
+    assert_covers(EntryDetail, found, "EntryDetail")
+
+
+async def test_list_repayments_returns_only_that_advance_newest_first(db):
+    alice = await _user("alice")
+    wallet_id = await _wallet({alice: MemberRole.ADMIN})
+    target = await WalletAdvanceTargetTable.find_or_create(wallet_id, "小明")
+    advance = await _advance(wallet_id, alice, target["id"])
+    other = await _advance(wallet_id, alice, target["id"])
+    older = await _repayment(wallet_id, alice, target["id"], advance, date(2026, 10, 1))
+    newer = await _repayment(wallet_id, alice, target["id"], advance, date(2026, 10, 18))
+    await _repayment(wallet_id, alice, target["id"], other, date(2026, 10, 18))
+
+    repayments = await WalletEntryTable.list_repayments(wallet_id, advance)
+
+    assert [entry["id"] for entry in repayments] == [newer, older]
+
+
+async def test_entry_advance_checks_reject_inconsistent_rows(db):
+    alice = await _user("alice")
+    wallet_id = await _wallet({alice: MemberRole.ADMIN})
+    target = await WalletAdvanceTargetTable.find_or_create(wallet_id, "小明")
+    base = {
+        "wallet_id": wallet_id,
+        "amount": 100,
+        "entry_date": date(2026, 10, 18),
+        "created_by": alice,
+    }
+    invalid = [
+        # 代墊一定有對象與未還金額。
+        {"kind": EntryKind.ADVANCE, "outstanding": 100},
+        {"kind": EntryKind.ADVANCE, "advance_target_id": target["id"]},
+        # 未還金額不能是負的, 也不能超過代墊金額。
+        {"kind": EntryKind.ADVANCE, "advance_target_id": target["id"], "outstanding": -1},
+        {"kind": EntryKind.ADVANCE, "advance_target_id": target["id"], "outstanding": 101},
+        # 還款一定指向一筆代墊。
+        {"kind": EntryKind.REPAYMENT, "advance_target_id": target["id"]},
+    ]
+    for extra in invalid:
+        with pytest.raises(IntegrityError):
+            async with transaction():
+                await WalletEntryTable.create(data={**base, **extra})
+
+
+async def test_delete_wallet_cascades_advances_repayments_and_targets(db):
+    alice = await _user("alice")
+    wallet_id = await _wallet({alice: MemberRole.ADMIN})
+    target = await WalletAdvanceTargetTable.find_or_create(wallet_id, "小明")
+    advance = await _advance(wallet_id, alice, target["id"])
+    await _repayment(wallet_id, alice, target["id"], advance, date(2026, 10, 18))
+
+    assert await WalletTable.delete_by_id(wallet_id) is True
+
+    assert await WalletEntryTable.get_all() == {"list_data": [], "count": 0}
+    assert await WalletAdvanceTargetTable.get_all() == {"list_data": [], "count": 0}
 
 
 async def test_concurrent_balance_changes_are_serialized(db):
