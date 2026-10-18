@@ -64,10 +64,15 @@ class EntryKind(StrEnum):
     ADJUSTMENT = "adjustment"
     TRANSFER_OUT = "transfer_out"
     TRANSFER_IN = "transfer_in"
+    ADVANCE = "advance"
+    REPAYMENT = "repayment"
 
 
 #: 轉帳的兩邊。一筆轉帳在兩個錢包各有一筆帳, 以 `transfer_id` 連在一起。
 TRANSFER_KINDS = frozenset({EntryKind.TRANSFER_OUT, EntryKind.TRANSFER_IN})
+
+#: 代墊與它的還款。還款以 `advance_id` 指向那一筆代墊。
+ADVANCE_KINDS = frozenset({EntryKind.ADVANCE, EntryKind.REPAYMENT})
 
 
 class EntryLogAction(StrEnum):
@@ -481,6 +486,73 @@ class WalletInviteTable(BaseTable):
             await resolve_session(None).execute(delete(cls).where(cls.wallet_id == row_id))
 
 
+class AdvanceTargetDetail(TypedDict):
+    id: str
+    name: str
+    #: 這個對象各筆代墊未還金額的總和。
+    outstanding: int
+
+
+class WalletAdvanceTargetTable(BaseTable):
+    """代墊的對象。不是成員, 只是名字 (見 docs/features.md〈代墊與還款〉)。
+
+    未還金額存在這裡而不是查詢時加總各筆代墊: 錢包頁每次都要顯示未還清單。
+    名字用過一次就留著 (未還為 0 也是), 記代墊時當作輸入提示。
+    """
+
+    __tablename__ = "wallet_advance_targets"
+
+    wallet_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("wallets.id", ondelete="CASCADE")
+    )
+    name: Mapped[str]
+    outstanding: Mapped[int] = mapped_column(BigInteger, default=0)
+
+    __table_args__ = (
+        UniqueConstraint("wallet_id", "name"),
+        CheckConstraint("outstanding >= 0", name="outstanding_not_negative"),
+    )
+
+    @staticmethod
+    def _detail(row: WalletAdvanceTargetTable) -> AdvanceTargetDetail:
+        return {"id": str(row.id), "name": row.name, "outstanding": row.outstanding}
+
+    @classmethod
+    async def find_or_create(cls, wallet_id: str, name: str) -> AdvanceTargetDetail:
+        """依名字找, 沒有就建立。名字比對大小寫視為不同, 去空白由 schema 做。"""
+        wallet_uuid = parse_uuid(wallet_id)
+        db = resolve_session(None)
+        await db.execute(
+            pg_insert(cls)
+            .values(id=uuid.uuid4(), created_at=utc_now(), wallet_id=wallet_uuid, name=name)
+            .on_conflict_do_nothing(index_elements=["wallet_id", "name"])
+        )
+        row = await db.scalar(select(cls).where(cls.wallet_id == wallet_uuid, cls.name == name))
+        return cls._detail(cast(WalletAdvanceTargetTable, row))
+
+    @classmethod
+    async def add_outstanding(cls, id: str, delta: int) -> int:
+        """加上差額並回傳新的未還金額。"""
+        result = await resolve_session(None).scalar(
+            update(cls)
+            .where(cls.id == parse_uuid(id))
+            .values(outstanding=cls.outstanding + delta, updated_at=utc_now())
+            .returning(cls.outstanding)
+        )
+        return cast(int, result)
+
+    @classmethod
+    async def list_in_wallet(cls, wallet_id: str) -> list[AdvanceTargetDetail]:
+        """依名字排序, 含未還為 0 的。"""
+        wallet_uuid = parse_uuid(wallet_id)
+        if wallet_uuid is None:
+            return []
+        rows = await resolve_session(None).scalars(
+            select(cls).where(cls.wallet_id == wallet_uuid).order_by(cls.name)
+        )
+        return [cls._detail(row) for row in rows]
+
+
 class EntryDetail(TypedDict):
     id: str
     wallet_id: str
@@ -495,6 +567,13 @@ class EntryDetail(TypedDict):
     #: 轉帳的對方錢包; 不是轉帳, 或對方錢包已刪除時是 None。
     counterpart_wallet_id: str | None
     counterpart_wallet_name: str | None
+    #: 代墊與還款的對象; 其他種類是 None。
+    advance_target_id: str | None
+    advance_target_name: str | None
+    #: 還款對的那一筆代墊; 不是還款時是 None。
+    advance_id: str | None
+    #: 代墊還沒還的金額; 不是代墊時是 None。
+    outstanding: int | None
     entry_date: date
     note: str
     created_by: str
@@ -520,6 +599,10 @@ class EntryLogDetail(TypedDict):
 class EntryLogPageResult(TypedDict):
     list_data: list[EntryLogDetail]
     next_cursor: str | None
+
+
+def _optional_id(value: uuid.UUID | None) -> str | None:
+    return None if value is None else str(value)
 
 
 def _encode_keys(*values: date | datetime | uuid.UUID) -> str:
@@ -562,13 +645,25 @@ class WalletEntryTable(BaseTable):
     counterpart_wallet_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("wallets.id", ondelete="SET NULL"), default=None
     )
+    # 代墊與還款的對象。對象只會隨錢包一起刪掉, 所以外鍵不設 ON DELETE。
+    advance_target_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("wallet_advance_targets.id"), default=None
+    )
+    # 還款指向它的代墊。不設 ON DELETE: 有還款的代墊不能刪 (見 docs/features.md〈代墊與還款〉),
+    # 外鍵替 service 的檢查再擋一次。
+    advance_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("wallet_entries.id"), default=None, index=True
+    )
+    # 代墊還沒還的金額, 存起來的值: 還款的上限要在上鎖後直接讀, 不從還款加總。
+    outstanding: Mapped[int | None] = mapped_column(BigInteger, default=None)
     # 指向使用者而不是成員紀錄: 記帳人離開錢包後帳目照樣保留 (見 docs/features.md〈離開與移除〉)。
     # 不設 ON DELETE: 使用者只會被停用, 不會被刪除。
     created_by: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
 
     __table_args__ = (
         CheckConstraint(
-            "kind IN ('income', 'expense', 'adjustment', 'transfer_out', 'transfer_in')",
+            "kind IN ('income', 'expense', 'adjustment', 'transfer_out', 'transfer_in',"
+            " 'advance', 'repayment')",
             name="kind",
         ),
         # 只有調整的差額可以是負的 (見 docs/features.md〈金額〉)。
@@ -588,6 +683,16 @@ class WalletEntryTable(BaseTable):
             "counterpart_wallet_id IS NULL OR kind IN ('transfer_out', 'transfer_in')",
             name="counterpart_only_for_transfer",
         ),
+        CheckConstraint(
+            "(kind IN ('advance', 'repayment')) = (advance_target_id IS NOT NULL)",
+            name="target_only_for_advance",
+        ),
+        CheckConstraint("(kind = 'repayment') = (advance_id IS NOT NULL)", name="advance_id"),
+        CheckConstraint(
+            "(kind = 'advance') = (outstanding IS NOT NULL)"
+            " AND (outstanding IS NULL OR outstanding BETWEEN 0 AND amount)",
+            name="outstanding",
+        ),
         # 錢包頁的列表: 日期新到舊, 同一天依記帳時間新到舊 (見 `find_page`)。
         Index(
             "ix_wallet_entries_wallet_list",
@@ -601,15 +706,20 @@ class WalletEntryTable(BaseTable):
     @classmethod
     def _detail_select(cls) -> Select:
         counterpart = aliased(WalletTable)
+        target = WalletAdvanceTargetTable
         return (
-            select(cls, WalletCategoryTable.name, counterpart.name)
+            select(cls, WalletCategoryTable.name, counterpart.name, target.name)
             .outerjoin(WalletCategoryTable, WalletCategoryTable.id == cls.category_id)
             .outerjoin(counterpart, counterpart.id == cls.counterpart_wallet_id)
+            .outerjoin(target, target.id == cls.advance_target_id)
         )
 
     @staticmethod
     def _detail(
-        row: WalletEntryTable, category_name: str | None, counterpart_name: str | None
+        row: WalletEntryTable,
+        category_name: str | None,
+        counterpart_name: str | None,
+        target_name: str | None,
     ) -> EntryDetail:
         return {
             "id": str(row.id),
@@ -625,6 +735,10 @@ class WalletEntryTable(BaseTable):
                 None if row.counterpart_wallet_id is None else str(row.counterpart_wallet_id)
             ),
             "counterpart_wallet_name": counterpart_name,
+            "advance_target_id": _optional_id(row.advance_target_id),
+            "advance_target_name": target_name,
+            "advance_id": _optional_id(row.advance_id),
+            "outstanding": row.outstanding,
             "created_by": str(row.created_by),
             "created_at": row.created_at,
         }
@@ -697,6 +811,19 @@ class WalletEntryTable(BaseTable):
             None if last is None else _encode_keys(last.entry_date, last.created_at, last.id)
         )
         return {"list_data": page, "next_cursor": next_cursor}
+
+    @classmethod
+    async def list_repayments(cls, wallet_id: str, advance_id: str) -> list[EntryDetail]:
+        """一筆代墊的還款, 排序同帳目列表。一筆代墊的還款不多, 不分頁。"""
+        wallet_uuid, advance_uuid = parse_uuid(wallet_id), parse_uuid(advance_id)
+        if wallet_uuid is None or advance_uuid is None:
+            return []
+        statement = (
+            cls._detail_select()
+            .where(cls.wallet_id == wallet_uuid, cls.advance_id == advance_uuid)
+            .order_by(cls.entry_date.desc(), cls.created_at.desc(), cls.id.desc())
+        )
+        return [cls._detail(*row) for row in (await resolve_session(None).execute(statement)).all()]
 
     @classmethod
     async def delete_in_wallet(cls, wallet_id: str, id: str) -> None:

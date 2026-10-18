@@ -432,6 +432,90 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/wallets/{id}/advance-targets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Advance Target List Route
+         * @description 這個錢包用過的代墊對象與各自的未還金額, 依名字排序。
+         */
+        get: operations["get_advance_target_list_route_api_wallets__id__advance_targets_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/wallets/{id}/advances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Advance Route
+         * @description 記一筆代墊: 餘額扣掉金額, 對象的未還金額加上。對象不需要是成員。
+         */
+        post: operations["create_advance_route_api_wallets__id__advances_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/wallets/{id}/advances/{entry_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Advance Route
+         * @description 修改代墊的金額、日期、備註, 不能改對象。金額不能小於已還的。
+         */
+        patch: operations["update_advance_route_api_wallets__id__advances__entry_id__patch"];
+        trace?: never;
+    };
+    "/api/wallets/{id}/advances/{entry_id}/repayments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Repayment List Route
+         * @description 一筆代墊的還款, 日期新到舊。
+         */
+        get: operations["get_repayment_list_route_api_wallets__id__advances__entry_id__repayments_get"];
+        put?: never;
+        /**
+         * Create Repayment Route
+         * @description 替一筆代墊記還款: 餘額加回金額。不可超過那一筆的未還金額。
+         */
+        post: operations["create_repayment_route_api_wallets__id__advances__entry_id__repayments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/wallets/{id}/categories": {
         parameters: {
             query?: never;
@@ -510,6 +594,7 @@ export interface paths {
          * @description 刪除自己記的帳; 錢包管理者可以刪除任何人的。餘額反向套用。
          *
          *     轉帳兩邊一起刪, 要在兩個錢包都有改刪權限; 對方錢包已刪除時只刪這一邊。
+         *     有還款的代墊不能刪, 要先刪掉它的還款。
          */
         delete: operations["delete_entry_route_api_wallets__id__entries__entry_id__delete"];
         options?: never;
@@ -628,6 +713,26 @@ export interface paths {
          * @description 把成員升為管理者, 或把管理者降為成員。
          */
         patch: operations["update_member_role_route_api_wallets__id__members__user_id__patch"];
+        trace?: never;
+    };
+    "/api/wallets/{id}/repayments/{entry_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Repayment Route
+         * @description 修改還款的金額、日期、備註。金額上限是代墊目前的未還加上這筆原本的金額。
+         */
+        patch: operations["update_repayment_route_api_wallets__id__repayments__entry_id__patch"];
         trace?: never;
     };
     "/api/wallets/{id}/transfers": {
@@ -762,6 +867,45 @@ export interface components {
             total_count: number;
         };
         /**
+         * AdvanceCreate
+         * @description 記一筆代墊: 錢包替 `target_name` 墊付, 餘額扣掉、對象的未還金額加上。
+         *
+         *     對象不需要是成員; 名字去掉前後空白後相同 (大小寫視為不同) 就是同一個對象。
+         */
+        AdvanceCreate: {
+            /** Amount */
+            amount: number;
+            /**
+             * Entry Date
+             * Format: date
+             */
+            entry_date: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /** Target Name */
+            target_name: string;
+        };
+        /** AdvanceTargetInfo */
+        AdvanceTargetInfo: {
+            /** Name */
+            name: string;
+            /** Outstanding */
+            outstanding: number;
+        };
+        /**
+         * AdvanceTargetList
+         * @description 這個錢包用過的代墊對象, 依名字排序。
+         */
+        AdvanceTargetList: {
+            /** Count */
+            count: number;
+            /** List Data */
+            list_data: components["schemas"]["AdvanceTargetInfo"][];
+        };
+        /**
          * AppVersion
          * @description 系統目前執行的版本。
          */
@@ -867,6 +1011,10 @@ export interface components {
          * @description 一筆帳。收入、支出與轉帳的 `amount` 是正數; 調整的 `amount` 是差額, 可以是負的。
          */
         EntryInfo: {
+            /** Advance Id */
+            advance_id: string | null;
+            /** Advance Target Name */
+            advance_target_name: string | null;
             /** Amount */
             amount: number;
             category: components["schemas"]["EntryCategory"] | null;
@@ -887,13 +1035,15 @@ export interface components {
             kind: components["schemas"]["EntryKind"];
             /** Note */
             note: string;
+            /** Outstanding */
+            outstanding: number | null;
         };
         /**
          * EntryKind
          * @description 一般錢包的帳目種類。
          * @enum {string}
          */
-        EntryKind: "income" | "expense" | "adjustment" | "transfer_out" | "transfer_in";
+        EntryKind: "income" | "expense" | "adjustment" | "transfer_out" | "transfer_in" | "advance" | "repayment";
         /**
          * EntryLogAction
          * @description 異動紀錄的動作。
@@ -958,9 +1108,11 @@ export interface components {
         };
         /**
          * EntrySnapshot
-         * @description 異動當時的帳目內容。`category_name`、`counterpart_wallet_name` 是當時的名稱。
+         * @description 異動當時的帳目內容。各個 `*_name` 是當時的名稱。
          */
         EntrySnapshot: {
+            /** Advance Target Name */
+            advance_target_name?: string | null;
             /** Amount */
             amount: number;
             /** Category Name */
@@ -1134,6 +1286,24 @@ export interface components {
             role: components["schemas"]["MemberRole"];
         };
         /**
+         * MoneyUpdate
+         * @description 修改代墊、新增或修改還款: 不能改對象, 也不能把還款換到另一筆代墊。
+         */
+        MoneyUpdate: {
+            /** Amount */
+            amount: number;
+            /**
+             * Entry Date
+             * Format: date
+             */
+            entry_date: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+        };
+        /**
          * PasswordChange
          * @description 使用者更換**自己**的密碼 (`UserResetPassword` 是管理者替別人重設, 不需要舊密碼)。
          *
@@ -1177,6 +1347,16 @@ export interface components {
         ProfileUpdate: {
             /** Nickname */
             nickname: string;
+        };
+        /**
+         * RepaymentList
+         * @description 一筆代墊的還款, 日期新到舊。
+         */
+        RepaymentList: {
+            /** Count */
+            count: number;
+            /** List Data */
+            list_data: components["schemas"]["EntryInfo"][];
         };
         /** RoleCreate */
         RoleCreate: {
@@ -2485,6 +2665,176 @@ export interface operations {
             };
         };
     };
+    get_advance_target_list_route_api_wallets__id__advance_targets_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdvanceTargetList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_advance_route_api_wallets__id__advances_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdvanceCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntryOperate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_advance_route_api_wallets__id__advances__entry_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MoneyUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntryOperate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_repayment_list_route_api_wallets__id__advances__entry_id__repayments_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RepaymentList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_repayment_route_api_wallets__id__advances__entry_id__repayments_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MoneyUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntryOperate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_category_list_route_api_wallets__id__categories_get: {
         parameters: {
             query?: never;
@@ -3001,6 +3351,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MemberOperate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_repayment_route_api_wallets__id__repayments__entry_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MoneyUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntryOperate"];
                 };
             };
             /** @description Validation Error */

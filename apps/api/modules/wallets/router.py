@@ -7,11 +7,13 @@ from shared.auth.contracts import CurrentUser
 from shared.auth.dependency import check_user_permission
 from shared.http.schema import PaginationParams
 
-from . import admin, categories, entries, entry_logs, invites, members, service, transfers
+from . import admin, advances, categories, entries, entry_logs, invites, members, service, transfers
 from .model import WalletKind
 from .schema import (
     AdminWalletCreate,
     AdminWalletList,
+    AdvanceCreate,
+    AdvanceTargetList,
     BalanceAdjust,
     CategoryCreate,
     CategoryList,
@@ -29,6 +31,8 @@ from .schema import (
     MemberList,
     MemberOperate,
     MemberRoleUpdate,
+    MoneyUpdate,
+    RepaymentList,
     TransferCreate,
     TransferUpdate,
     UuidText,
@@ -210,6 +214,68 @@ async def update_transfer_route(
     return await transfers.update_transfer(id, entry_id, form_data, current_user)
 
 
+@router.post("/{id}/advances")
+async def create_advance_route(
+    id: UuidText,
+    form_data: AdvanceCreate,
+    current_user: CurrentUser = Depends(check_user_permission()),
+) -> EntryOperate:
+    """記一筆代墊: 餘額扣掉金額, 對象的未還金額加上。對象不需要是成員。"""
+    return await advances.create_advance(id, form_data, current_user)
+
+
+@router.patch("/{id}/advances/{entry_id}")
+async def update_advance_route(
+    id: UuidText,
+    entry_id: UuidText,
+    form_data: MoneyUpdate,
+    current_user: CurrentUser = Depends(check_user_permission()),
+) -> EntryOperate:
+    """修改代墊的金額、日期、備註, 不能改對象。金額不能小於已還的。"""
+    return await advances.update_advance(id, entry_id, form_data, current_user)
+
+
+@router.get("/{id}/advances/{entry_id}/repayments")
+async def get_repayment_list_route(
+    id: UuidText,
+    entry_id: UuidText,
+    current_user: CurrentUser = Depends(check_user_permission()),
+) -> RepaymentList:
+    """一筆代墊的還款, 日期新到舊。"""
+    return await entries.list_repayments(id, entry_id, current_user)
+
+
+@router.post("/{id}/advances/{entry_id}/repayments")
+async def create_repayment_route(
+    id: UuidText,
+    entry_id: UuidText,
+    form_data: MoneyUpdate,
+    current_user: CurrentUser = Depends(check_user_permission()),
+) -> EntryOperate:
+    """替一筆代墊記還款: 餘額加回金額。不可超過那一筆的未還金額。"""
+    return await advances.create_repayment(id, entry_id, form_data, current_user)
+
+
+@router.patch("/{id}/repayments/{entry_id}")
+async def update_repayment_route(
+    id: UuidText,
+    entry_id: UuidText,
+    form_data: MoneyUpdate,
+    current_user: CurrentUser = Depends(check_user_permission()),
+) -> EntryOperate:
+    """修改還款的金額、日期、備註。金額上限是代墊目前的未還加上這筆原本的金額。"""
+    return await advances.update_repayment(id, entry_id, form_data, current_user)
+
+
+@router.get("/{id}/advance-targets")
+async def get_advance_target_list_route(
+    id: UuidText,
+    current_user: CurrentUser = Depends(check_user_permission()),
+) -> AdvanceTargetList:
+    """這個錢包用過的代墊對象與各自的未還金額, 依名字排序。"""
+    return await advances.list_targets(id, current_user)
+
+
 @router.patch("/{id}/entries/{entry_id}")
 async def update_entry_route(
     id: UuidText,
@@ -230,6 +296,7 @@ async def delete_entry_route(
     """刪除自己記的帳; 錢包管理者可以刪除任何人的。餘額反向套用。
 
     轉帳兩邊一起刪, 要在兩個錢包都有改刪權限; 對方錢包已刪除時只刪這一邊。
+    有還款的代墊不能刪, 要先刪掉它的還款。
     """
     return await entries.delete_entry(id, entry_id, current_user)
 

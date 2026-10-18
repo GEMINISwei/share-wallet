@@ -26,6 +26,7 @@ EntryNote = Annotated[str, StringConstraints(strip_whitespace=True, max_length=2
 WalletName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=50)]
 Destination = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=50)]
 CategoryName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=20)]
+TargetName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=20)]
 
 
 class WalletSchemaError(BaseError):
@@ -256,6 +257,36 @@ class TransferUpdate(BaseModel):
     note: EntryNote = ""
 
 
+class AdvanceCreate(BaseModel):
+    """記一筆代墊: 錢包替 `target_name` 墊付, 餘額扣掉、對象的未還金額加上。
+
+    對象不需要是成員; 名字去掉前後空白後相同 (大小寫視為不同) 就是同一個對象。
+    """
+
+    target_name: TargetName
+    amount: PositiveAmount
+    entry_date: date
+    note: EntryNote = ""
+
+
+class MoneyUpdate(BaseModel):
+    """修改代墊、新增或修改還款: 不能改對象, 也不能把還款換到另一筆代墊。"""
+
+    amount: PositiveAmount
+    entry_date: date
+    note: EntryNote = ""
+
+
+class AdvanceTargetInfo(BaseModel):
+    name: str
+    #: 這個對象各筆代墊未還金額的總和, 已還清的是 0。
+    outstanding: int
+
+
+class AdvanceTargetList(SimpleListResponse["AdvanceTargetInfo"]):
+    """這個錢包用過的代墊對象, 依名字排序。"""
+
+
 class EntryOperate(BaseModel):
     id: str
 
@@ -286,10 +317,20 @@ class EntryInfo(BaseModel):
     category: EntryCategory | None
     #: 轉帳的對方錢包。不是轉帳時是 null; 轉帳而對方錢包已刪除時也是 null, 這筆只能刪除。
     counterpart_wallet: EntryWallet | None
+    #: 代墊與還款的對象; 其他種類是 null。
+    advance_target_name: str | None
+    #: 還款對的那一筆代墊; 不是還款時是 null。
+    advance_id: str | None
+    #: 代墊還沒還的金額; 不是代墊時是 null。
+    outstanding: int | None
     entry_date: date
     note: str
     created_by: EntryUser
     created_at: UtcDateTime
+
+
+class RepaymentList(SimpleListResponse["EntryInfo"]):
+    """一筆代墊的還款, 日期新到舊。"""
 
 
 class EntryPage(BaseModel):
@@ -300,13 +341,15 @@ class EntryPage(BaseModel):
 
 
 class EntrySnapshot(BaseModel):
-    """異動當時的帳目內容。`category_name`、`counterpart_wallet_name` 是當時的名稱。"""
+    """異動當時的帳目內容。各個 `*_name` 是當時的名稱。"""
 
     kind: EntryKind
     amount: int
     category_name: str | None
     #: 轉帳的對方錢包; 不是轉帳, 或當時對方錢包已刪除時是 null。
     counterpart_wallet_name: str | None = None
+    #: 代墊與還款的對象。
+    advance_target_name: str | None = None
     entry_date: date
     note: str
 
