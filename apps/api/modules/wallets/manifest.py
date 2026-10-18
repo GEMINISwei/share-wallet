@@ -1,6 +1,9 @@
 from shared.module import ModuleManifest
 
 from .model import (
+    TravelExpenseShareTable,
+    TravelExpenseTable,
+    WalletAdvanceTargetTable,
     WalletCategoryTable,
     WalletEntryLogTable,
     WalletEntryTable,
@@ -22,5 +25,8 @@ MODULE = ModuleManifest(
         WalletInviteTable,
         WalletEntryTable,
         WalletEntryLogTable,
+        WalletAdvanceTargetTable,
+        TravelExpenseTable,
+        TravelExpenseShareTable,
     ),
 )

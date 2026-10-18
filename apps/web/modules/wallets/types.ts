@@ -19,6 +19,13 @@ export type EntryLogInfo = Schema<"EntryLogInfo">
 export type EntryLogPage = Schema<"EntryLogPage">
 export type EntrySnapshot = Schema<"EntrySnapshot">
 export type AdvanceTargetInfo = Schema<"AdvanceTargetInfo">
+export type ExpenseInfo = Schema<"ExpenseInfo">
+export type ExpensePage = Schema<"ExpensePage">
+export type ExpenseLogInfo = Schema<"ExpenseLogInfo">
+export type ExpenseLogPage = Schema<"ExpenseLogPage">
+export type ExpenseSnapshot = Schema<"ExpenseSnapshot">
+export type NetBalanceInfo = Schema<"NetBalanceInfo">
+export type SplitMode = Schema<"SplitMode">
 
 /** 後台列表的篩選條件 (網址參數)。空字串代表不篩選。 */
 export type AdminWalletFilters = { name: string; kind: WalletKind | "" }
@@ -65,3 +72,22 @@ export type AdjustFormErrors = Partial<Record<keyof AdjustFormValues, string>>
 export type RepayFormValues = { amount: string; entry_date: string; note: string }
 
 export type RepayFormErrors = Partial<Record<keyof RepayFormValues, string>>
+
+/** 指定金額表的一列。`key` 只給 React 用: 列可以從中間刪掉, 不能拿 index 當 key。 */
+export type ShareRowValues = { key: string; user_id: string; amount: string }
+
+/**
+ * 旅遊錢包記一筆與修改的表單值。均分用 `participant_ids`, 指定金額用 `shares`;
+ * 切換分攤方式時兩邊都留著, 切回來不用重填。
+ */
+export type ExpenseFormValues = {
+  amount: string
+  payer_id: string
+  split_mode: SplitMode
+  participant_ids: string[]
+  shares: ShareRowValues[]
+  entry_date: string
+  note: string
+}
+
+export type ExpenseFormErrors = Partial<Record<keyof ExpenseFormValues, string>>

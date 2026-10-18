@@ -10,7 +10,7 @@ from shared.http.errors import LangException
 
 from .access import manage_wallet, open_wallet
 from .errors import WalletError
-from .model import MemberRole, WalletMemberTable, WalletTable
+from .model import MemberRole, TravelExpenseTable, WalletKind, WalletMemberTable, WalletTable
 from .schema import MemberInfo, MemberList, MemberOperate, MemberRoleUpdate
 
 
@@ -57,12 +57,17 @@ async def update_member_role(
 async def remove_member(wallet_id: str, user_id: str, current_user: CurrentUser) -> MemberOperate:
     """移除自己就是離開, 每個成員都可以; 移除別人要是管理者。
 
-    只刪成員紀錄 (見 docs/features.md〈離開與移除〉)。最後一位管理者不能離開也不能被移除。
+    只刪成員紀錄 (見 docs/features.md〈離開與移除〉)。最後一位管理者不能離開也不能被移除;
+    旅遊錢包裡有付款或分攤紀錄的人也不能 (見〈成員異動〉): 他一走, 淨額就少了一個人。
     """
     access = await open_wallet(wallet_id, current_user)
     if user_id != current_user["id"] and not access.can_manage:
         raise LangException(403, WalletError.NOT_ADMIN)
     role = await _locked_member_role(wallet_id, user_id)
     await _ensure_not_last_admin(wallet_id, role)
+    # 在鎖之後查: 記帳也先鎖同一列, 查完到刪掉之間不會有人把他記成分攤對象。
+    travel = access.wallet["kind"] == WalletKind.TRAVEL
+    if travel and await TravelExpenseTable.has_records(wallet_id, user_id):
+        raise LangException(409, WalletError.MEMBER_HAS_RECORDS)
     await WalletMemberTable.remove(wallet_id, user_id)
     return MemberOperate(user_id=user_id)

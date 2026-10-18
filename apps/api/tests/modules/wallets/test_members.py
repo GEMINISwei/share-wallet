@@ -3,7 +3,7 @@
 import pytest
 from httpx import AsyncClient
 
-from modules.wallets.model import MemberRole
+from modules.wallets.model import MemberRole, WalletKind
 
 from ..helpers import authenticate
 from .conftest import ALICE, BOB, CAROL, FakeStore
@@ -153,3 +153,46 @@ async def test_remove_last_admin_returns_409(client: AsyncClient, store):
 
     assert response.status_code == 409
     assert ALICE in store.roles(wallet_id)
+
+
+# ── 旅遊錢包: 有付款或分攤紀錄的人不能離開也不能被移除 (見 docs/features.md〈成員異動〉) ──
+
+
+@pytest.mark.asyncio
+async def test_remove_travel_member_who_paid_returns_409(client: AsyncClient, store):
+    wallet_id = store.add_wallet(kind=WalletKind.TRAVEL, members={ALICE: ADMIN, BOB: MEMBER})
+    store.add_expense(wallet_id, ALICE, BOB, {ALICE: 100})
+    authenticate(client, "alice")
+
+    response = await client.delete(_url(wallet_id, BOB))
+
+    assert response.status_code == 409
+    assert BOB in store.roles(wallet_id)
+
+
+@pytest.mark.asyncio
+async def test_leave_travel_wallet_with_share_returns_409(client: AsyncClient, store):
+    wallet_id = store.add_wallet(kind=WalletKind.TRAVEL, members={ALICE: ADMIN, BOB: MEMBER})
+    store.add_expense(wallet_id, ALICE, ALICE, {ALICE: 50, BOB: 50})
+    authenticate(client, "bob")
+
+    response = await client.delete(_url(wallet_id, BOB))
+
+    assert response.status_code == 409
+    assert BOB in store.roles(wallet_id)
+    # 先鎖錢包再查紀錄, 跟記帳同一個鎖。
+    assert store.locked == [wallet_id]
+
+
+@pytest.mark.asyncio
+async def test_leave_travel_wallet_without_records_succeeds(client: AsyncClient, store):
+    wallet_id = store.add_wallet(
+        kind=WalletKind.TRAVEL, members={ALICE: ADMIN, BOB: MEMBER, CAROL: MEMBER}
+    )
+    store.add_expense(wallet_id, ALICE, ALICE, {ALICE: 50, CAROL: 50})
+    authenticate(client, "bob")
+
+    response = await client.delete(_url(wallet_id, BOB))
+
+    assert response.status_code == 200
+    assert BOB not in store.roles(wallet_id)

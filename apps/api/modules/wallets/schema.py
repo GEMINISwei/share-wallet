@@ -14,7 +14,7 @@ from shared.http.errors import BaseError, LangText, resolve_text
 from shared.http.schema import PaginatedResponse, SimpleListResponse, UtcDateTime
 from shared.http.schema import UuidText as UuidText
 
-from .model import CategoryType, EntryKind, EntryLogAction, MemberRole, WalletKind
+from .model import CategoryType, EntryKind, EntryLogAction, MemberRole, SplitMode, WalletKind
 
 # JavaScript 數字能精確表示的整數上限。資料庫是 BIGINT, 但超過這個值送到瀏覽器就會失真,
 # 而且不會有任何錯誤。
@@ -32,6 +32,12 @@ TargetName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=
 class WalletSchemaError(BaseError):
     END_BEFORE_START = LangText(
         zh="結束日不可早於開始日", en="End date cannot be before start date"
+    )
+    DUPLICATE_PARTICIPANT = LangText(
+        zh="同一個人不能出現兩次", en="The same person cannot appear twice"
+    )
+    SHARES_NOT_SUM = LangText(
+        zh="分攤金額的加總必須等於總額", en="The shares must add up to the total amount"
     )
 
 
@@ -376,4 +382,145 @@ class EntryLogPage(BaseModel):
     """整個錢包的異動紀錄的一頁, 新到舊, 包含已刪除的帳。"""
 
     list_data: list[EntryLogInfo]
+    next_cursor: str | None
+
+
+class _ExpenseFields(BaseModel):
+    amount: PositiveAmount
+    #: 必須是這個錢包的成員。
+    payer_id: UuidText
+    entry_date: date
+    note: EntryNote = ""
+
+
+def _ensure_unique(user_ids: list[str]) -> None:
+    # 必須丟 ValueError 才會轉成 422, 理由同 `_TravelFields`。
+    if len(set(user_ids)) != len(user_ids):
+        raise ValueError(resolve_text(WalletSchemaError.DUPLICATE_PARTICIPANT.value))
+
+
+class EqualExpenseCreate(_ExpenseFields):
+    """均分: 零頭依序分給前幾人, 付款人優先, 其餘照加入錢包的順序 (見 docs/features.md〈分攤〉)。"""
+
+    split_mode: Literal[SplitMode.EQUAL]
+    #: 分攤對象, 都必須是這個錢包的成員。順序不影響結果。
+    participant_ids: list[UuidText] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _unique_participants(self) -> Self:
+        _ensure_unique(self.participant_ids)
+        return self
+
+
+class ShareInput(BaseModel):
+    user_id: UuidText
+    amount: PositiveAmount
+
+
+class CustomExpenseCreate(_ExpenseFields):
+    """指定金額: 每人金額大於 0, 加總剛好等於 `amount`。這一筆不用出錢的人不列。"""
+
+    split_mode: Literal[SplitMode.CUSTOM]
+    #: 依表上的順序存, 都必須是這個錢包的成員。
+    shares: list[ShareInput] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _shares_add_up(self) -> Self:
+        _ensure_unique([share.user_id for share in self.shares])
+        if sum(share.amount for share in self.shares) != self.amount:
+            raise ValueError(resolve_text(WalletSchemaError.SHARES_NOT_SUM.value))
+        return self
+
+
+#: 新增與修改共用: 修改時所有欄位都可以改, 包括分攤方式。
+ExpenseCreate = Annotated[
+    EqualExpenseCreate | CustomExpenseCreate, Field(discriminator="split_mode")
+]
+
+
+class ExpenseShare(BaseModel):
+    user_id: str
+    nickname: str
+    #: 均分時可以是 0 (金額少於人數)。
+    amount: int
+
+
+class ExpenseInfo(BaseModel):
+    """旅遊錢包的一筆帳。"""
+
+    id: str
+    amount: int
+    payer: EntryUser
+    split_mode: SplitMode
+    #: 每人分攤的金額, 均分依加入錢包的順序, 指定金額依表上的順序。
+    shares: list[ExpenseShare]
+    entry_date: date
+    note: str
+    created_by: EntryUser
+    created_at: UtcDateTime
+
+
+class ExpensePage(BaseModel):
+    """旅遊錢包的帳的一頁, 日期新到舊。`next_cursor` 是 null 表示沒有更多了。"""
+
+    list_data: list[ExpenseInfo]
+    next_cursor: str | None
+
+
+class NetBalanceInfo(BaseModel):
+    """一個成員在旅遊錢包的淨額。"""
+
+    user_id: str
+    nickname: str
+    #: 他付的總額。
+    paid: int
+    #: 他分攤的總額。
+    owed: int
+    #: `paid - owed`: 正的是應收, 負的是應付。
+    net: int
+
+
+class NetBalanceList(SimpleListResponse["NetBalanceInfo"]):
+    """所有成員的淨額, 依加入錢包的順序; 沒有紀錄的成員是 0。"""
+
+
+class ShareSnapshot(BaseModel):
+    #: 當時的暱稱。
+    name: str
+    amount: int
+
+
+class ExpenseSnapshot(BaseModel):
+    """異動當時的旅遊錢包帳目內容。名字都是當時的暱稱。"""
+
+    amount: int
+    payer_name: str
+    split_mode: SplitMode
+    shares: list[ShareSnapshot]
+    entry_date: date
+    note: str
+
+
+class ExpenseLogInfo(BaseModel):
+    """旅遊錢包的一筆異動紀錄。新增沒有 `before`, 刪除沒有 `after`。"""
+
+    id: str
+    entry_id: str
+    action: EntryLogAction
+    actor: EntryUser
+    #: 意思同 `EntryLogInfo.as_super_admin`。
+    as_super_admin: bool
+    before: ExpenseSnapshot | None
+    after: ExpenseSnapshot | None
+    created_at: UtcDateTime
+
+
+class ExpenseLogList(SimpleListResponse["ExpenseLogInfo"]):
+    """一筆帳的異動紀錄, 新到舊。"""
+
+
+class ExpenseLogPage(BaseModel):
+    """整個旅遊錢包的異動紀錄的一頁, 新到舊, 包含已刪除的帳。"""
+
+    list_data: list[ExpenseLogInfo]
     next_cursor: str | None

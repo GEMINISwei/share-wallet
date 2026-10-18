@@ -443,6 +443,54 @@
         "title": "CategoryType",
         "type": "string"
       },
+      "CustomExpenseCreate": {
+        "description": "指定金額: 每人金額大於 0, 加總剛好等於 `amount`。這一筆不用出錢的人不列。",
+        "properties": {
+          "amount": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 9007199254740991.0,
+            "title": "Amount",
+            "type": "integer"
+          },
+          "entry_date": {
+            "format": "date",
+            "title": "Entry Date",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "maxLength": 200,
+            "title": "Note",
+            "type": "string"
+          },
+          "payer_id": {
+            "title": "Payer Id",
+            "type": "string"
+          },
+          "shares": {
+            "items": {
+              "$ref": "#/components/schemas/ShareInput"
+            },
+            "minItems": 1,
+            "title": "Shares",
+            "type": "array"
+          },
+          "split_mode": {
+            "const": "custom",
+            "title": "Split Mode",
+            "type": "string"
+          }
+        },
+        "required": [
+          "amount",
+          "payer_id",
+          "entry_date",
+          "split_mode",
+          "shares"
+        ],
+        "title": "CustomExpenseCreate",
+        "type": "object"
+      },
       "EntryCategory": {
         "properties": {
           "id": {
@@ -923,6 +971,315 @@
         "title": "EntryWallet",
         "type": "object"
       },
+      "EqualExpenseCreate": {
+        "description": "均分: 零頭依序分給前幾人, 付款人優先, 其餘照加入錢包的順序 (見 docs/features.md〈分攤〉)。",
+        "properties": {
+          "amount": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 9007199254740991.0,
+            "title": "Amount",
+            "type": "integer"
+          },
+          "entry_date": {
+            "format": "date",
+            "title": "Entry Date",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "maxLength": 200,
+            "title": "Note",
+            "type": "string"
+          },
+          "participant_ids": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Participant Ids",
+            "type": "array"
+          },
+          "payer_id": {
+            "title": "Payer Id",
+            "type": "string"
+          },
+          "split_mode": {
+            "const": "equal",
+            "title": "Split Mode",
+            "type": "string"
+          }
+        },
+        "required": [
+          "amount",
+          "payer_id",
+          "entry_date",
+          "split_mode",
+          "participant_ids"
+        ],
+        "title": "EqualExpenseCreate",
+        "type": "object"
+      },
+      "ExpenseInfo": {
+        "description": "旅遊錢包的一筆帳。",
+        "properties": {
+          "amount": {
+            "title": "Amount",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by": {
+            "$ref": "#/components/schemas/EntryUser"
+          },
+          "entry_date": {
+            "format": "date",
+            "title": "Entry Date",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "payer": {
+            "$ref": "#/components/schemas/EntryUser"
+          },
+          "shares": {
+            "items": {
+              "$ref": "#/components/schemas/ExpenseShare"
+            },
+            "title": "Shares",
+            "type": "array"
+          },
+          "split_mode": {
+            "$ref": "#/components/schemas/SplitMode"
+          }
+        },
+        "required": [
+          "id",
+          "amount",
+          "payer",
+          "split_mode",
+          "shares",
+          "entry_date",
+          "note",
+          "created_by",
+          "created_at"
+        ],
+        "title": "ExpenseInfo",
+        "type": "object"
+      },
+      "ExpenseLogInfo": {
+        "description": "旅遊錢包的一筆異動紀錄。新增沒有 `before`, 刪除沒有 `after`。",
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/EntryLogAction"
+          },
+          "actor": {
+            "$ref": "#/components/schemas/EntryUser"
+          },
+          "after": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExpenseSnapshot"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "as_super_admin": {
+            "title": "As Super Admin",
+            "type": "boolean"
+          },
+          "before": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExpenseSnapshot"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "entry_id": {
+            "title": "Entry Id",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "entry_id",
+          "action",
+          "actor",
+          "as_super_admin",
+          "before",
+          "after",
+          "created_at"
+        ],
+        "title": "ExpenseLogInfo",
+        "type": "object"
+      },
+      "ExpenseLogList": {
+        "description": "一筆帳的異動紀錄, 新到舊。",
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "list_data": {
+            "items": {
+              "$ref": "#/components/schemas/ExpenseLogInfo"
+            },
+            "title": "List Data",
+            "type": "array"
+          }
+        },
+        "required": [
+          "list_data",
+          "count"
+        ],
+        "title": "ExpenseLogList",
+        "type": "object"
+      },
+      "ExpenseLogPage": {
+        "description": "整個旅遊錢包的異動紀錄的一頁, 新到舊, 包含已刪除的帳。",
+        "properties": {
+          "list_data": {
+            "items": {
+              "$ref": "#/components/schemas/ExpenseLogInfo"
+            },
+            "title": "List Data",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "list_data",
+          "next_cursor"
+        ],
+        "title": "ExpenseLogPage",
+        "type": "object"
+      },
+      "ExpensePage": {
+        "description": "旅遊錢包的帳的一頁, 日期新到舊。`next_cursor` 是 null 表示沒有更多了。",
+        "properties": {
+          "list_data": {
+            "items": {
+              "$ref": "#/components/schemas/ExpenseInfo"
+            },
+            "title": "List Data",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "list_data",
+          "next_cursor"
+        ],
+        "title": "ExpensePage",
+        "type": "object"
+      },
+      "ExpenseShare": {
+        "properties": {
+          "amount": {
+            "title": "Amount",
+            "type": "integer"
+          },
+          "nickname": {
+            "title": "Nickname",
+            "type": "string"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "nickname",
+          "amount"
+        ],
+        "title": "ExpenseShare",
+        "type": "object"
+      },
+      "ExpenseSnapshot": {
+        "description": "異動當時的旅遊錢包帳目內容。名字都是當時的暱稱。",
+        "properties": {
+          "amount": {
+            "title": "Amount",
+            "type": "integer"
+          },
+          "entry_date": {
+            "format": "date",
+            "title": "Entry Date",
+            "type": "string"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "payer_name": {
+            "title": "Payer Name",
+            "type": "string"
+          },
+          "shares": {
+            "items": {
+              "$ref": "#/components/schemas/ShareSnapshot"
+            },
+            "title": "Shares",
+            "type": "array"
+          },
+          "split_mode": {
+            "$ref": "#/components/schemas/SplitMode"
+          }
+        },
+        "required": [
+          "amount",
+          "payer_name",
+          "split_mode",
+          "shares",
+          "entry_date",
+          "note"
+        ],
+        "title": "ExpenseSnapshot",
+        "type": "object"
+      },
       "GeneralWalletCreate": {
         "properties": {
           "initial_balance": {
@@ -1243,6 +1600,62 @@
         "title": "MoneyUpdate",
         "type": "object"
       },
+      "NetBalanceInfo": {
+        "description": "一個成員在旅遊錢包的淨額。",
+        "properties": {
+          "net": {
+            "title": "Net",
+            "type": "integer"
+          },
+          "nickname": {
+            "title": "Nickname",
+            "type": "string"
+          },
+          "owed": {
+            "title": "Owed",
+            "type": "integer"
+          },
+          "paid": {
+            "title": "Paid",
+            "type": "integer"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "nickname",
+          "paid",
+          "owed",
+          "net"
+        ],
+        "title": "NetBalanceInfo",
+        "type": "object"
+      },
+      "NetBalanceList": {
+        "description": "所有成員的淨額, 依加入錢包的順序; 沒有紀錄的成員是 0。",
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "list_data": {
+            "items": {
+              "$ref": "#/components/schemas/NetBalanceInfo"
+            },
+            "title": "List Data",
+            "type": "array"
+          }
+        },
+        "required": [
+          "list_data",
+          "count"
+        ],
+        "title": "NetBalanceList",
+        "type": "object"
+      },
       "PasswordChange": {
         "description": "使用者更換**自己**的密碼 (`UserResetPassword` 是管理者替別人重設, 不需要舊密碼)。\n\n`current_password` 用 `Password` (只要求非空) 而不是 `NewPassword`: 它要比對的是一把\n**已經存在**的密碼, 可能是在規則變嚴之前設的。拿新規則去擋它, 會讓最應該換密碼的那批\n人反而換不了 —— 而且那個錯誤會出現在「目前密碼」欄位上, 看起來像打錯了。",
         "properties": {
@@ -1531,6 +1944,44 @@
         "title": "RoleUpdate",
         "type": "object"
       },
+      "ShareInput": {
+        "properties": {
+          "amount": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 9007199254740991.0,
+            "title": "Amount",
+            "type": "integer"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "amount"
+        ],
+        "title": "ShareInput",
+        "type": "object"
+      },
+      "ShareSnapshot": {
+        "properties": {
+          "amount": {
+            "title": "Amount",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "amount"
+        ],
+        "title": "ShareSnapshot",
+        "type": "object"
+      },
       "SignupRequest": {
         "properties": {
           "nickname": {
@@ -1556,6 +2007,15 @@
         ],
         "title": "SignupRequest",
         "type": "object"
+      },
+      "SplitMode": {
+        "description": "旅遊錢包一筆帳的分攤方式。",
+        "enum": [
+          "equal",
+          "custom"
+        ],
+        "title": "SplitMode",
+        "type": "string"
       },
       "TransferCreate": {
         "description": "記一筆轉帳: `transfer_out` 是從這個錢包轉到對方, `transfer_in` 是從對方轉進來。\n\n兩個錢包各記一筆, 一起建立、一起修改、一起刪除。要同時是兩個錢包的成員。",
@@ -4561,6 +5021,395 @@
         ]
       }
     },
+    "/api/wallets/{id}/expense-logs": {
+      "get": {
+        "description": "整個旅遊錢包的異動紀錄, 新到舊, 包含已刪除的帳。",
+        "operationId": "get_wallet_expense_log_list_route_api_wallets__id__expense_logs_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "title": "Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 500,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseLogPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Wallet Expense Log List Route",
+        "tags": [
+          "wallets"
+        ]
+      }
+    },
+    "/api/wallets/{id}/expenses": {
+      "get": {
+        "description": "旅遊錢包的帳, 排序與分頁同一般錢包的帳目。",
+        "operationId": "get_expense_list_route_api_wallets__id__expenses_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "title": "Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 500,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpensePage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Expense List Route",
+        "tags": [
+          "wallets"
+        ]
+      },
+      "post": {
+        "description": "旅遊錢包記一筆: 誰付了多少, 均分或指定每人的金額。付款人與分攤對象都要是成員。",
+        "operationId": "create_expense_route_api_wallets__id__expenses_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "title": "Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "discriminator": {
+                  "mapping": {
+                    "custom": "#/components/schemas/CustomExpenseCreate",
+                    "equal": "#/components/schemas/EqualExpenseCreate"
+                  },
+                  "propertyName": "split_mode"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/EqualExpenseCreate"
+                  },
+                  {
+                    "$ref": "#/components/schemas/CustomExpenseCreate"
+                  }
+                ],
+                "title": "Form Data"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntryOperate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Expense Route",
+        "tags": [
+          "wallets"
+        ]
+      }
+    },
+    "/api/wallets/{id}/expenses/{expense_id}": {
+      "delete": {
+        "description": "刪除自己記的帳; 錢包管理者可以刪除任何人的。",
+        "operationId": "delete_expense_route_api_wallets__id__expenses__expense_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "title": "Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "expense_id",
+            "required": true,
+            "schema": {
+              "title": "Expense Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntryOperate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Expense Route",
+        "tags": [
+          "wallets"
+        ]
+      },
+      "patch": {
+        "description": "修改自己記的帳, 所有欄位都可以改; 錢包管理者可以修改任何人的。",
+        "operationId": "update_expense_route_api_wallets__id__expenses__expense_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "title": "Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "expense_id",
+            "required": true,
+            "schema": {
+              "title": "Expense Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "discriminator": {
+                  "mapping": {
+                    "custom": "#/components/schemas/CustomExpenseCreate",
+                    "equal": "#/components/schemas/EqualExpenseCreate"
+                  },
+                  "propertyName": "split_mode"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/EqualExpenseCreate"
+                  },
+                  {
+                    "$ref": "#/components/schemas/CustomExpenseCreate"
+                  }
+                ],
+                "title": "Form Data"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntryOperate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Expense Route",
+        "tags": [
+          "wallets"
+        ]
+      }
+    },
+    "/api/wallets/{id}/expenses/{expense_id}/logs": {
+      "get": {
+        "description": "旅遊錢包一筆帳的異動紀錄, 新到舊。已刪除的帳也查得到。",
+        "operationId": "get_expense_log_list_route_api_wallets__id__expenses__expense_id__logs_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "title": "Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "expense_id",
+            "required": true,
+            "schema": {
+              "title": "Expense Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseLogList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Expense Log List Route",
+        "tags": [
+          "wallets"
+        ]
+      }
+    },
     "/api/wallets/{id}/invite": {
       "delete": {
         "description": "撤銷邀請連結。",
@@ -4835,6 +5684,49 @@
           }
         },
         "summary": "Update Member Role Route",
+        "tags": [
+          "wallets"
+        ]
+      }
+    },
+    "/api/wallets/{id}/net-balances": {
+      "get": {
+        "description": "旅遊錢包每個成員的淨額 (付的 − 分攤的), 依加入的先後排序。",
+        "operationId": "get_net_balance_list_route_api_wallets__id__net_balances_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "title": "Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NetBalanceList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Net Balance List Route",
         "tags": [
           "wallets"
         ]

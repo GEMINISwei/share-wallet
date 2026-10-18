@@ -20,7 +20,11 @@ from modules.wallets.model import (
     EntryKind,
     EntryLogAction,
     EntryLogDetail,
+    ExpenseDetail,
     MemberRole,
+    SplitMode,
+    TravelExpenseShareTable,
+    TravelExpenseTable,
     WalletAdvanceTargetTable,
     WalletCategoryTable,
     WalletDetail,
@@ -618,3 +622,168 @@ async def test_concurrent_balance_changes_are_serialized(db):
 
     async with session_scope():
         assert await WalletTable.lock_balance(wallet_id) == 200
+
+
+# ── 旅遊錢包的帳 ────────────────────────────────────────────────────────────
+
+
+async def _travel_wallet(members: dict[str, MemberRole]) -> str:
+    created = await WalletTable.create(
+        data={
+            "kind": "travel",
+            "name": "東京",
+            "destination": "東京",
+            "start_date": date(2026, 11, 1),
+            "end_date": date(2026, 11, 5),
+        }
+    )
+    for user_id, role in members.items():
+        await WalletMemberTable.create(
+            data={"wallet_id": created["id"], "user_id": user_id, "role": role}
+        )
+    return created["id"]
+
+
+async def _expense(
+    wallet_id: str, payer: str, shares: list[tuple[str, int]], day: date = date(2026, 11, 2)
+) -> str:
+    return await TravelExpenseTable.create_with_shares(
+        data={
+            "wallet_id": wallet_id,
+            "amount": sum(amount for _, amount in shares),
+            "payer_id": payer,
+            "split_mode": SplitMode.CUSTOM,
+            "entry_date": day,
+            "note": "",
+            "created_by": payer,
+        },
+        shares=[{"user_id": user_id, "amount": amount} for user_id, amount in shares],
+    )
+
+
+async def test_expense_detail_keeps_shares_in_given_order(db):
+    alice, bob, carol = await _user("alice"), await _user("bob"), await _user("carol")
+    wallet_id = await _travel_wallet({alice: MemberRole.ADMIN, bob: MemberRole.MEMBER})
+    expense_id = await _expense(wallet_id, alice, [(carol, 70), (alice, 20), (bob, 10)])
+
+    detail = await TravelExpenseTable.find_detail_in_wallet(wallet_id, expense_id)
+
+    assert detail is not None
+    assert_covers(ExpenseDetail, detail, "ExpenseDetail")
+    assert (detail["amount"], detail["payer_id"], detail["split_mode"]) == (100, alice, "custom")
+    assert detail["shares"] == [
+        {"user_id": carol, "amount": 70},
+        {"user_id": alice, "amount": 20},
+        {"user_id": bob, "amount": 10},
+    ]
+
+
+async def test_find_expense_in_other_wallet_returns_none(db):
+    alice = await _user("alice")
+    wallet_id = await _travel_wallet({alice: MemberRole.ADMIN})
+    other = await _travel_wallet({alice: MemberRole.ADMIN})
+    expense_id = await _expense(other, alice, [(alice, 100)])
+
+    assert await TravelExpenseTable.find_detail_in_wallet(wallet_id, expense_id) is None
+
+
+async def test_find_expense_page_orders_by_date_then_created_at_and_paginates(db):
+    alice = await _user("alice")
+    wallet_id = await _travel_wallet({alice: MemberRole.ADMIN})
+    older = await _expense(wallet_id, alice, [(alice, 1)], date(2026, 11, 1))
+    first_today = await _expense(wallet_id, alice, [(alice, 2)], date(2026, 11, 3))
+    second_today = await _expense(wallet_id, alice, [(alice, 3)], date(2026, 11, 3))
+
+    first = await TravelExpenseTable.find_page(wallet_id, limit=2)
+    rest = await TravelExpenseTable.find_page(wallet_id, limit=2, cursor=first["next_cursor"])
+
+    assert [e["id"] for e in first["list_data"]] == [second_today, first_today]
+    assert [e["id"] for e in rest["list_data"]] == [older]
+    assert rest["next_cursor"] is None
+    assert first["list_data"][0]["shares"] == [{"user_id": alice, "amount": 3}]
+
+
+async def test_replace_expense_overwrites_fields_and_shares(db):
+    alice, bob = await _user("alice"), await _user("bob")
+    wallet_id = await _travel_wallet({alice: MemberRole.ADMIN, bob: MemberRole.MEMBER})
+    expense_id = await _expense(wallet_id, alice, [(alice, 50), (bob, 50)])
+
+    await TravelExpenseTable.replace_in_wallet(
+        wallet_id,
+        expense_id,
+        data={"amount": 90, "payer_id": bob, "split_mode": SplitMode.EQUAL, "note": "改"},
+        shares=[{"user_id": bob, "amount": 90}],
+    )
+
+    detail = await TravelExpenseTable.find_detail_in_wallet(wallet_id, expense_id)
+    assert detail is not None
+    assert (detail["amount"], detail["payer_id"], detail["note"]) == (90, bob, "改")
+    assert detail["shares"] == [{"user_id": bob, "amount": 90}]
+
+
+async def test_expense_totals_sum_paid_and_owed_per_user(db):
+    alice, bob, carol = await _user("alice"), await _user("bob"), await _user("carol")
+    wallet_id = await _travel_wallet({alice: MemberRole.ADMIN, bob: MemberRole.MEMBER})
+    other = await _travel_wallet({alice: MemberRole.ADMIN})
+    await _expense(wallet_id, alice, [(alice, 300), (bob, 300)])
+    await _expense(wallet_id, bob, [(alice, 100), (bob, 100)])
+    await _expense(other, carol, [(carol, 999)])
+
+    totals = await TravelExpenseTable.totals(wallet_id)
+
+    assert totals == {
+        alice: {"paid": 600, "owed": 400},
+        bob: {"paid": 200, "owed": 400},
+    }
+
+
+async def test_has_records_checks_payer_and_shares_in_that_wallet(db):
+    alice, bob, carol = await _user("alice"), await _user("bob"), await _user("carol")
+    wallet_id = await _travel_wallet({alice: MemberRole.ADMIN, bob: MemberRole.MEMBER})
+    other = await _travel_wallet({carol: MemberRole.ADMIN})
+    await _expense(wallet_id, alice, [(bob, 100)])
+    await _expense(other, carol, [(carol, 100)])
+
+    assert await TravelExpenseTable.has_records(wallet_id, alice) is True
+    assert await TravelExpenseTable.has_records(wallet_id, bob) is True
+    assert await TravelExpenseTable.has_records(wallet_id, carol) is False
+
+
+async def test_expense_share_is_unique_per_user(db):
+    alice = await _user("alice")
+    wallet_id = await _travel_wallet({alice: MemberRole.ADMIN})
+
+    with pytest.raises(IntegrityError):
+        async with transaction():
+            await _expense(wallet_id, alice, [(alice, 50), (alice, 50)])
+
+
+async def test_expense_amount_check_rejects_zero(db):
+    alice = await _user("alice")
+    wallet_id = await _travel_wallet({alice: MemberRole.ADMIN})
+
+    with pytest.raises(IntegrityError):
+        async with transaction():
+            await _expense(wallet_id, alice, [(alice, 0)])
+
+
+async def test_delete_expense_removes_its_shares(db):
+    alice = await _user("alice")
+    wallet_id = await _travel_wallet({alice: MemberRole.ADMIN})
+    expense_id = await _expense(wallet_id, alice, [(alice, 100)])
+
+    await TravelExpenseTable.delete_in_wallet(wallet_id, expense_id)
+
+    assert await TravelExpenseTable.get_all() == {"list_data": [], "count": 0}
+    assert await TravelExpenseShareTable.get_all() == {"list_data": [], "count": 0}
+
+
+async def test_delete_wallet_cascades_expenses_and_shares(db):
+    alice = await _user("alice")
+    wallet_id = await _travel_wallet({alice: MemberRole.ADMIN})
+    await _expense(wallet_id, alice, [(alice, 100)])
+
+    assert await WalletTable.delete_by_id(wallet_id) is True
+
+    assert await TravelExpenseTable.get_all() == {"list_data": [], "count": 0}
+    assert await TravelExpenseShareTable.get_all() == {"list_data": [], "count": 0}

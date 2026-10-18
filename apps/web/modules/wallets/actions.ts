@@ -193,3 +193,43 @@ export async function loadRepayments(id: string, advanceId: string) {
     url: "/wallets/{id}/advances/{entry_id}/repayments", params: { id, entry_id: advanceId },
   })
 }
+
+// 旅遊錢包沒有餘額, 記帳不影響錢包列表, 只重新整理這個錢包。
+type ExpenseRequest = ApiRequestBody<"/wallets/{id}/expenses", "post">
+
+export async function createExpense(id: string, data: ExpenseRequest) {
+  return apiPost({
+    url: "/wallets/{id}/expenses", params: { id }, data, refresh: { path: walletPath(id) },
+  })
+}
+
+export async function updateExpense(id: string, expenseId: string, data: ExpenseRequest) {
+  return apiPatch({
+    url: "/wallets/{id}/expenses/{expense_id}",
+    params: { id, expense_id: expenseId },
+    data,
+    refresh: { path: walletPath(id) },
+  })
+}
+
+export async function deleteExpense(id: string, expenseId: string) {
+  return apiDelete({
+    url: "/wallets/{id}/expenses/{expense_id}",
+    params: { id, expense_id: expenseId },
+    refresh: { path: walletPath(id) },
+  })
+}
+
+export async function loadMoreExpenses(id: string, cursor: string) {
+  return apiGet({ url: "/wallets/{id}/expenses", params: { id }, query: { cursor } })
+}
+
+export async function loadExpenseLogs(id: string, expenseId: string) {
+  return apiGet({
+    url: "/wallets/{id}/expenses/{expense_id}/logs", params: { id, expense_id: expenseId },
+  })
+}
+
+export async function loadMoreExpenseLogs(id: string, cursor: string) {
+  return apiGet({ url: "/wallets/{id}/expense-logs", params: { id }, query: { cursor } })
+}

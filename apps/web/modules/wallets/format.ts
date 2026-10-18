@@ -2,7 +2,7 @@ import { HTML_LANG, type Locale } from "@/shared/i18n/locale"
 import { translate } from "@/shared/i18n/dictionary"
 import { isTransfer } from "./capabilities"
 import { walletsMessages } from "./i18n"
-import type { EntryInfo, EntryKind, EntrySnapshot } from "./types"
+import type { EntryInfo, EntryKind, EntrySnapshot, ExpenseInfo, ExpenseSnapshot } from "./types"
 
 /** 整數金額加上千分位。不帶幣別: 系統不設幣別 (見 docs/features.md〈金額〉)。 */
 export function formatAmount(amount: number, locale: Locale) {
@@ -106,4 +106,47 @@ export function snapshotField(field: keyof EntrySnapshot, snapshot: EntrySnapsho
     note: snapshot.note || t("emptyValue"),
   }
   return { label: t(FIELD_LABEL[field]), value: values[field] }
+}
+
+/** 旅遊錢包的淨額: 正的是應收、負的是應付、0 是已平衡。 */
+export function netStatus(net: number): "receivable" | "payable" | "settled" {
+  if (net > 0) return "receivable"
+  return net < 0 ? "payable" : "settled"
+}
+
+/** 旅遊錢包列表上一筆帳的標題: 有備註時用備註, 沒有時是「X 付款」。 */
+export function expenseTitle(expense: Pick<ExpenseInfo, "note" | "payer">, locale: Locale) {
+  return expense.note || translate(walletsMessages, locale)("paidBy", { name: expense.payer.nickname })
+}
+
+const EXPENSE_FIELD_LABEL = {
+  amount: "amount", payer_name: "payer", split_mode: "splitMode", shares: "shares",
+  entry_date: "entryDate", note: "note",
+} as const satisfies Record<keyof ExpenseSnapshot, keyof (typeof walletsMessages)["zh"]>
+
+/** 新增與刪除的紀錄要列出的欄位; 沒有備註就不列。 */
+export function expenseSummaryFields(snapshot: ExpenseSnapshot): (keyof ExpenseSnapshot)[] {
+  const note = snapshot.note ? ["note" as const] : []
+  return ["payer_name", "shares", "amount", "entry_date", ...note]
+}
+
+/** 旅遊錢包異動紀錄裡一個欄位的名稱與值。分攤列出每人的金額。 */
+export function expenseSnapshotField(
+  field: keyof ExpenseSnapshot,
+  snapshot: ExpenseSnapshot,
+  locale: Locale,
+) {
+  const t = translate(walletsMessages, locale)
+  const separator = locale === "zh" ? "、" : ", "
+  const values: Record<keyof ExpenseSnapshot, string> = {
+    amount: formatAmount(snapshot.amount, locale),
+    payer_name: snapshot.payer_name,
+    split_mode: t(snapshot.split_mode),
+    shares: snapshot.shares
+      .map((share) => `${share.name} ${formatAmount(share.amount, locale)}`)
+      .join(separator),
+    entry_date: formatEntryDate(snapshot.entry_date, locale),
+    note: snapshot.note || t("emptyValue"),
+  }
+  return { label: t(EXPENSE_FIELD_LABEL[field]), value: values[field] }
 }

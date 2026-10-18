@@ -8,8 +8,9 @@ import { isTransfer } from "./capabilities"
 import { formatAmount } from "./format"
 import { walletsMessages } from "./i18n"
 import type {
-  AdjustFormErrors, AdjustFormValues, EntryFormErrors, EntryFormValues, RepayFormErrors,
-  RepayFormValues, WalletFormErrors, WalletFormValues,
+  AdjustFormErrors, AdjustFormValues, EntryFormErrors, EntryFormValues, ExpenseFormErrors,
+  ExpenseFormValues, RepayFormErrors, RepayFormValues, ShareRowValues, WalletFormErrors,
+  WalletFormValues,
 } from "./types"
 
 type WalletCreateRequest = ApiRequestBody<"/wallets/", "post">
@@ -21,6 +22,7 @@ type TransferRequest = ApiRequestBody<"/wallets/{id}/transfers", "post">
 type TransferUpdateRequest = ApiRequestBody<"/wallets/{id}/transfers/{entry_id}", "patch">
 type AdvanceRequest = ApiRequestBody<"/wallets/{id}/advances", "post">
 type MoneyRequest = ApiRequestBody<"/wallets/{id}/advances/{entry_id}", "patch">
+type ExpenseRequest = ApiRequestBody<"/wallets/{id}/expenses", "post">
 
 /** 與後端 `EntryNote` 的上限相同。 */
 const NOTE_MAX_LENGTH = 200
@@ -231,4 +233,66 @@ export function toUpdateRequest(values: WalletFormValues): WalletUpdateRequest {
 /** 刪除前要輸入一模一樣的錢包名稱 (前後空白不算)。 */
 export function canConfirmDelete(input: string, walletName: string) {
   return input.trim() === walletName
+}
+
+/** 總額減去已填的分攤 (空白的列不算), 給指定金額表顯示還差多少。有任何一格不是整數時是 null。 */
+export function shareRemainder(amount: string, rows: readonly ShareRowValues[]): number | null {
+  const total = parsePositiveAmount(amount)
+  if (total === null) return null
+  let sum = 0
+  for (const row of rows) {
+    const value = parseAmount(row.amount)
+    if (value === null) return null
+    sum += value
+  }
+  return total - sum
+}
+
+function sharesError(values: ExpenseFormValues, locale: Locale, t: WalletsT) {
+  const { shares } = values
+  if (shares.length === 0) return t("sharesRequired")
+  if (shares.some((row) => !row.user_id)) return t("shareUserRequired")
+  if (shares.some((row) => parsePositiveAmount(row.amount) === null)) return t("shareAmountPositive")
+  if (new Set(shares.map((row) => row.user_id)).size !== shares.length) return t("shareDuplicate")
+  const total = parsePositiveAmount(values.amount)
+  const remainder = shareRemainder(values.amount, shares)
+  if (total === null || remainder === null || remainder === 0) return undefined
+  return t("sharesNotSum", {
+    sum: formatAmount(total - remainder, locale), amount: formatAmount(total, locale),
+  })
+}
+
+/** 均分至少勾一個人; 指定金額每列選人、金額大於 0、不重複、加總等於總額 (同後端 schema)。 */
+export function validateExpenseForm(values: ExpenseFormValues, locale: Locale): ExpenseFormErrors {
+  const t = translate(walletsMessages, locale)
+  const equal = values.split_mode === "equal"
+  return {
+    amount: parsePositiveAmount(values.amount) === null ? t("amountPositive") : undefined,
+    payer_id: values.payer_id ? undefined : t("payerRequired"),
+    participant_ids:
+      !equal || values.participant_ids.length > 0 ? undefined : t("participantsRequired"),
+    shares: equal ? undefined : sharesError(values, locale, t),
+    entry_date: values.entry_date ? undefined : t("dateRequired"),
+    note: noteError(values.note, t),
+  }
+}
+
+/** 已通過 `validateExpenseForm` 的表單值 → 記一筆與修改的請求。只送目前分攤方式用到的欄位。 */
+export function toExpenseRequest(values: ExpenseFormValues): ExpenseRequest {
+  const common = {
+    amount: parsePositiveAmount(values.amount) ?? 0,
+    payer_id: values.payer_id,
+    entry_date: values.entry_date,
+    note: values.note.trim(),
+  }
+  if (values.split_mode === "equal") {
+    return { split_mode: "equal", ...common, participant_ids: values.participant_ids }
+  }
+  return {
+    split_mode: "custom",
+    ...common,
+    shares: values.shares.map((row) => ({
+      user_id: row.user_id, amount: parsePositiveAmount(row.amount) ?? 0,
+    })),
+  }
 }
