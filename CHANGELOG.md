@@ -4,7 +4,7 @@
 
 ## [Unreleased]
 
-- `make dev ps`／`make prod ps` 只顯示名稱、image、狀態與 port；要完整的 `docker compose ps` 用 `ps full`。
+- `make dev ps`／`make prod ps` 只顯示名稱、狀態與 port；要完整的 `docker compose ps` 用 `ps full`。
 - 新增錢包（`/wallets`，首頁直接導過去）：一般錢包與旅遊錢包的建立、設定與刪除，列表顯示一般錢包的
   餘額總和。成員可以升降管理者、移出成員或自己離開，錢包至少要有一位管理者。一般錢包有收入與支出
   分類，建立時依語系附上預設分類，刪除分類是封存。使用錢包不需要任何全站權限，超級管理者對任何錢包
