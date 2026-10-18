@@ -646,6 +646,94 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/wallets/{id}/expense-logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Wallet Expense Log List Route
+         * @description 整個旅遊錢包的異動紀錄, 新到舊, 包含已刪除的帳。
+         */
+        get: operations["get_wallet_expense_log_list_route_api_wallets__id__expense_logs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/wallets/{id}/expenses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Expense List Route
+         * @description 旅遊錢包的帳, 排序與分頁同一般錢包的帳目。
+         */
+        get: operations["get_expense_list_route_api_wallets__id__expenses_get"];
+        put?: never;
+        /**
+         * Create Expense Route
+         * @description 旅遊錢包記一筆: 誰付了多少, 均分或指定每人的金額。付款人與分攤對象都要是成員。
+         */
+        post: operations["create_expense_route_api_wallets__id__expenses_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/wallets/{id}/expenses/{expense_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Expense Route
+         * @description 刪除自己記的帳; 錢包管理者可以刪除任何人的。
+         */
+        delete: operations["delete_expense_route_api_wallets__id__expenses__expense_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Expense Route
+         * @description 修改自己記的帳, 所有欄位都可以改; 錢包管理者可以修改任何人的。
+         */
+        patch: operations["update_expense_route_api_wallets__id__expenses__expense_id__patch"];
+        trace?: never;
+    };
+    "/api/wallets/{id}/expenses/{expense_id}/logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Expense Log List Route
+         * @description 旅遊錢包一筆帳的異動紀錄, 新到舊。已刪除的帳也查得到。
+         */
+        get: operations["get_expense_log_list_route_api_wallets__id__expenses__expense_id__logs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/wallets/{id}/invite": {
         parameters: {
             query?: never;
@@ -713,6 +801,26 @@ export interface paths {
          * @description 把成員升為管理者, 或把管理者降為成員。
          */
         patch: operations["update_member_role_route_api_wallets__id__members__user_id__patch"];
+        trace?: never;
+    };
+    "/api/wallets/{id}/net-balances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Net Balance List Route
+         * @description 旅遊錢包每個成員的淨額 (付的 − 分攤的), 依加入的先後排序。
+         */
+        get: operations["get_net_balance_list_route_api_wallets__id__net_balances_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/wallets/{id}/repayments/{entry_id}": {
@@ -974,6 +1082,33 @@ export interface components {
          * @enum {string}
          */
         CategoryType: "income" | "expense";
+        /**
+         * CustomExpenseCreate
+         * @description 指定金額: 每人金額大於 0, 加總剛好等於 `amount`。這一筆不用出錢的人不列。
+         */
+        CustomExpenseCreate: {
+            /** Amount */
+            amount: number;
+            /**
+             * Entry Date
+             * Format: date
+             */
+            entry_date: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /** Payer Id */
+            payer_id: string;
+            /** Shares */
+            shares: components["schemas"]["ShareInput"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            split_mode: "custom";
+        };
         /** EntryCategory */
         EntryCategory: {
             /** Id */
@@ -1167,6 +1302,140 @@ export interface components {
             /** Name */
             name: string;
         };
+        /**
+         * EqualExpenseCreate
+         * @description 均分: 零頭依序分給前幾人, 付款人優先, 其餘照加入錢包的順序 (見 docs/features.md〈分攤〉)。
+         */
+        EqualExpenseCreate: {
+            /** Amount */
+            amount: number;
+            /**
+             * Entry Date
+             * Format: date
+             */
+            entry_date: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /** Participant Ids */
+            participant_ids: string[];
+            /** Payer Id */
+            payer_id: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            split_mode: "equal";
+        };
+        /**
+         * ExpenseInfo
+         * @description 旅遊錢包的一筆帳。
+         */
+        ExpenseInfo: {
+            /** Amount */
+            amount: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            created_by: components["schemas"]["EntryUser"];
+            /**
+             * Entry Date
+             * Format: date
+             */
+            entry_date: string;
+            /** Id */
+            id: string;
+            /** Note */
+            note: string;
+            payer: components["schemas"]["EntryUser"];
+            /** Shares */
+            shares: components["schemas"]["ExpenseShare"][];
+            split_mode: components["schemas"]["SplitMode"];
+        };
+        /**
+         * ExpenseLogInfo
+         * @description 旅遊錢包的一筆異動紀錄。新增沒有 `before`, 刪除沒有 `after`。
+         */
+        ExpenseLogInfo: {
+            action: components["schemas"]["EntryLogAction"];
+            actor: components["schemas"]["EntryUser"];
+            after: components["schemas"]["ExpenseSnapshot"] | null;
+            /** As Super Admin */
+            as_super_admin: boolean;
+            before: components["schemas"]["ExpenseSnapshot"] | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Entry Id */
+            entry_id: string;
+            /** Id */
+            id: string;
+        };
+        /**
+         * ExpenseLogList
+         * @description 一筆帳的異動紀錄, 新到舊。
+         */
+        ExpenseLogList: {
+            /** Count */
+            count: number;
+            /** List Data */
+            list_data: components["schemas"]["ExpenseLogInfo"][];
+        };
+        /**
+         * ExpenseLogPage
+         * @description 整個旅遊錢包的異動紀錄的一頁, 新到舊, 包含已刪除的帳。
+         */
+        ExpenseLogPage: {
+            /** List Data */
+            list_data: components["schemas"]["ExpenseLogInfo"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /**
+         * ExpensePage
+         * @description 旅遊錢包的帳的一頁, 日期新到舊。`next_cursor` 是 null 表示沒有更多了。
+         */
+        ExpensePage: {
+            /** List Data */
+            list_data: components["schemas"]["ExpenseInfo"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /** ExpenseShare */
+        ExpenseShare: {
+            /** Amount */
+            amount: number;
+            /** Nickname */
+            nickname: string;
+            /** User Id */
+            user_id: string;
+        };
+        /**
+         * ExpenseSnapshot
+         * @description 異動當時的旅遊錢包帳目內容。名字都是當時的暱稱。
+         */
+        ExpenseSnapshot: {
+            /** Amount */
+            amount: number;
+            /**
+             * Entry Date
+             * Format: date
+             */
+            entry_date: string;
+            /** Note */
+            note: string;
+            /** Payer Name */
+            payer_name: string;
+            /** Shares */
+            shares: components["schemas"]["ShareSnapshot"][];
+            split_mode: components["schemas"]["SplitMode"];
+        };
         /** GeneralWalletCreate */
         GeneralWalletCreate: {
             /**
@@ -1304,6 +1573,32 @@ export interface components {
             note: string;
         };
         /**
+         * NetBalanceInfo
+         * @description 一個成員在旅遊錢包的淨額。
+         */
+        NetBalanceInfo: {
+            /** Net */
+            net: number;
+            /** Nickname */
+            nickname: string;
+            /** Owed */
+            owed: number;
+            /** Paid */
+            paid: number;
+            /** User Id */
+            user_id: string;
+        };
+        /**
+         * NetBalanceList
+         * @description 所有成員的淨額, 依加入錢包的順序; 沒有紀錄的成員是 0。
+         */
+        NetBalanceList: {
+            /** Count */
+            count: number;
+            /** List Data */
+            list_data: components["schemas"]["NetBalanceInfo"][];
+        };
+        /**
          * PasswordChange
          * @description 使用者更換**自己**的密碼 (`UserResetPassword` 是管理者替別人重設, 不需要舊密碼)。
          *
@@ -1420,6 +1715,20 @@ export interface components {
             /** Permissions */
             permissions: components["schemas"]["Permission"][];
         };
+        /** ShareInput */
+        ShareInput: {
+            /** Amount */
+            amount: number;
+            /** User Id */
+            user_id: string;
+        };
+        /** ShareSnapshot */
+        ShareSnapshot: {
+            /** Amount */
+            amount: number;
+            /** Name */
+            name: string;
+        };
         /** SignupRequest */
         SignupRequest: {
             /** Nickname */
@@ -1429,6 +1738,12 @@ export interface components {
             /** Username */
             username: string;
         };
+        /**
+         * SplitMode
+         * @description 旅遊錢包一筆帳的分攤方式。
+         * @enum {string}
+         */
+        SplitMode: "equal" | "custom";
         /**
          * TransferCreate
          * @description 記一筆轉帳: `transfer_out` 是從這個錢包轉到對方, `transfer_in` 是從對方轉進來。
@@ -3172,6 +3487,209 @@ export interface operations {
             };
         };
     };
+    get_wallet_expense_log_list_route_api_wallets__id__expense_logs_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string | null;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExpenseLogPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_expense_list_route_api_wallets__id__expenses_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string | null;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExpensePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_expense_route_api_wallets__id__expenses_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EqualExpenseCreate"] | components["schemas"]["CustomExpenseCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntryOperate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_expense_route_api_wallets__id__expenses__expense_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                expense_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntryOperate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_expense_route_api_wallets__id__expenses__expense_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                expense_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EqualExpenseCreate"] | components["schemas"]["CustomExpenseCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntryOperate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_expense_log_list_route_api_wallets__id__expenses__expense_id__logs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                expense_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExpenseLogList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_invite_route_api_wallets__id__invite_get: {
         parameters: {
             query?: never;
@@ -3351,6 +3869,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MemberOperate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_net_balance_list_route_api_wallets__id__net_balances_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NetBalanceList"];
                 };
             };
             /** @description Validation Error */

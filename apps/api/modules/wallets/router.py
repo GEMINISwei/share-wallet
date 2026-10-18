@@ -7,7 +7,18 @@ from shared.auth.contracts import CurrentUser
 from shared.auth.dependency import check_user_permission
 from shared.http.schema import PaginationParams
 
-from . import admin, advances, categories, entries, entry_logs, invites, members, service, transfers
+from . import (
+    admin,
+    advances,
+    categories,
+    entries,
+    entry_logs,
+    expenses,
+    invites,
+    members,
+    service,
+    transfers,
+)
 from .model import WalletKind
 from .schema import (
     AdminWalletCreate,
@@ -25,6 +36,10 @@ from .schema import (
     EntryOperate,
     EntryPage,
     EntryUpdate,
+    ExpenseCreate,
+    ExpenseLogList,
+    ExpenseLogPage,
+    ExpensePage,
     InviteInfo,
     InvitePreview,
     InviteState,
@@ -32,6 +47,7 @@ from .schema import (
     MemberOperate,
     MemberRoleUpdate,
     MoneyUpdate,
+    NetBalanceList,
     RepaymentList,
     TransferCreate,
     TransferUpdate,
@@ -320,6 +336,78 @@ async def get_wallet_entry_log_list_route(
 ) -> EntryLogPage:
     """整個錢包的帳目異動紀錄, 新到舊, 包含已刪除的帳。"""
     return await entry_logs.list_wallet_logs(id, current_user, limit=limit, cursor=cursor)
+
+
+@router.get("/{id}/expenses")
+async def get_expense_list_route(
+    id: UuidText,
+    limit: PageLimit = 20,
+    cursor: PageCursor = None,
+    current_user: CurrentUser = Depends(check_user_permission()),
+) -> ExpensePage:
+    """旅遊錢包的帳, 排序與分頁同一般錢包的帳目。"""
+    return await expenses.list_expenses(id, current_user, limit=limit, cursor=cursor)
+
+
+@router.post("/{id}/expenses")
+async def create_expense_route(
+    id: UuidText,
+    form_data: ExpenseCreate,
+    current_user: CurrentUser = Depends(check_user_permission()),
+) -> EntryOperate:
+    """旅遊錢包記一筆: 誰付了多少, 均分或指定每人的金額。付款人與分攤對象都要是成員。"""
+    return await expenses.create_expense(id, form_data, current_user)
+
+
+@router.patch("/{id}/expenses/{expense_id}")
+async def update_expense_route(
+    id: UuidText,
+    expense_id: UuidText,
+    form_data: ExpenseCreate,
+    current_user: CurrentUser = Depends(check_user_permission()),
+) -> EntryOperate:
+    """修改自己記的帳, 所有欄位都可以改; 錢包管理者可以修改任何人的。"""
+    return await expenses.update_expense(id, expense_id, form_data, current_user)
+
+
+@router.delete("/{id}/expenses/{expense_id}")
+async def delete_expense_route(
+    id: UuidText,
+    expense_id: UuidText,
+    current_user: CurrentUser = Depends(check_user_permission()),
+) -> EntryOperate:
+    """刪除自己記的帳; 錢包管理者可以刪除任何人的。"""
+    return await expenses.delete_expense(id, expense_id, current_user)
+
+
+@router.get("/{id}/expenses/{expense_id}/logs")
+async def get_expense_log_list_route(
+    id: UuidText,
+    expense_id: UuidText,
+    current_user: CurrentUser = Depends(check_user_permission()),
+) -> ExpenseLogList:
+    """旅遊錢包一筆帳的異動紀錄, 新到舊。已刪除的帳也查得到。"""
+    return await entry_logs.list_expense_logs(id, expense_id, current_user)
+
+
+@router.get("/{id}/expense-logs")
+async def get_wallet_expense_log_list_route(
+    id: UuidText,
+    limit: PageLimit = 20,
+    cursor: PageCursor = None,
+    current_user: CurrentUser = Depends(check_user_permission()),
+) -> ExpenseLogPage:
+    """整個旅遊錢包的異動紀錄, 新到舊, 包含已刪除的帳。"""
+    return await entry_logs.list_wallet_expense_logs(id, current_user, limit=limit, cursor=cursor)
+
+
+@router.get("/{id}/net-balances")
+async def get_net_balance_list_route(
+    id: UuidText,
+    current_user: CurrentUser = Depends(check_user_permission()),
+) -> NetBalanceList:
+    """旅遊錢包每個成員的淨額 (付的 − 分攤的), 依加入的先後排序。"""
+    return await expenses.list_net_balances(id, current_user)
 
 
 @router.get("/{id}/invite")

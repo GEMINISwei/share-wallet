@@ -1,6 +1,6 @@
 """收支、轉帳與代墊 (`entries.py`、`transfers.py`、`advances.py`) 共用的記帳步驟。
 
-鎖餘額、檢查範圍、留異動紀錄。
+鎖餘額、檢查範圍、留異動紀錄。其中權限檢查與異動紀錄的寫入, 旅遊錢包的帳 (`expenses.py`) 也共用。
 
 餘額是存起來的值 (見 docs/features.md〈餘額〉): 每個寫入都先 `WalletTable.lock_balance` 鎖住
 錢包, 再在同一個請求的交易裡改帳目、改餘額、留異動紀錄 —— 任何一步丟出例外時 middleware
@@ -48,14 +48,19 @@ def can_modify(access: WalletAccess, owner_id: str, current_user: CurrentUser) -
     return owner_id == current_user["id"] or access.can_manage
 
 
+def ensure_can_modify(access: WalletAccess, owner_id: str, current_user: CurrentUser) -> None:
+    """旅遊錢包的帳 (`expenses.py`) 也用這一條。"""
+    if not can_modify(access, owner_id, current_user):
+        raise LangException(403, WalletError.NOT_ENTRY_OWNER)
+
+
 async def modifiable_entry(
     access: WalletAccess, entry_id: str, current_user: CurrentUser
 ) -> EntryDetail:
     entry = await WalletEntryTable.find_detail_in_wallet(access.wallet["id"], entry_id)
     if entry is None:
         raise LangException(404, WalletError.ENTRY_NOT_FOUND)
-    if not can_modify(access, entry["created_by"], current_user):
-        raise LangException(403, WalletError.NOT_ENTRY_OWNER)
+    ensure_can_modify(access, entry["created_by"], current_user)
     return entry
 
 

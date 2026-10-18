@@ -754,7 +754,8 @@ async def test_expense_share_is_unique_per_user(db):
     wallet_id = await _travel_wallet({alice: MemberRole.ADMIN})
 
     with pytest.raises(IntegrityError):
-        await _expense(wallet_id, alice, [(alice, 50), (alice, 50)])
+        async with transaction():
+            await _expense(wallet_id, alice, [(alice, 50), (alice, 50)])
 
 
 async def test_expense_amount_check_rejects_zero(db):
@@ -762,7 +763,8 @@ async def test_expense_amount_check_rejects_zero(db):
     wallet_id = await _travel_wallet({alice: MemberRole.ADMIN})
 
     with pytest.raises(IntegrityError):
-        await _expense(wallet_id, alice, [(alice, 0)])
+        async with transaction():
+            await _expense(wallet_id, alice, [(alice, 0)])
 
 
 async def test_delete_expense_removes_its_shares(db):

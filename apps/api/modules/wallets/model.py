@@ -14,6 +14,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Select,
+    SmallInteger,
     String,
     UniqueConstraint,
     delete,
@@ -899,3 +900,263 @@ class WalletEntryLogTable(BaseTable):
             "list_data": [cls._detail(row) for row in rows[:limit]],
             "next_cursor": None if last is None else _encode_keys(last.created_at, last.id),
         }
+
+
+class SplitMode(StrEnum):
+    """旅遊錢包一筆帳的分攤方式。"""
+
+    EQUAL = "equal"
+    CUSTOM = "custom"
+
+
+class ShareDetail(TypedDict):
+    user_id: str
+    #: 均分時可以是 0 (金額少於人數), 指定金額時一定大於 0。
+    amount: int
+
+
+class ExpenseDetail(TypedDict):
+    id: str
+    wallet_id: str
+    amount: int
+    payer_id: str
+    split_mode: SplitMode
+    #: 依存進來的順序: 均分是加入錢包的順序, 指定金額是表上的順序。
+    shares: list[ShareDetail]
+    entry_date: date
+    note: str
+    created_by: str
+    created_at: datetime
+
+
+class ExpensePageResult(TypedDict):
+    list_data: list[ExpenseDetail]
+    next_cursor: str | None
+
+
+class MemberTotals(TypedDict):
+    #: 這個人付的總額。
+    paid: int
+    #: 這個人分攤的總額。
+    owed: int
+
+
+class TravelExpenseTable(BaseTable):
+    """旅遊錢包的一筆帳: 誰付了多少, 每人分攤多少 (`TravelExpenseShareTable`)。
+
+    不放進 `wallet_entries`: 那張表的每個欄位與約束都是為餘額設計的 (分類、轉帳、代墊),
+    旅遊錢包沒有餘額, 而它要的付款人與每人分攤在那裡都沒有位置。
+    """
+
+    __tablename__ = "travel_expenses"
+
+    wallet_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("wallets.id", ondelete="CASCADE")
+    )
+    amount: Mapped[int] = mapped_column(BigInteger)
+    # 指向使用者而不是成員紀錄, 理由同 `WalletEntryTable.created_by`; 有紀錄的人不能離開
+    # (見 docs/features.md〈成員異動〉), 所以付款人一定還是成員。
+    payer_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
+    # 存字串的理由同 `WalletTable.kind`。
+    split_mode: Mapped[str] = mapped_column(String)
+    entry_date: Mapped[date] = mapped_column(Date)
+    note: Mapped[str] = mapped_column(String, default="")
+    created_by: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
+
+    __table_args__ = (
+        CheckConstraint("amount > 0", name="amount"),
+        CheckConstraint("split_mode IN ('equal', 'custom')", name="split_mode"),
+        # 錢包頁的列表, 排序同 `WalletEntryTable`。
+        Index(
+            "ix_travel_expenses_wallet_list",
+            "wallet_id",
+            desc("entry_date"),
+            desc("created_at"),
+            desc("id"),
+        ),
+        # 「這個人有沒有付過錢」(移除成員前) 與每人付款的加總。
+        Index("ix_travel_expenses_wallet_payer", "wallet_id", "payer_id"),
+    )
+
+    @staticmethod
+    def _detail(row: TravelExpenseTable, shares: list[ShareDetail]) -> ExpenseDetail:
+        return {
+            "id": str(row.id),
+            "wallet_id": str(row.wallet_id),
+            "amount": row.amount,
+            "payer_id": str(row.payer_id),
+            "split_mode": SplitMode(row.split_mode),
+            "shares": shares,
+            "entry_date": row.entry_date,
+            "note": row.note,
+            "created_by": str(row.created_by),
+            "created_at": row.created_at,
+        }
+
+    @classmethod
+    async def _with_shares(cls, rows: list[TravelExpenseTable]) -> list[ExpenseDetail]:
+        """一次查完這些帳的分攤 (列表的一頁), 不逐筆查。"""
+        share = TravelExpenseShareTable
+        by_expense: dict[uuid.UUID, list[ShareDetail]] = {row.id: [] for row in rows}
+        if rows:
+            share_rows = await resolve_session(None).execute(
+                select(share.expense_id, share.user_id, share.amount)
+                .where(share.expense_id.in_(list(by_expense)))
+                .order_by(share.expense_id, share.position)
+            )
+            for expense_id, user_id, amount in share_rows.all():
+                by_expense[expense_id].append({"user_id": str(user_id), "amount": amount})
+        return [cls._detail(row, by_expense[row.id]) for row in rows]
+
+    @classmethod
+    async def create_with_shares(cls, data: dict, shares: list[ShareDetail]) -> str:
+        created = await cls.create(data=data)
+        await TravelExpenseShareTable.add_many(created["id"], shares)
+        return created["id"]
+
+    @classmethod
+    async def find_detail_in_wallet(cls, wallet_id: str, id: str) -> ExpenseDetail | None:
+        """只找這個錢包裡的帳, 理由同 `WalletEntryTable.find_detail_in_wallet`。
+
+        只選欄位、每次都重新讀, 不從 session 的 identity map 拿: 修改後同一個請求再讀時
+        要讀到新的值 (理由同 `WalletTable.lock_balance`)。
+        """
+        wallet_uuid, row_id = parse_uuid(wallet_id), parse_uuid(id)
+        if wallet_uuid is None or row_id is None:
+            return None
+        row = await resolve_session(None).scalar(
+            select(cls)
+            .where(cls.id == row_id, cls.wallet_id == wallet_uuid)
+            .execution_options(populate_existing=True)
+        )
+        return None if row is None else (await cls._with_shares([row]))[0]
+
+    @classmethod
+    async def replace_in_wallet(
+        cls, wallet_id: str, id: str, data: dict, shares: list[ShareDetail]
+    ) -> None:
+        """改欄位並整組換掉分攤。分攤不逐列比對: 一筆帳的分攤只有幾列, 整組換最單純。"""
+        row_id = parse_uuid(id)
+        db = resolve_session(None)
+        await db.execute(
+            update(cls)
+            .where(cls.id == row_id, cls.wallet_id == parse_uuid(wallet_id))
+            .values(**cls._coerce(data), updated_at=utc_now())
+        )
+        await db.execute(
+            delete(TravelExpenseShareTable).where(TravelExpenseShareTable.expense_id == row_id)
+        )
+        await TravelExpenseShareTable.add_many(id, shares)
+
+    @classmethod
+    async def delete_in_wallet(cls, wallet_id: str, id: str) -> None:
+        """分攤由外鍵的 `ON DELETE CASCADE` 一起刪掉。"""
+        await resolve_session(None).execute(
+            delete(cls).where(cls.id == parse_uuid(id), cls.wallet_id == parse_uuid(wallet_id))
+        )
+
+    @classmethod
+    async def find_page(
+        cls, wallet_id: str, limit: int, cursor: str | None = None
+    ) -> ExpensePageResult:
+        """排序與游標同 `WalletEntryTable.find_page`。"""
+        keys = (cls.entry_date, cls.created_at, cls.id)
+        statement = select(cls).where(cls.wallet_id == parse_uuid(wallet_id))
+        if cursor is not None:
+            day, created_at, row_id = _decode_keys(cursor, 3)
+            try:
+                after = (
+                    date.fromisoformat(day),
+                    datetime.fromisoformat(created_at),
+                    uuid.UUID(row_id),
+                )
+            except ValueError as exc:
+                raise LangException(400, PaginationError.INVALID_CURSOR) from exc
+            statement = statement.where(tuple_(*keys) < tuple_(*after))
+        statement = statement.order_by(*(key.desc() for key in keys)).limit(limit + 1)
+        rows = list(await resolve_session(None).scalars(statement))
+        last = rows[limit - 1] if len(rows) > limit else None
+        next_cursor = (
+            None if last is None else _encode_keys(last.entry_date, last.created_at, last.id)
+        )
+        return {"list_data": await cls._with_shares(rows[:limit]), "next_cursor": next_cursor}
+
+    @classmethod
+    async def totals(cls, wallet_id: str) -> dict[str, MemberTotals]:
+        """每人付的與分攤的總額, 只列有紀錄的人。查詢時加總而不存起來: 旅遊錢包的帳不多。"""
+        wallet_uuid = parse_uuid(wallet_id)
+        if wallet_uuid is None:
+            return {}
+        db = resolve_session(None)
+        share = TravelExpenseShareTable
+        paid = await db.execute(
+            select(cls.payer_id, func.sum(cls.amount))
+            .where(cls.wallet_id == wallet_uuid)
+            .group_by(cls.payer_id)
+        )
+        owed = await db.execute(
+            select(share.user_id, func.sum(share.amount))
+            .join(cls, cls.id == share.expense_id)
+            .where(cls.wallet_id == wallet_uuid)
+            .group_by(share.user_id)
+        )
+        result: dict[str, MemberTotals] = {}
+        for user_id, total in paid.all():
+            result.setdefault(str(user_id), {"paid": 0, "owed": 0})["paid"] = int(total)
+        for user_id, total in owed.all():
+            result.setdefault(str(user_id), {"paid": 0, "owed": 0})["owed"] = int(total)
+        return result
+
+    @classmethod
+    async def has_records(cls, wallet_id: str, user_id: str) -> bool:
+        """這個人在這個錢包有沒有付款或分攤紀錄 (分到 0 也算)。"""
+        wallet_uuid, user_uuid = parse_uuid(wallet_id), parse_uuid(user_id)
+        if wallet_uuid is None or user_uuid is None:
+            return False
+        share = TravelExpenseShareTable
+        in_wallet = cls.wallet_id == wallet_uuid
+        paid = select(cls.id).where(in_wallet, cls.payer_id == user_uuid)
+        shared = (
+            select(share.id)
+            .join(cls, cls.id == share.expense_id)
+            .where(in_wallet, share.user_id == user_uuid)
+        )
+        found = await resolve_session(None).scalar(
+            select(func.count()).select_from(paid.union_all(shared).limit(1).subquery())
+        )
+        return bool(found)
+
+
+class TravelExpenseShareTable(BaseTable):
+    """一筆旅遊錢包的帳裡一個人分攤的金額。均分也存成每人的金額, 淨額直接加總。"""
+
+    __tablename__ = "travel_expense_shares"
+
+    expense_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("travel_expenses.id", ondelete="CASCADE")
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), index=True
+    )
+    amount: Mapped[int] = mapped_column(BigInteger)
+    # 存順序而不是靠 created_at: 同一批寫入的時間相同, 指定金額的表要照使用者排的順序顯示。
+    position: Mapped[int] = mapped_column(SmallInteger)
+
+    __table_args__ = (
+        UniqueConstraint("expense_id", "user_id"),
+        CheckConstraint("amount >= 0", name="amount_not_negative"),
+    )
+
+    @classmethod
+    async def add_many(cls, expense_id: str, shares: list[ShareDetail]) -> None:
+        db = resolve_session(None)
+        for position, share in enumerate(shares):
+            db.add(
+                cls(
+                    expense_id=parse_uuid(expense_id),
+                    user_id=parse_uuid(share["user_id"]),
+                    amount=share["amount"],
+                    position=position,
+                )
+            )
+        await db.flush()

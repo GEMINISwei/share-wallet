@@ -127,9 +127,7 @@ async def test_create_expense_custom_split_keeps_given_amounts_and_order(client,
 
 
 @pytest.mark.asyncio
-async def test_create_expense_custom_split_not_summing_to_amount_returns_422(
-    client, store, wallet
-):
+async def test_create_expense_custom_split_not_summing_to_amount_returns_422(client, store, wallet):
     authenticate(client, "alice")
 
     body = _custom(1000, ALICE, [(ALICE, 600), (BOB, 300)])
@@ -200,7 +198,9 @@ async def test_create_expense_in_general_wallet_returns_400(client, store):
     general = store.add_wallet(members={ALICE: MemberRole.ADMIN})
     authenticate(client, "alice")
 
-    response = await client.post(f"/api/wallets/{general}/expenses", json=_equal(100, ALICE, [ALICE]))
+    response = await client.post(
+        f"/api/wallets/{general}/expenses", json=_equal(100, ALICE, [ALICE])
+    )
 
     assert response.status_code == 400
     assert store.expenses == {}
@@ -241,7 +241,9 @@ async def test_create_expense_locks_wallet(client, store, wallet):
 async def test_create_expense_with_overflowing_amount_returns_422(client, store, wallet):
     authenticate(client, "alice")
 
-    response = await client.post(f"/api/wallets/{wallet}/expenses", json=_equal(2**53, ALICE, [ALICE]))
+    response = await client.post(
+        f"/api/wallets/{wallet}/expenses", json=_equal(2**53, ALICE, [ALICE])
+    )
 
     assert response.status_code == 422
 
@@ -296,7 +298,10 @@ async def test_update_own_expense_replaces_payer_and_shares(client, store, walle
     assert store.shares_of(expense_id) == {ALICE: 30, BOB: 30, CAROL: 30}
     [log] = store.logs
     assert log["action"] == "update"
-    assert log["before"]["shares"] == [{"name": "Bob", "amount": 50}, {"name": "Carol", "amount": 50}]
+    assert log["before"]["shares"] == [
+        {"name": "Bob", "amount": 50},
+        {"name": "Carol", "amount": 50},
+    ]
     assert log["after"]["payer_name"] == "Carol"
 
 

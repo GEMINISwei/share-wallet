@@ -77,3 +77,17 @@ class WalletError(BaseError):
         zh="這筆代墊已有還款，請先刪除還款",
         en="This advance has repayments. Delete them first",
     )
+    NOT_TRAVEL = LangText(
+        zh="只有旅遊錢包可以記分攤", en="Only travel wallets have shared expenses"
+    )
+    PAYER_NOT_MEMBER = LangText(
+        zh="付款人必須是這個錢包的成員", en="The payer must be a member of this wallet"
+    )
+    PARTICIPANT_NOT_MEMBER = LangText(
+        zh="分攤對象必須是這個錢包的成員",
+        en="Everyone sharing the cost must be a member of this wallet",
+    )
+    MEMBER_HAS_RECORDS = LangText(
+        zh="這位成員在這個錢包有付款或分攤紀錄，不能離開或被移除",
+        en="This member has payments or shares in this wallet and cannot leave or be removed",
+    )

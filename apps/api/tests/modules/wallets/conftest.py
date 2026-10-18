@@ -591,7 +591,7 @@ def _install_entry_logs(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -> No
 
 
 def _install_expenses(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -> None:
-    """旅遊錢包的帳: 連同分攤一起存取、每人的付款與分攤總額、成員有沒有紀錄。"""
+    """旅遊錢包的帳: 連同分攤一起存取。"""
 
     def _copy(id: str) -> dict:
         expense = store.expenses[id]
@@ -628,6 +628,22 @@ def _install_expenses(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -> None
         rows.sort(key=lambda e: (e["entry_date"], e["created_at"]), reverse=True)
         return {"list_data": rows, "next_cursor": None}
 
+    for name, fake in {
+        "create_with_shares": create_with_shares,
+        "find_detail_in_wallet": find_detail_in_wallet,
+        "replace_in_wallet": replace_in_wallet,
+        "delete_in_wallet": delete_in_wallet,
+        "find_page": find_page,
+    }.items():
+        monkeypatch.setattr(TravelExpenseTable, name, fake)
+
+
+def _install_expense_totals(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -> None:
+    """每人的付款與分攤總額、成員有沒有紀錄。"""
+
+    def _in_wallet(wallet_id):
+        return [e for e in store.expenses.values() if e["wallet_id"] == wallet_id]
+
     async def totals(wallet_id):
         result: dict[str, dict] = {}
         for expense in _in_wallet(wallet_id):
@@ -644,15 +660,7 @@ def _install_expenses(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -> None
             for e in _in_wallet(wallet_id)
         )
 
-    for name, fake in {
-        "create_with_shares": create_with_shares,
-        "find_detail_in_wallet": find_detail_in_wallet,
-        "replace_in_wallet": replace_in_wallet,
-        "delete_in_wallet": delete_in_wallet,
-        "find_page": find_page,
-        "totals": totals,
-        "has_records": has_records,
-    }.items():
+    for name, fake in {"totals": totals, "has_records": has_records}.items():
         monkeypatch.setattr(TravelExpenseTable, name, fake)
 
 
@@ -670,6 +678,7 @@ def store(monkeypatch: pytest.MonkeyPatch) -> FakeStore:
     _install_advances(monkeypatch, fake)
     _install_entry_logs(monkeypatch, fake)
     _install_expenses(monkeypatch, fake)
+    _install_expense_totals(monkeypatch, fake)
     return fake
 
 
