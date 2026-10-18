@@ -114,6 +114,8 @@ class FakeStore:
         category_id: str | None = None,
         entry_date: date = date(2026, 10, 18),
         note: str = "",
+        transfer_id: str | None = None,
+        counterpart_wallet_id: str | None = None,
     ) -> str:
         """直接放一筆帳 (不經過 service, 所以不動餘額、不留紀錄)。"""
         id = str(uuid.uuid4())
@@ -125,6 +127,8 @@ class FakeStore:
             "category_id": category_id,
             "entry_date": entry_date,
             "note": note,
+            "transfer_id": transfer_id,
+            "counterpart_wallet_id": counterpart_wallet_id,
             "created_by": created_by,
             "created_at": datetime(2026, 10, 18) + timedelta(seconds=len(self.entries)),
         }
@@ -133,7 +137,23 @@ class FakeStore:
     def entry_detail(self, id: str) -> dict:
         entry = self.entries[id]
         category = self.categories.get(entry["category_id"] or "")
-        return {**entry, "category_name": None if category is None else category["name"]}
+        counterpart = self.wallets.get(entry["counterpart_wallet_id"] or "")
+        return {
+            **entry,
+            "category_name": None if category is None else category["name"],
+            "counterpart_wallet_name": None if counterpart is None else counterpart["name"],
+        }
+
+    def delete_wallet(self, wallet_id: str) -> None:
+        """模擬資料庫刪錢包: 這個錢包的帳一起刪, 別的錢包記著它的轉帳變成對方 NULL。"""
+        del self.wallets[wallet_id]
+        self.members = {key: role for key, role in self.members.items() if key[0] != wallet_id}
+        self.entries = {
+            id: entry for id, entry in self.entries.items() if entry["wallet_id"] != wallet_id
+        }
+        for entry in self.entries.values():
+            if entry["counterpart_wallet_id"] == wallet_id:
+                entry["counterpart_wallet_id"] = None
 
     def balance(self, wallet_id: str) -> int:
         return self.wallets[wallet_id]["balance"]
@@ -397,6 +417,29 @@ def _install_entries(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -> None:
         monkeypatch.setattr(WalletEntryTable, name, fake)
 
 
+def _install_transfers(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -> None:
+    """轉帳才用到的帳目查詢: 對方錢包、某個錢包裡的那一邊。"""
+
+    async def find_counterpart_wallet_id(wallet_id, id):
+        found = store.entries.get(id)
+        if found is None or found["wallet_id"] != wallet_id:
+            return None
+        return found["counterpart_wallet_id"]
+
+    async def find_transfer_in_wallet(wallet_id, transfer_id):
+        return next(
+            (
+                store.entry_detail(id)
+                for id, e in store.entries.items()
+                if e["wallet_id"] == wallet_id and e["transfer_id"] == transfer_id
+            ),
+            None,
+        )
+
+    monkeypatch.setattr(WalletEntryTable, "find_counterpart_wallet_id", find_counterpart_wallet_id)
+    monkeypatch.setattr(WalletEntryTable, "find_transfer_in_wallet", find_transfer_in_wallet)
+
+
 def _install_entry_logs(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -> None:
     async def create_log(data, session=None):
         log = {"id": str(uuid.uuid4()), "created_at": store.now, **data}
@@ -430,6 +473,7 @@ def store(monkeypatch: pytest.MonkeyPatch) -> FakeStore:
     _install_invites(monkeypatch, fake)
     _install_ledger_lookups(monkeypatch, fake)
     _install_entries(monkeypatch, fake)
+    _install_transfers(monkeypatch, fake)
     _install_entry_logs(monkeypatch, fake)
     return fake
 

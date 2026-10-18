@@ -54,9 +54,7 @@ async def update_member_role(
     return MemberOperate(user_id=user_id)
 
 
-async def remove_member(
-    wallet_id: str, user_id: str, current_user: CurrentUser
-) -> MemberOperate:
+async def remove_member(wallet_id: str, user_id: str, current_user: CurrentUser) -> MemberOperate:
     """移除自己就是離開, 每個成員都可以; 移除別人要是管理者。
 
     只刪成員紀錄 (見 docs/features.md〈離開與移除〉)。最後一位管理者不能離開也不能被移除。

@@ -53,9 +53,7 @@ async def signup_user(form_data: SignupRequest, env: AppEnvProtocol) -> UserToke
         raise LangException(409, UserError.USERNAME_EXISTS) from exc
 
     return UserToken.model_validate(
-        create_token(
-            {"username": form_data.username, "auth_version": created["auth_version"]}, env
-        )
+        create_token({"username": form_data.username, "auth_version": created["auth_version"]}, env)
     )
 
 

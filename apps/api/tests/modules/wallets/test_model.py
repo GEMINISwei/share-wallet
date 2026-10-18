@@ -4,6 +4,7 @@
 """
 
 import asyncio
+import uuid
 from datetime import date, timedelta
 
 import pytest
@@ -374,6 +375,59 @@ async def test_delete_wallet_cascades_entries_and_logs(db):
 
     assert await WalletEntryTable.get_all() == {"list_data": [], "count": 0}
     assert await WalletEntryLogTable.get_all() == {"list_data": [], "count": 0}
+
+
+async def _transfer_half(wallet_id: str, counterpart: str, user_id: str, transfer_id: str):
+    created = await WalletEntryTable.create(
+        data={
+            "wallet_id": wallet_id,
+            "kind": EntryKind.TRANSFER_OUT,
+            "amount": 100,
+            "entry_date": date(2026, 10, 18),
+            "transfer_id": transfer_id,
+            "counterpart_wallet_id": counterpart,
+            "created_by": user_id,
+        }
+    )
+    return created["id"]
+
+
+async def test_delete_wallet_keeps_counterpart_transfer_as_orphan(db):
+    alice = await _user("alice")
+    home = await _wallet({alice: MemberRole.ADMIN})
+    savings = await _wallet({alice: MemberRole.ADMIN}, "存款")
+    transfer_id = str(uuid.uuid4())
+    kept = await _transfer_half(home, savings, alice, transfer_id)
+    await _transfer_half(savings, home, alice, transfer_id)
+
+    found = await WalletEntryTable.find_transfer_in_wallet(home, transfer_id)
+    assert found is not None
+    assert (found["id"], found["counterpart_wallet_name"]) == (kept, "存款")
+    assert await WalletEntryTable.find_counterpart_wallet_id(home, kept) == savings
+    assert await WalletTable.delete_by_id(savings) is True
+
+    [orphan] = (await WalletEntryTable.find_page(home, limit=10))["list_data"]
+    assert orphan["id"] == kept
+    assert (orphan["counterpart_wallet_id"], orphan["counterpart_wallet_name"]) == (None, None)
+    assert orphan["transfer_id"] == transfer_id
+    assert await WalletEntryTable.find_counterpart_wallet_id(home, kept) is None
+
+
+async def test_entry_transfer_check_rejects_transfer_without_transfer_id(db):
+    alice = await _user("alice")
+    wallet_id = await _wallet({alice: MemberRole.ADMIN})
+
+    with pytest.raises(IntegrityError):
+        async with transaction():
+            await WalletEntryTable.create(
+                data={
+                    "wallet_id": wallet_id,
+                    "kind": EntryKind.TRANSFER_IN,
+                    "amount": 100,
+                    "entry_date": date(2026, 10, 18),
+                    "created_by": alice,
+                }
+            )
 
 
 async def test_entry_logs_survive_entry_deletion(db):

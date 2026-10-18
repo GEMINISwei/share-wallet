@@ -508,6 +508,8 @@ export interface paths {
         /**
          * Delete Entry Route
          * @description 刪除自己記的帳; 錢包管理者可以刪除任何人的。餘額反向套用。
+         *
+         *     轉帳兩邊一起刪, 要在兩個錢包都有改刪權限; 對方錢包已刪除時只刪這一邊。
          */
         delete: operations["delete_entry_route_api_wallets__id__entries__entry_id__delete"];
         options?: never;
@@ -626,6 +628,46 @@ export interface paths {
          * @description 把成員升為管理者, 或把管理者降為成員。
          */
         patch: operations["update_member_role_route_api_wallets__id__members__user_id__patch"];
+        trace?: never;
+    };
+    "/api/wallets/{id}/transfers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Transfer Route
+         * @description 記一筆轉帳, 兩個錢包各記一筆、餘額一起更新。要同時是兩個錢包的成員。
+         */
+        post: operations["create_transfer_route_api_wallets__id__transfers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/wallets/{id}/transfers/{entry_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Transfer Route
+         * @description 修改轉帳的金額、日期、備註, 兩邊一起改。要在兩個錢包都有改刪權限; 對方錢包已刪除時不能改。
+         */
+        patch: operations["update_transfer_route_api_wallets__id__transfers__entry_id__patch"];
         trace?: never;
     };
 }
@@ -822,12 +864,13 @@ export interface components {
         };
         /**
          * EntryInfo
-         * @description 一筆帳。收入與支出的 `amount` 是正數; 調整的 `amount` 是差額, 可以是負的。
+         * @description 一筆帳。收入、支出與轉帳的 `amount` 是正數; 調整的 `amount` 是差額, 可以是負的。
          */
         EntryInfo: {
             /** Amount */
             amount: number;
             category: components["schemas"]["EntryCategory"] | null;
+            counterpart_wallet: components["schemas"]["EntryWallet"] | null;
             /**
              * Created At
              * Format: date-time
@@ -850,7 +893,7 @@ export interface components {
          * @description 一般錢包的帳目種類。
          * @enum {string}
          */
-        EntryKind: "income" | "expense" | "adjustment";
+        EntryKind: "income" | "expense" | "adjustment" | "transfer_out" | "transfer_in";
         /**
          * EntryLogAction
          * @description 異動紀錄的動作。
@@ -915,13 +958,15 @@ export interface components {
         };
         /**
          * EntrySnapshot
-         * @description 異動當時的帳目內容。`category_name` 是當時的分類名稱。
+         * @description 異動當時的帳目內容。`category_name`、`counterpart_wallet_name` 是當時的名稱。
          */
         EntrySnapshot: {
             /** Amount */
             amount: number;
             /** Category Name */
             category_name: string | null;
+            /** Counterpart Wallet Name */
+            counterpart_wallet_name?: string | null;
             /**
              * Entry Date
              * Format: date
@@ -962,6 +1007,13 @@ export interface components {
             nickname: string;
             /** User Id */
             user_id: string;
+        };
+        /** EntryWallet */
+        EntryWallet: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
         };
         /** GeneralWalletCreate */
         GeneralWalletCreate: {
@@ -1196,6 +1248,51 @@ export interface components {
             password: string;
             /** Username */
             username: string;
+        };
+        /**
+         * TransferCreate
+         * @description 記一筆轉帳: `transfer_out` 是從這個錢包轉到對方, `transfer_in` 是從對方轉進來。
+         *
+         *     兩個錢包各記一筆, 一起建立、一起修改、一起刪除。要同時是兩個錢包的成員。
+         */
+        TransferCreate: {
+            /** Amount */
+            amount: number;
+            /** Counterpart Wallet Id */
+            counterpart_wallet_id: string;
+            /**
+             * Entry Date
+             * Format: date
+             */
+            entry_date: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "transfer_out" | "transfer_in";
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+        };
+        /**
+         * TransferUpdate
+         * @description 修改轉帳, 兩邊一起改。不能換對方錢包, 也不能切換轉出與轉入。
+         */
+        TransferUpdate: {
+            /** Amount */
+            amount: number;
+            /**
+             * Entry Date
+             * Format: date
+             */
+            entry_date: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
         };
         /** TravelWalletCreate */
         TravelWalletCreate: {
@@ -2904,6 +3001,77 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MemberOperate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_transfer_route_api_wallets__id__transfers_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransferCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntryOperate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_transfer_route_api_wallets__id__transfers__entry_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransferUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntryOperate"];
                 };
             };
             /** @description Validation Error */

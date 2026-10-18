@@ -57,9 +57,7 @@ async def test_create_category_with_duplicate_name_returns_409(
 
 
 @pytest.mark.asyncio
-async def test_create_category_same_name_other_type_succeeds(
-    client: AsyncClient, store, wallet_id
-):
+async def test_create_category_same_name_other_type_succeeds(client: AsyncClient, store, wallet_id):
     store.add_category(wallet_id, "其他", CategoryType.EXPENSE)
     authenticate(client, "alice")
 

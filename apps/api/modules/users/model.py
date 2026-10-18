@@ -94,9 +94,7 @@ class UserTable(BaseTable):
 
     @classmethod
     def detail_loaders(cls) -> tuple[selectinload, ...]:  # type: ignore[valid-type]
-        """`role_ids` 與 `permissions` 都是從 roles 算出來的, 所以一律要載入關聯。
-
-        """
+        """`role_ids` 與 `permissions` 都是從 roles 算出來的, 所以一律要載入關聯。"""
         return (selectinload(cls.roles),)
 
     def to_detail(self) -> dict:

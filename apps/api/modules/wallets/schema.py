@@ -235,6 +235,27 @@ class BalanceAdjust(BaseModel):
     note: EntryNote = ""
 
 
+class TransferCreate(BaseModel):
+    """記一筆轉帳: `transfer_out` 是從這個錢包轉到對方, `transfer_in` 是從對方轉進來。
+
+    兩個錢包各記一筆, 一起建立、一起修改、一起刪除。要同時是兩個錢包的成員。
+    """
+
+    kind: Literal[EntryKind.TRANSFER_OUT, EntryKind.TRANSFER_IN]
+    counterpart_wallet_id: UuidText
+    amount: PositiveAmount
+    entry_date: date
+    note: EntryNote = ""
+
+
+class TransferUpdate(BaseModel):
+    """修改轉帳, 兩邊一起改。不能換對方錢包, 也不能切換轉出與轉入。"""
+
+    amount: PositiveAmount
+    entry_date: date
+    note: EntryNote = ""
+
+
 class EntryOperate(BaseModel):
     id: str
 
@@ -250,14 +271,21 @@ class EntryCategory(BaseModel):
     name: str
 
 
+class EntryWallet(BaseModel):
+    id: str
+    name: str
+
+
 class EntryInfo(BaseModel):
-    """一筆帳。收入與支出的 `amount` 是正數; 調整的 `amount` 是差額, 可以是負的。"""
+    """一筆帳。收入、支出與轉帳的 `amount` 是正數; 調整的 `amount` 是差額, 可以是負的。"""
 
     id: str
     kind: EntryKind
     amount: int
-    #: 調整沒有分類。
+    #: 只有收入與支出有分類。
     category: EntryCategory | None
+    #: 轉帳的對方錢包。不是轉帳時是 null; 轉帳而對方錢包已刪除時也是 null, 這筆只能刪除。
+    counterpart_wallet: EntryWallet | None
     entry_date: date
     note: str
     created_by: EntryUser
@@ -272,11 +300,13 @@ class EntryPage(BaseModel):
 
 
 class EntrySnapshot(BaseModel):
-    """異動當時的帳目內容。`category_name` 是當時的分類名稱。"""
+    """異動當時的帳目內容。`category_name`、`counterpart_wallet_name` 是當時的名稱。"""
 
     kind: EntryKind
     amount: int
     category_name: str | None
+    #: 轉帳的對方錢包; 不是轉帳, 或當時對方錢包已刪除時是 null。
+    counterpart_wallet_name: str | None = None
     entry_date: date
     note: str
 
