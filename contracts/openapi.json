@@ -402,6 +402,117 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "InviteInfo": {
+        "description": "錢包目前有效的邀請連結。確認頁的網址由前端依 `token` 組出。",
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "token": {
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "expires_at"
+        ],
+        "title": "InviteInfo",
+        "type": "object"
+      },
+      "InvitePreview": {
+        "description": "邀請連結的確認頁要顯示的錢包摘要。",
+        "properties": {
+          "destination": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Destination"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Date"
+          },
+          "is_member": {
+            "title": "Is Member",
+            "type": "boolean"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/WalletKind"
+          },
+          "member_count": {
+            "title": "Member Count",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Date"
+          },
+          "wallet_id": {
+            "title": "Wallet Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "wallet_id",
+          "kind",
+          "name",
+          "destination",
+          "start_date",
+          "end_date",
+          "member_count",
+          "is_member"
+        ],
+        "title": "InvitePreview",
+        "type": "object"
+      },
+      "InviteState": {
+        "description": "`invite` 是 null 表示沒有有效的連結 (沒產生過、已撤銷或已過期)。",
+        "properties": {
+          "invite": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InviteInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "invite"
+        ],
+        "title": "InviteState",
+        "type": "object"
+      },
       "Language": {
         "description": "API 訊息支援的語系。",
         "enum": [
@@ -1576,6 +1687,94 @@
         "summary": "Create Wallet For User Route",
         "tags": [
           "admin-wallets"
+        ]
+      }
+    },
+    "/api/invites/{token}": {
+      "get": {
+        "description": "邀請連結要加入的錢包。連結無效、過期或已撤銷時回 404。",
+        "operationId": "get_invite_preview_route_api_invites__token__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "title": "Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitePreview"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Invite Preview Route",
+        "tags": [
+          "wallet-invites"
+        ]
+      }
+    },
+    "/api/invites/{token}/accept": {
+      "post": {
+        "description": "以成員身分加入錢包。已經是成員時角色不變。",
+        "operationId": "accept_invite_route_api_invites__token__accept_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "title": "Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalletOperate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Accept Invite Route",
+        "tags": [
+          "wallet-invites"
         ]
       }
     },
@@ -2972,6 +3171,131 @@
           }
         },
         "summary": "Rename Category Route",
+        "tags": [
+          "wallets"
+        ]
+      }
+    },
+    "/api/wallets/{id}/invite": {
+      "delete": {
+        "description": "撤銷邀請連結。",
+        "operationId": "revoke_invite_route_api_wallets__id__invite_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "title": "Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalletOperate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke Invite Route",
+        "tags": [
+          "wallets"
+        ]
+      },
+      "get": {
+        "description": "目前有效的邀請連結。只有錢包管理者看得到。",
+        "operationId": "get_invite_route_api_wallets__id__invite_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "title": "Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InviteState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Invite Route",
+        "tags": [
+          "wallets"
+        ]
+      },
+      "post": {
+        "description": "產生邀請連結, 有效期限一天。已經有連結時換成新的, 舊的立即失效。",
+        "operationId": "create_invite_route_api_wallets__id__invite_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "title": "Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InviteInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Invite Route",
         "tags": [
           "wallets"
         ]

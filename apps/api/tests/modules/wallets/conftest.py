@@ -12,11 +12,13 @@ from typing import Any
 import pytest
 
 from modules.wallets import admin as admin_service
+from modules.wallets import invites as invite_service
 from modules.wallets import members as member_service
 from modules.wallets.model import (
     CategoryType,
     MemberRole,
     WalletCategoryTable,
+    WalletInviteTable,
     WalletKind,
     WalletMemberTable,
     WalletTable,
@@ -48,7 +50,11 @@ class FakeStore:
     # 依加入順序 (dict 保留插入順序)。
     members: dict[tuple[str, str], MemberRole] = field(default_factory=dict)
     categories: dict[str, dict] = field(default_factory=dict)
+    # wallet_id → 邀請 (每個錢包最多一條)。
+    invites: dict[str, dict] = field(default_factory=dict)
     locked: list[str] = field(default_factory=list)
+    #: invites.py 看到的「現在」, 測試改它來模擬過期。
+    now: datetime = datetime(2026, 10, 18, 12, 0)
 
     def add_wallet(
         self,
@@ -128,6 +134,7 @@ def _install_wallets(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -> None:
         if store.wallets.pop(id, None) is None:
             return False
         store.members = {key: role for key, role in store.members.items() if key[0] != id}
+        store.invites.pop(id, None)
         return True
 
     async def find_joined(user_id):
@@ -171,6 +178,9 @@ def _install_members(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -> None:
     async def remove(wallet_id, user_id):
         store.members.pop((wallet_id, user_id), None)
 
+    async def add_if_absent(wallet_id, user_id, role):
+        store.members.setdefault((wallet_id, user_id), role)
+
     async def find_nicknames(user_ids):
         by_id = {info["id"]: info["nickname"] for info in USERS.values()}
         return {uid: by_id[uid] for uid in user_ids if uid in by_id}
@@ -182,6 +192,7 @@ def _install_members(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -> None:
         "count_admins": count_admins,
         "set_role": set_role,
         "remove": remove,
+        "add_if_absent": add_if_absent,
     }.items():
         monkeypatch.setattr(WalletMemberTable, name, fake)
     monkeypatch.setattr(member_service, "find_nicknames", find_nicknames)
@@ -255,6 +266,31 @@ def _install_categories(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -> No
         monkeypatch.setattr(WalletCategoryTable, name, fake)
 
 
+def _install_invites(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -> None:
+    async def find_detail_by_wallet(wallet_id):
+        return store.invites.get(wallet_id)
+
+    async def find_detail_by_token(token):
+        return next((i for i in store.invites.values() if i["token"] == token), None)
+
+    async def replace(wallet_id, token, expires_at):
+        store.invites[wallet_id] = {
+            "wallet_id": wallet_id, "token": token, "expires_at": expires_at
+        }
+
+    async def remove(wallet_id):
+        store.invites.pop(wallet_id, None)
+
+    for name, fake in {
+        "find_detail_by_wallet": find_detail_by_wallet,
+        "find_detail_by_token": find_detail_by_token,
+        "replace": replace,
+        "remove": remove,
+    }.items():
+        monkeypatch.setattr(WalletInviteTable, name, fake)
+    monkeypatch.setattr(invite_service, "utc_now", lambda: store.now)
+
+
 @pytest.fixture
 def store(monkeypatch: pytest.MonkeyPatch) -> FakeStore:
     fake = FakeStore()
@@ -262,6 +298,7 @@ def store(monkeypatch: pytest.MonkeyPatch) -> FakeStore:
     _install_members(monkeypatch, fake)
     _install_admin(monkeypatch, fake)
     _install_categories(monkeypatch, fake)
+    _install_invites(monkeypatch, fake)
     return fake
 
 

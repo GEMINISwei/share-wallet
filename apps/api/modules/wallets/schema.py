@@ -183,3 +183,31 @@ class CategoryRename(BaseModel):
 
 class CategoryOperate(BaseModel):
     id: str
+
+
+class InviteInfo(BaseModel):
+    """錢包目前有效的邀請連結。確認頁的網址由前端依 `token` 組出。"""
+
+    token: str
+    expires_at: UtcDateTime
+
+
+class InviteState(BaseModel):
+    """`invite` 是 null 表示沒有有效的連結 (沒產生過、已撤銷或已過期)。"""
+
+    invite: InviteInfo | None
+
+
+class InvitePreview(BaseModel):
+    """邀請連結的確認頁要顯示的錢包摘要。"""
+
+    wallet_id: str
+    kind: WalletKind
+    name: str
+    destination: str | None
+    start_date: date | None
+    end_date: date | None
+    #: 成員人數, 含管理者。
+    member_count: int
+    #: 自己是不是已經是這個錢包的成員。
+    is_member: bool

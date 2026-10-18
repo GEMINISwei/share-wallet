@@ -18,6 +18,8 @@ type TextInputProps = {
   type?: HTMLInputTypeAttribute
   required?: boolean
   disabled?: boolean
+  /** 只給人看、複製的值 (例如分享連結)。 */
+  readOnly?: boolean
   placeholder?: string
   autoComplete?: string
   autoFocus?: boolean
@@ -136,6 +138,8 @@ type SelectInputProps = {
   value?: string
   required?: boolean
   disabled?: boolean
+  /** 只給人看、複製的值 (例如分享連結)。 */
+  readOnly?: boolean
   options: ReadonlyArray<{ label?: string; text?: string; value: string }>
   autoFocus?: boolean
   error?: string

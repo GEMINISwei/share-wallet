@@ -1,5 +1,6 @@
 import "server-only"
 import { getT } from "@/shared/i18n/locale.server"
+import { parseInviteToken } from "@/modules/wallets/public.client"
 import { authMessages } from "./i18n"
 import LoginForm from "./ui/LoginForm"
 import { getLoginRedirectReason } from "./validation"
@@ -13,6 +14,7 @@ export async function generateMetadata() {
 export type LoginPageProps = {
   searchParams?: Promise<{
     reason?: string | string[]
+    invite?: string | string[]
   }>
 }
 
@@ -20,6 +22,9 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const params = await searchParams
 
   return (
-    <LoginForm reason={getLoginRedirectReason(params?.reason)} />
+    <LoginForm
+      reason={getLoginRedirectReason(params?.reason)}
+      invite={parseInviteToken(params?.invite)}
+    />
   )
 }

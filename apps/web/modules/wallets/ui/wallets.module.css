@@ -188,6 +188,12 @@ a.row:hover {
   gap: var(--space-3);
 }
 
+.dialogBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
 .dialogActions {
   display: flex;
   justify-content: flex-end;

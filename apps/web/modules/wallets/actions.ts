@@ -70,3 +70,17 @@ export async function deleteCategory(id: string, categoryId: string) {
     refresh: { path: walletPath(id) },
   })
 }
+
+/** 產生或重新產生邀請連結, 舊的立即失效。 */
+export async function createInvite(id: string) {
+  return apiPost({ url: "/wallets/{id}/invite", params: { id }, refresh: { path: walletPath(id) } })
+}
+
+export async function revokeInvite(id: string) {
+  return apiDelete({ url: "/wallets/{id}/invite", params: { id }, refresh: { path: walletPath(id) } })
+}
+
+/** 加入之後錢包列表多了一個錢包。 */
+export async function acceptInvite(token: string) {
+  return apiPost({ url: "/invites/{token}/accept", params: { token }, refresh: refreshWallets })
+}

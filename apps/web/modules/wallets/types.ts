@@ -10,6 +10,8 @@ export type CategoryType = Schema<"CategoryType">
 export type AdminWalletInfo = Schema<"AdminWalletInfo">
 export type WalletAdmin = Schema<"WalletAdmin">
 export type UserOption = Schema<"UserOption">
+export type InviteInfo = Schema<"InviteInfo">
+export type InvitePreview = Schema<"InvitePreview">
 
 /** 後台列表的篩選條件 (網址參數)。空字串代表不篩選。 */
 export type AdminWalletFilters = { name: string; kind: WalletKind | "" }

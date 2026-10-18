@@ -1,7 +1,7 @@
-import { SignupPage, generateSignupMetadata } from "@/modules/auth/public.server"
+import { SignupPage, generateSignupMetadata, type SignupPageProps } from "@/modules/auth/public.server"
 
 export const generateMetadata = generateSignupMetadata
 
-export default function Page() {
-  return <SignupPage />
+export default function Page(props: SignupPageProps) {
+  return <SignupPage {...props} />
 }

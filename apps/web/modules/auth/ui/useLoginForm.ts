@@ -9,7 +9,8 @@ import { LOGIN_PATH, LOGIN_REDIRECT_REASONS } from "@/shared/session/login-contr
 import { useNotify } from "@/shared/ui"
 import { loginUser } from "../actions"
 import { authMessages } from "../i18n"
-import { LOGIN_REDIRECT_MESSAGE_KEYS, SIGNUP_PATH } from "../constants"
+import { LOGIN_REDIRECT_MESSAGE_KEYS } from "../constants"
+import { authDestinations } from "../destinations"
 import { validateLoginValues } from "../validation"
 import type { LoginFormErrors, LoginFormValues, LoginRedirectReason } from "../types"
 
@@ -20,9 +21,11 @@ const initialValues: LoginFormValues = {
 
 type UseLoginFormParams = {
   reason?: LoginRedirectReason
+  /** 已驗證過的邀請 token (見 `../destinations`)。 */
+  invite?: string
 }
 
-export function useLoginForm({ reason }: UseLoginFormParams) {
+export function useLoginForm({ reason, invite }: UseLoginFormParams) {
   const locale = useLocale()
   const t = useT(authMessages)
   const router = useRouter()
@@ -33,6 +36,7 @@ export function useLoginForm({ reason }: UseLoginFormParams) {
   const [isPending, startTransition] = useTransition()
   // 登入與註冊共用通知狀態管理。
   const { notify, notifyError, closeNotify } = useNotify()
+  const destinations = authDestinations(invite)
 
   useEffect(() => {
     if (reason !== LOGIN_REDIRECT_REASONS.sessionExpired) return
@@ -65,7 +69,7 @@ export function useLoginForm({ reason }: UseLoginFormParams) {
       }
     },
     togglePassword: () => setShowPassword((prev) => !prev),
-    goSignup: () => router.push(SIGNUP_PATH),
+    goSignup: () => router.push(destinations.signup),
     submit: () => {
       const nextErrors = validateLoginValues(values, locale)
       setErrors(nextErrors)
@@ -77,7 +81,7 @@ export function useLoginForm({ reason }: UseLoginFormParams) {
         const res = await loginUser(createActionFormData(values))
 
         if (res.status === "success") {
-          router.push("/")
+          router.push(destinations.afterAuth)
 
           return
         }
