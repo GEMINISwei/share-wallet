@@ -17,12 +17,14 @@ from modules.wallets import entry_logs as entry_log_service
 from modules.wallets import expenses as expense_service
 from modules.wallets import invites as invite_service
 from modules.wallets import members as member_service
+from modules.wallets import settlement as settlement_service
 from modules.wallets.model import (
     CategoryType,
     EntryKind,
     MemberRole,
     SplitMode,
     TravelExpenseTable,
+    TravelSettlementTransferTable,
     WalletAdvanceTargetTable,
     WalletCategoryTable,
     WalletEntryLogTable,
@@ -30,6 +32,7 @@ from modules.wallets.model import (
     WalletInviteTable,
     WalletKind,
     WalletMemberTable,
+    WalletStatus,
     WalletTable,
 )
 from shared.http.errors import NoChangeError
@@ -70,6 +73,8 @@ class FakeStore:
     logs: list[dict] = field(default_factory=list)
     #: 旅遊錢包的帳, id → {..., shares: [{user_id, amount}]} (shares 依存進來的順序)。
     expenses: dict[str, dict] = field(default_factory=dict)
+    #: 清償方案的轉帳, id → {..., position}; 依存進來的順序。
+    settlements: dict[str, dict] = field(default_factory=dict)
     #: invites.py 看到的「現在」, 測試改它來模擬過期。
     now: datetime = datetime(2026, 10, 18, 12, 0)
 
@@ -79,6 +84,7 @@ class FakeStore:
         name: str = "家用",
         balance: int = 0,
         members: dict[str, MemberRole] | None = None,
+        status: WalletStatus = WalletStatus.ACTIVE,
     ) -> str:
         id = str(uuid.uuid4())
         travel = kind is WalletKind.TRAVEL
@@ -86,6 +92,7 @@ class FakeStore:
             "id": id,
             "kind": kind,
             "name": name,
+            "status": status,
             "balance": balance,
             "destination": "東京" if travel else None,
             "start_date": date(2026, 11, 1) if travel else None,
@@ -215,6 +222,38 @@ class FakeStore:
         }
         return id
 
+    def add_settlement(
+        self,
+        wallet_id: str,
+        from_user_id: str,
+        to_user_id: str,
+        amount: int,
+        paid: bool = False,
+        confirmed_by: str | None = None,
+    ) -> str:
+        """直接放清償方案的一筆 (不經過 service, 錢包的狀態要另外給)。"""
+        id = str(uuid.uuid4())
+        self.settlements[id] = {
+            "id": id,
+            "wallet_id": wallet_id,
+            "position": len(self.transfers_of(wallet_id)),
+            "from_user_id": from_user_id,
+            "to_user_id": to_user_id,
+            "amount": amount,
+            "paid_at": self.now if paid else None,
+            "confirmed_at": self.now if confirmed_by else None,
+            "confirmed_by": confirmed_by,
+        }
+        return id
+
+    def transfers_of(self, wallet_id: str) -> list[dict]:
+        """一個錢包的清償方案, 依方案的順序。"""
+        found = [t for t in self.settlements.values() if t["wallet_id"] == wallet_id]
+        return sorted(found, key=lambda t: t["position"])
+
+    def status(self, wallet_id: str) -> WalletStatus:
+        return self.wallets[wallet_id]["status"]
+
     def shares_of(self, expense_id: str) -> dict[str, int]:
         """一筆帳的分攤, 依存進來的順序。"""
         return {share["user_id"]: share["amount"] for share in self.expenses[expense_id]["shares"]}
@@ -275,6 +314,7 @@ def _install_wallets(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -> None:
         id = str(uuid.uuid4())
         store.wallets[id] = {
             "id": id,
+            "status": WalletStatus.ACTIVE,
             "balance": 0,
             "destination": None,
             "start_date": None,
@@ -307,6 +347,14 @@ def _install_wallets(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -> None:
     async def lock_by_id(id, session=None):
         store.locked.append(id)
 
+    async def lock_status(id):
+        store.locked.append(id)
+        wallet = store.wallets.get(id)
+        return None if wallet is None else wallet["status"]
+
+    async def set_status(id, status):
+        store.wallets[id]["status"] = status
+
     for name, fake in {
         "find_detail_by_id": find_detail_by_id,
         "create": create,
@@ -314,6 +362,8 @@ def _install_wallets(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -> None:
         "delete_by_id": delete_by_id,
         "find_joined": find_joined,
         "lock_by_id": lock_by_id,
+        "lock_status": lock_status,
+        "set_status": set_status,
     }.items():
         monkeypatch.setattr(WalletTable, name, fake)
 
@@ -356,7 +406,13 @@ def _install_members(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -> None:
         "add_if_absent": add_if_absent,
     }.items():
         monkeypatch.setattr(WalletMemberTable, name, fake)
-    for service in (member_service, entry_service, entry_log_service, expense_service):
+    for service in (
+        member_service,
+        entry_service,
+        entry_log_service,
+        expense_service,
+        settlement_service,
+    ):
         monkeypatch.setattr(service, "find_nicknames", _find_nicknames)
     monkeypatch.setattr(admin_service, "find_nicknames", _find_nicknames)
 
@@ -664,6 +720,49 @@ def _install_expense_totals(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -
         monkeypatch.setattr(TravelExpenseTable, name, fake)
 
 
+def _install_settlements(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -> None:
+    """清償方案: 整份寫入、整份作廢, 逐筆標記付款與確認。"""
+
+    async def create_plan(wallet_id, transfers):
+        for transfer in transfers:
+            store.add_settlement(
+                wallet_id, transfer["from_user_id"], transfer["to_user_id"], transfer["amount"]
+            )
+
+    async def delete_in_wallet(wallet_id):
+        store.settlements = {
+            id: t for id, t in store.settlements.items() if t["wallet_id"] != wallet_id
+        }
+
+    async def list_in_wallet(wallet_id):
+        return [dict(t) for t in store.transfers_of(wallet_id)]
+
+    async def find_detail_in_wallet(wallet_id, id):
+        found = store.settlements.get(id)
+        return None if found is None or found["wallet_id"] != wallet_id else dict(found)
+
+    async def set_paid(id, paid_at):
+        store.settlements[id]["paid_at"] = paid_at
+
+    async def set_confirmed(id, confirmed_by, confirmed_at):
+        store.settlements[id].update(confirmed_by=confirmed_by, confirmed_at=confirmed_at)
+
+    async def count_unconfirmed(wallet_id):
+        return sum(t["confirmed_at"] is None for t in store.transfers_of(wallet_id))
+
+    for name, fake in {
+        "create_plan": create_plan,
+        "delete_in_wallet": delete_in_wallet,
+        "list_in_wallet": list_in_wallet,
+        "find_detail_in_wallet": find_detail_in_wallet,
+        "set_paid": set_paid,
+        "set_confirmed": set_confirmed,
+        "count_unconfirmed": count_unconfirmed,
+    }.items():
+        monkeypatch.setattr(TravelSettlementTransferTable, name, fake)
+    monkeypatch.setattr(settlement_service, "utc_now", lambda: store.now)
+
+
 @pytest.fixture
 def store(monkeypatch: pytest.MonkeyPatch) -> FakeStore:
     fake = FakeStore()
@@ -679,6 +778,7 @@ def store(monkeypatch: pytest.MonkeyPatch) -> FakeStore:
     _install_entry_logs(monkeypatch, fake)
     _install_expenses(monkeypatch, fake)
     _install_expense_totals(monkeypatch, fake)
+    _install_settlements(monkeypatch, fake)
     return fake
 
 

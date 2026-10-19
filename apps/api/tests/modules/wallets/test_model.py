@@ -22,9 +22,11 @@ from modules.wallets.model import (
     EntryLogDetail,
     ExpenseDetail,
     MemberRole,
+    SettlementTransferDetail,
     SplitMode,
     TravelExpenseShareTable,
     TravelExpenseTable,
+    TravelSettlementTransferTable,
     WalletAdvanceTargetTable,
     WalletCategoryTable,
     WalletDetail,
@@ -33,6 +35,7 @@ from modules.wallets.model import (
     WalletInviteTable,
     WalletKind,
     WalletMemberTable,
+    WalletStatus,
     WalletTable,
 )
 from shared.db.session import session_scope
@@ -787,3 +790,104 @@ async def test_delete_wallet_cascades_expenses_and_shares(db):
 
     assert await TravelExpenseTable.get_all() == {"list_data": [], "count": 0}
     assert await TravelExpenseShareTable.get_all() == {"list_data": [], "count": 0}
+
+
+# ── 結算 ────────────────────────────────────────────────────────────────────
+
+
+async def test_new_wallet_is_active(db):
+    wallet_id = await _wallet()
+
+    detail = await WalletTable.find_detail_by_id(wallet_id)
+
+    assert detail is not None
+    assert detail["status"] == WalletStatus.ACTIVE
+
+
+async def test_lock_status_reads_status_written_in_same_session(db):
+    alice = await _user("alice")
+    wallet_id = await _travel_wallet({alice: MemberRole.ADMIN})
+    # 先讀一次, 讓 session 裡有一份舊的錢包物件 (同 `lock_balance` 的理由)。
+    await WalletTable.find_detail_by_id(wallet_id)
+
+    await WalletTable.set_status(wallet_id, WalletStatus.SETTLING)
+
+    assert await WalletTable.lock_status(wallet_id) == WalletStatus.SETTLING
+    assert await WalletTable.lock_status(str(uuid.uuid4())) is None
+
+
+async def test_general_wallet_status_check_rejects_settling(db):
+    wallet_id = await _wallet()
+
+    with pytest.raises(IntegrityError):
+        async with transaction():
+            await WalletTable.set_status(wallet_id, WalletStatus.SETTLING)
+
+
+async def test_settlement_plan_keeps_order_and_tracks_confirmations(db):
+    alice, bob, carol = await _user("alice"), await _user("bob"), await _user("carol")
+    wallet_id = await _travel_wallet(
+        {alice: MemberRole.ADMIN, bob: MemberRole.MEMBER, carol: MemberRole.MEMBER}
+    )
+    other = await _travel_wallet({alice: MemberRole.ADMIN})
+    await TravelSettlementTransferTable.create_plan(
+        wallet_id,
+        [
+            {"from_user_id": carol, "to_user_id": alice, "amount": 300},
+            {"from_user_id": bob, "to_user_id": alice, "amount": 100},
+        ],
+    )
+    await TravelSettlementTransferTable.create_plan(
+        other, [{"from_user_id": bob, "to_user_id": alice, "amount": 5}]
+    )
+
+    plan = await TravelSettlementTransferTable.list_in_wallet(wallet_id)
+    first = plan[0]["id"]
+    now = utc_now()
+    await TravelSettlementTransferTable.set_paid(first, now)
+    await TravelSettlementTransferTable.set_confirmed(first, alice, now)
+
+    assert_covers(SettlementTransferDetail, plan[0], "SettlementTransferDetail")
+    assert [(t["from_user_id"], t["amount"]) for t in plan] == [(carol, 300), (bob, 100)]
+    detail = await TravelSettlementTransferTable.find_detail_in_wallet(wallet_id, first)
+    assert detail is not None
+    assert (detail["paid_at"], detail["confirmed_by"]) == (now, alice)
+    assert await TravelSettlementTransferTable.count_unconfirmed(wallet_id) == 1
+    assert await TravelSettlementTransferTable.find_detail_in_wallet(other, first) is None
+
+
+async def test_delete_settlement_plan_only_touches_that_wallet(db):
+    alice, bob = await _user("alice"), await _user("bob")
+    wallet_id = await _travel_wallet({alice: MemberRole.ADMIN, bob: MemberRole.MEMBER})
+    other = await _travel_wallet({alice: MemberRole.ADMIN, bob: MemberRole.MEMBER})
+    transfer = {"from_user_id": bob, "to_user_id": alice, "amount": 100}
+    await TravelSettlementTransferTable.create_plan(wallet_id, [transfer])
+    await TravelSettlementTransferTable.create_plan(other, [transfer])
+
+    await TravelSettlementTransferTable.delete_in_wallet(wallet_id)
+
+    assert await TravelSettlementTransferTable.list_in_wallet(wallet_id) == []
+    assert len(await TravelSettlementTransferTable.list_in_wallet(other)) == 1
+
+
+async def test_settlement_amount_check_rejects_zero(db):
+    alice, bob = await _user("alice"), await _user("bob")
+    wallet_id = await _travel_wallet({alice: MemberRole.ADMIN, bob: MemberRole.MEMBER})
+
+    with pytest.raises(IntegrityError):
+        async with transaction():
+            await TravelSettlementTransferTable.create_plan(
+                wallet_id, [{"from_user_id": bob, "to_user_id": alice, "amount": 0}]
+            )
+
+
+async def test_delete_wallet_cascades_settlement_plan(db):
+    alice, bob = await _user("alice"), await _user("bob")
+    wallet_id = await _travel_wallet({alice: MemberRole.ADMIN, bob: MemberRole.MEMBER})
+    await TravelSettlementTransferTable.create_plan(
+        wallet_id, [{"from_user_id": bob, "to_user_id": alice, "amount": 100}]
+    )
+
+    assert await WalletTable.delete_by_id(wallet_id) is True
+
+    assert await TravelSettlementTransferTable.get_all() == {"list_data": [], "count": 0}
