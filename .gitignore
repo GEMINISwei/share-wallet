@@ -30,9 +30,6 @@ coverage/
 # `make backup` 的輸出 (還原前的自動備份也在這裡)
 backups/
 
-# 本機開發環境的測試帳號, 帳密只存在本機資料庫
-dev-accounts.example
-
 # macOS
 .DS_Store
 
