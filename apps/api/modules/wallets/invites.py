@@ -13,7 +13,14 @@ from shared.time import utc_now
 
 from .access import manage_wallet
 from .errors import WalletError
-from .model import InviteDetail, MemberRole, WalletInviteTable, WalletMemberTable, WalletTable
+from .model import (
+    InviteDetail,
+    MemberRole,
+    WalletInviteTable,
+    WalletMemberTable,
+    WalletStatus,
+    WalletTable,
+)
 from .schema import InviteInfo, InvitePreview, InviteState, WalletOperate
 
 INVITE_LIFETIME = timedelta(days=1)
@@ -28,15 +35,22 @@ def _to_info(invite: InviteDetail) -> InviteInfo:
 
 
 async def get_invite(wallet_id: str, current_user: CurrentUser) -> InviteState:
-    """只有管理者看得到連結, 一般成員也不行 (見 docs/features.md〈邀請連結〉)。"""
-    await manage_wallet(wallet_id, current_user)
+    """只有管理者看得到連結, 一般成員也不行 (見 docs/features.md〈邀請連結〉)。
+
+    已結帳的錢包就像沒有連結: 舊連結留在資料表裡, 但已經不能用了。
+    """
+    access = await manage_wallet(wallet_id, current_user)
+    if access.wallet["status"] == WalletStatus.SETTLED:
+        return InviteState(invite=None)
     invite = await WalletInviteTable.find_detail_by_wallet(wallet_id)
     return InviteState(invite=_to_info(invite) if invite and _is_active(invite) else None)
 
 
 async def create_invite(wallet_id: str, current_user: CurrentUser) -> InviteInfo:
-    """產生或重新產生, 舊的連結立即失效。"""
-    await manage_wallet(wallet_id, current_user)
+    """產生或重新產生, 舊的連結立即失效。已結帳的錢包不能產生 (見 docs/features.md〈封存〉)。"""
+    access = await manage_wallet(wallet_id, current_user)
+    if access.wallet["status"] == WalletStatus.SETTLED:
+        raise LangException(409, WalletError.WALLET_ARCHIVED)
     # 32 bytes 的亂數: 連結本身就是加入的憑證, 不能被猜到或逐一嘗試。
     token = secrets.token_urlsafe(32)
     expires_at = utc_now() + INVITE_LIFETIME
@@ -61,7 +75,8 @@ async def _active_invite(token: str) -> InviteDetail:
 async def preview_invite(token: str, current_user: CurrentUser) -> InvitePreview:
     invite = await _active_invite(token)
     wallet = await WalletTable.find_detail_by_id(invite["wallet_id"])
-    if wallet is None:
+    # 已結帳的也回同一個錯誤, 理由同 `WalletError.INVITE_INVALID`。
+    if wallet is None or wallet["status"] == WalletStatus.SETTLED:
         raise LangException(404, WalletError.INVITE_INVALID)
     members = await WalletMemberTable.list_members(invite["wallet_id"])
     return InvitePreview(
@@ -77,7 +92,12 @@ async def preview_invite(token: str, current_user: CurrentUser) -> InvitePreview
 
 
 async def accept_invite(token: str, current_user: CurrentUser) -> WalletOperate:
-    """加入的人是成員; 已經是成員 (含管理者) 時角色不變。"""
+    """加入的人是成員; 已經是成員 (含管理者) 時角色不變。
+
+    鎖住錢包再看狀態: 最後一筆確認收款與加入同時發生時, 不會在封存之後多出一位成員。
+    """
     wallet_id = (await _active_invite(token))["wallet_id"]
+    if await WalletTable.lock_status(wallet_id) in (None, WalletStatus.SETTLED):
+        raise LangException(404, WalletError.INVITE_INVALID)
     await WalletMemberTable.add_if_absent(wallet_id, current_user["id"], MemberRole.MEMBER)
     return WalletOperate(id=wallet_id)

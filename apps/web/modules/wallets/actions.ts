@@ -233,3 +233,35 @@ export async function loadExpenseLogs(id: string, expenseId: string) {
 export async function loadMoreExpenseLogs(id: string, cursor: string) {
   return apiGet({ url: "/wallets/{id}/expense-logs", params: { id }, query: { cursor } })
 }
+
+// 結算會改變錢包的狀態 (列表上的標籤與排序), 開始、取消與確認收款重新整理列表;
+// 標記付款只動這個錢包。
+export async function startSettlement(id: string) {
+  return apiPost({ url: "/wallets/{id}/settlement", params: { id }, refresh: refreshWallets })
+}
+
+export async function cancelSettlement(id: string) {
+  return apiDelete({ url: "/wallets/{id}/settlement", params: { id }, refresh: refreshWallets })
+}
+
+const transferUrl = "/wallets/{id}/settlement/transfers/{transfer_id}"
+
+export async function markSettlementPaid(id: string, transferId: string, paid: boolean) {
+  const request = {
+    url: `${transferUrl}/paid` as const,
+    params: { id, transfer_id: transferId },
+    refresh: { path: walletPath(id) },
+  }
+  return paid ? apiPost(request) : apiDelete(request)
+}
+
+export async function confirmSettlementTransfer(
+  id: string, transferId: string, confirmed: boolean,
+) {
+  const request = {
+    url: `${transferUrl}/confirmation` as const,
+    params: { id, transfer_id: transferId },
+    refresh: refreshWallets,
+  }
+  return confirmed ? apiPost(request) : apiDelete(request)
+}

@@ -48,23 +48,30 @@ async function loadLedger(wallet: WalletInfo): Promise<WalletLedger | null> {
 async function loadTravel(wallet: WalletInfo): Promise<TravelLedger | null> {
   if (wallet.kind !== "travel") return null
   const params = { id: wallet.id }
-  const [expensesRes, balancesRes, membersRes, currentUser, t] = await Promise.all([
+  // 進行中沒有清償方案, 不必查。
+  const settling = wallet.status !== "active"
+  const [expensesRes, balancesRes, membersRes, settlementRes, currentUser, t] = await Promise.all([
     apiGet({ url: "/wallets/{id}/expenses", params }),
     // 淨額取不到時只是那一塊顯示錯誤, 不擋帳目列表。
     apiGet({ url: "/wallets/{id}/net-balances", params }),
     // 記一筆的付款人與分攤對象; 取不到就不能記帳。
     apiGet({ url: "/wallets/{id}/members", params }),
+    // 清償方案取不到時只是那一塊顯示錯誤。
+    settling ? apiGet({ url: "/wallets/{id}/settlement", params }) : null,
     getCurrentUser(),
     getT(walletsMessages),
   ])
   const failed = expensesRes.status !== "success" || membersRes.status !== "success"
+  const settlementOk = settlementRes?.status === "success"
   return {
     expenses: expensesRes.status === "success" ? expensesRes.data : { list_data: [], next_cursor: null },
     balances: getApiListData(balancesRes),
     members: getApiListData(membersRes),
+    transfers: settlementOk ? settlementRes.data.transfers : [],
     currentUserId: currentUser.data?.id ?? "",
     errorMessage: failed ? t("entriesFailed") : "",
     balancesFailed: balancesRes.status !== "success",
+    settlementFailed: settling && !settlementOk,
   }
 }
 

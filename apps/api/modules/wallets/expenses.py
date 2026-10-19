@@ -1,7 +1,8 @@
 """旅遊錢包的帳: 誰付了多少、每人分攤多少, 以及每人的淨額。規則見 docs/features.md〈旅遊錢包〉。
 
 旅遊錢包沒有餘額, 但寫入一樣先鎖住錢包那一列: 移除成員也鎖同一列 (見 `members.py`),
-不鎖的話移除的同時可以記進一筆以他為分攤對象的帳, 留下一個不是成員的人。
+不鎖的話移除的同時可以記進一筆以他為分攤對象的帳, 留下一個不是成員的人;
+開始結算也鎖同一列 (見 `settlement.py`), 鎖住之後才看狀態, 方案算完就不會再有帳寫進來。
 """
 
 from datetime import date
@@ -17,11 +18,13 @@ from .ledger import ensure_can_modify, write_log
 from .model import (
     EntryLogAction,
     ExpenseDetail,
+    MemberTotals,
     ShareDetail,
     SplitMode,
     TravelExpenseTable,
     WalletKind,
     WalletMemberTable,
+    WalletStatus,
     WalletTable,
 )
 from .schema import (
@@ -57,6 +60,12 @@ async def open_travel_wallet(wallet_id: str, current_user: CurrentUser) -> Walle
     if access.wallet["kind"] != WalletKind.TRAVEL:
         raise LangException(400, WalletError.NOT_TRAVEL)
     return access
+
+
+async def _lock_ledger(wallet_id: str) -> None:
+    """開始結算之後帳目鎖住 (見 docs/features.md〈結算流程〉)。"""
+    if await WalletTable.lock_status(wallet_id) is not WalletStatus.ACTIVE:
+        raise LangException(409, WalletError.LEDGER_LOCKED)
 
 
 def split_equally(
@@ -143,7 +152,7 @@ async def create_expense(
     wallet_id: str, form_data: ExpenseForm, current_user: CurrentUser
 ) -> EntryOperate:
     access = await open_travel_wallet(wallet_id, current_user)
-    await WalletTable.lock_by_id(wallet_id)
+    await _lock_ledger(wallet_id)
     shares = await _shares(wallet_id, form_data)
     fields = _fields(form_data)
 
@@ -162,7 +171,7 @@ async def update_expense(
 ) -> EntryOperate:
     """所有欄位都可以改。什麼都沒改時丟出 `NoChangeError` (204), 不留紀錄。"""
     access = await open_travel_wallet(wallet_id, current_user)
-    await WalletTable.lock_by_id(wallet_id)
+    await _lock_ledger(wallet_id)
     expense = await _modifiable_expense(access, expense_id, current_user)
     shares = await _shares(wallet_id, form_data)
     fields = _fields(form_data)
@@ -181,7 +190,7 @@ async def delete_expense(
     wallet_id: str, expense_id: str, current_user: CurrentUser
 ) -> EntryOperate:
     access = await open_travel_wallet(wallet_id, current_user)
-    await WalletTable.lock_by_id(wallet_id)
+    await _lock_ledger(wallet_id)
     expense = await _modifiable_expense(access, expense_id, current_user)
 
     await TravelExpenseTable.delete_in_wallet(wallet_id, expense_id)
@@ -235,22 +244,35 @@ async def list_expenses(
     return ExpensePage(list_data=items, next_cursor=page["next_cursor"])
 
 
-async def list_net_balances(wallet_id: str, current_user: CurrentUser) -> NetBalanceList:
-    """所有成員依加入順序。有紀錄的人不能離開, 所以有紀錄的一定都在成員裡。"""
-    await open_travel_wallet(wallet_id, current_user)
+async def _totals_by_person(wallet_id: str) -> list[tuple[str, MemberTotals]]:
+    """所有成員依加入順序, 後面接著已經離開、但有紀錄的人。
+
+    有紀錄的人在結帳前不能離開, 結帳後可以 (見 docs/features.md〈封存〉), 金額照樣要算進去。
+    """
     member_ids = [member["user_id"] for member in await WalletMemberTable.list_members(wallet_id)]
     totals = await TravelExpenseTable.totals(wallet_id)
-    nicknames = await find_nicknames(member_ids)
-    items = []
-    for user_id in member_ids:
-        total = totals.get(user_id, {"paid": 0, "owed": 0})
-        items.append(
-            NetBalanceInfo(
-                user_id=user_id,
-                nickname=nicknames.get(user_id, ""),
-                paid=total["paid"],
-                owed=total["owed"],
-                net=total["paid"] - total["owed"],
-            )
+    members = set(member_ids)
+    people = [*member_ids, *(user_id for user_id in totals if user_id not in members)]
+    return [(user_id, totals.get(user_id, {"paid": 0, "owed": 0})) for user_id in people]
+
+
+async def net_amounts(wallet_id: str) -> list[tuple[str, int]]:
+    """每人的淨額, 順序同 `_totals_by_person`。給結算算清償方案。"""
+    return [(user_id, t["paid"] - t["owed"]) for user_id, t in await _totals_by_person(wallet_id)]
+
+
+async def list_net_balances(wallet_id: str, current_user: CurrentUser) -> NetBalanceList:
+    await open_travel_wallet(wallet_id, current_user)
+    people = await _totals_by_person(wallet_id)
+    nicknames = await find_nicknames([user_id for user_id, _ in people])
+    items = [
+        NetBalanceInfo(
+            user_id=user_id,
+            nickname=nicknames.get(user_id, ""),
+            paid=total["paid"],
+            owed=total["owed"],
+            net=total["paid"] - total["owed"],
         )
+        for user_id, total in people
+    ]
     return NetBalanceList(list_data=items, count=len(items))

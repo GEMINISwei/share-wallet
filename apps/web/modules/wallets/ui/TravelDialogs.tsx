@@ -43,7 +43,7 @@ export default function TravelDialogs({
   const editing = expenseOf(dialog, "edit")
   const detail = expenseOf(dialog, "detail")
   const deleting = expenseOf(dialog, "delete")
-  const actions = detail ? expenseActions(detail, viewer) : null
+  const actions = detail ? expenseActions(detail, viewer, wallet.status !== "active") : null
 
   function confirmDelete(expense: ExpenseInfo) {
     submit(() => deleteExpense(wallet.id, expense.id), {

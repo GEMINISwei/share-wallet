@@ -154,12 +154,16 @@
               }
             ],
             "title": "Start Date"
+          },
+          "status": {
+            "$ref": "#/components/schemas/WalletStatus"
           }
         },
         "required": [
           "id",
           "kind",
           "name",
+          "status",
           "balance",
           "destination",
           "start_date",
@@ -1944,6 +1948,104 @@
         "title": "RoleUpdate",
         "type": "object"
       },
+      "SettlementInfo": {
+        "description": "旅遊錢包的結算。進行中沒有方案, `transfers` 是空的。",
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/WalletStatus"
+          },
+          "transfers": {
+            "items": {
+              "$ref": "#/components/schemas/SettlementTransferInfo"
+            },
+            "title": "Transfers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "status",
+          "transfers"
+        ],
+        "title": "SettlementInfo",
+        "type": "object"
+      },
+      "SettlementOperate": {
+        "description": "結算操作之後錢包的狀態: 最後一筆確認收款後是 `settled`。",
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/WalletStatus"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "SettlementOperate",
+        "type": "object"
+      },
+      "SettlementTransferInfo": {
+        "description": "清償方案的一筆: `payer` 付給 `payee`。",
+        "properties": {
+          "amount": {
+            "title": "Amount",
+            "type": "integer"
+          },
+          "confirmed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed At"
+          },
+          "confirmed_by": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EntryUser"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "paid_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paid At"
+          },
+          "payee": {
+            "$ref": "#/components/schemas/EntryUser"
+          },
+          "payer": {
+            "$ref": "#/components/schemas/EntryUser"
+          }
+        },
+        "required": [
+          "id",
+          "payer",
+          "payee",
+          "amount",
+          "paid_at",
+          "confirmed_at",
+          "confirmed_by"
+        ],
+        "title": "SettlementTransferInfo",
+        "type": "object"
+      },
       "ShareInput": {
         "properties": {
           "amount": {
@@ -2617,12 +2719,16 @@
               }
             ],
             "title": "Start Date"
+          },
+          "status": {
+            "$ref": "#/components/schemas/WalletStatus"
           }
         },
         "required": [
           "id",
           "kind",
           "name",
+          "status",
           "balance",
           "destination",
           "start_date",
@@ -2644,7 +2750,7 @@
         "type": "string"
       },
       "WalletList": {
-        "description": "自己加入的錢包。`total_balance` 是其中所有一般錢包餘額的總和。",
+        "description": "自己加入的錢包, 依加入的先後, 已結帳的排在最後。\n\n`total_balance` 是其中所有一般錢包餘額的總和。",
         "properties": {
           "count": {
             "title": "Count",
@@ -2682,6 +2788,16 @@
         ],
         "title": "WalletOperate",
         "type": "object"
+      },
+      "WalletStatus": {
+        "description": "錢包的生命週期。只有旅遊錢包會離開 `active` (見 docs/features.md〈結算流程〉)。",
+        "enum": [
+          "active",
+          "settling",
+          "settled"
+        ],
+        "title": "WalletStatus",
+        "type": "string"
       }
     }
   },
@@ -5789,6 +5905,335 @@
           }
         },
         "summary": "Update Repayment Route",
+        "tags": [
+          "wallets"
+        ]
+      }
+    },
+    "/api/wallets/{id}/settlement": {
+      "delete": {
+        "description": "取消結算 (錢包管理者): 回到進行中, 方案連同付款與確認全部作廢。",
+        "operationId": "cancel_settlement_route_api_wallets__id__settlement_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "title": "Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettlementOperate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel Settlement Route",
+        "tags": [
+          "wallets"
+        ]
+      },
+      "get": {
+        "description": "旅遊錢包的結算狀態與清償方案, 每一筆的付款與確認。進行中沒有方案。",
+        "operationId": "get_settlement_route_api_wallets__id__settlement_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "title": "Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettlementInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Settlement Route",
+        "tags": [
+          "wallets"
+        ]
+      },
+      "post": {
+        "description": "開始結算 (錢包管理者): 帳目鎖住, 依每人淨額算出清償方案。\n\n大家的淨額都是 0 時沒有方案, 直接已結帳。",
+        "operationId": "start_settlement_route_api_wallets__id__settlement_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "title": "Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettlementOperate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start Settlement Route",
+        "tags": [
+          "wallets"
+        ]
+      }
+    },
+    "/api/wallets/{id}/settlement/transfers/{transfer_id}/confirmation": {
+      "delete": {
+        "description": "確認的人或錢包管理者撤銷確認, 結算中才可以。",
+        "operationId": "unconfirm_settlement_transfer_route_api_wallets__id__settlement_transfers__transfer_id__confirmation_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "title": "Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "transfer_id",
+            "required": true,
+            "schema": {
+              "title": "Transfer Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettlementOperate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Unconfirm Settlement Transfer Route",
+        "tags": [
+          "wallets"
+        ]
+      },
+      "post": {
+        "description": "收款人或錢包管理者確認收款; 付款人自己不行。每一筆都確認後錢包封存。",
+        "operationId": "confirm_settlement_transfer_route_api_wallets__id__settlement_transfers__transfer_id__confirmation_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "title": "Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "transfer_id",
+            "required": true,
+            "schema": {
+              "title": "Transfer Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettlementOperate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Confirm Settlement Transfer Route",
+        "tags": [
+          "wallets"
+        ]
+      }
+    },
+    "/api/wallets/{id}/settlement/transfers/{transfer_id}/paid": {
+      "delete": {
+        "description": "付款人撤回「我已付款」, 確認收款之前才可以。",
+        "operationId": "unmark_settlement_paid_route_api_wallets__id__settlement_transfers__transfer_id__paid_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "title": "Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "transfer_id",
+            "required": true,
+            "schema": {
+              "title": "Transfer Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettlementOperate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Unmark Settlement Paid Route",
+        "tags": [
+          "wallets"
+        ]
+      },
+      "post": {
+        "description": "付款人標記「我已付款」。",
+        "operationId": "mark_settlement_paid_route_api_wallets__id__settlement_transfers__transfer_id__paid_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "title": "Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "transfer_id",
+            "required": true,
+            "schema": {
+              "title": "Transfer Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettlementOperate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Mark Settlement Paid Route",
         "tags": [
           "wallets"
         ]

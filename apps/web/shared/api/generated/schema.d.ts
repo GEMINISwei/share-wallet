@@ -843,6 +843,84 @@ export interface paths {
         patch: operations["update_repayment_route_api_wallets__id__repayments__entry_id__patch"];
         trace?: never;
     };
+    "/api/wallets/{id}/settlement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Settlement Route
+         * @description 旅遊錢包的結算狀態與清償方案, 每一筆的付款與確認。進行中沒有方案。
+         */
+        get: operations["get_settlement_route_api_wallets__id__settlement_get"];
+        put?: never;
+        /**
+         * Start Settlement Route
+         * @description 開始結算 (錢包管理者): 帳目鎖住, 依每人淨額算出清償方案。
+         *
+         *     大家的淨額都是 0 時沒有方案, 直接已結帳。
+         */
+        post: operations["start_settlement_route_api_wallets__id__settlement_post"];
+        /**
+         * Cancel Settlement Route
+         * @description 取消結算 (錢包管理者): 回到進行中, 方案連同付款與確認全部作廢。
+         */
+        delete: operations["cancel_settlement_route_api_wallets__id__settlement_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/wallets/{id}/settlement/transfers/{transfer_id}/confirmation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm Settlement Transfer Route
+         * @description 收款人或錢包管理者確認收款; 付款人自己不行。每一筆都確認後錢包封存。
+         */
+        post: operations["confirm_settlement_transfer_route_api_wallets__id__settlement_transfers__transfer_id__confirmation_post"];
+        /**
+         * Unconfirm Settlement Transfer Route
+         * @description 確認的人或錢包管理者撤銷確認, 結算中才可以。
+         */
+        delete: operations["unconfirm_settlement_transfer_route_api_wallets__id__settlement_transfers__transfer_id__confirmation_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/wallets/{id}/settlement/transfers/{transfer_id}/paid": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark Settlement Paid Route
+         * @description 付款人標記「我已付款」。
+         */
+        post: operations["mark_settlement_paid_route_api_wallets__id__settlement_transfers__transfer_id__paid_post"];
+        /**
+         * Unmark Settlement Paid Route
+         * @description 付款人撤回「我已付款」, 確認收款之前才可以。
+         */
+        delete: operations["unmark_settlement_paid_route_api_wallets__id__settlement_transfers__transfer_id__paid_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/wallets/{id}/transfers": {
         parameters: {
             query?: never;
@@ -955,6 +1033,7 @@ export interface components {
             name: string;
             /** Start Date */
             start_date: string | null;
+            status: components["schemas"]["WalletStatus"];
         };
         /**
          * AdminWalletList
@@ -1715,6 +1794,39 @@ export interface components {
             /** Permissions */
             permissions: components["schemas"]["Permission"][];
         };
+        /**
+         * SettlementInfo
+         * @description 旅遊錢包的結算。進行中沒有方案, `transfers` 是空的。
+         */
+        SettlementInfo: {
+            status: components["schemas"]["WalletStatus"];
+            /** Transfers */
+            transfers: components["schemas"]["SettlementTransferInfo"][];
+        };
+        /**
+         * SettlementOperate
+         * @description 結算操作之後錢包的狀態: 最後一筆確認收款後是 `settled`。
+         */
+        SettlementOperate: {
+            status: components["schemas"]["WalletStatus"];
+        };
+        /**
+         * SettlementTransferInfo
+         * @description 清償方案的一筆: `payer` 付給 `payee`。
+         */
+        SettlementTransferInfo: {
+            /** Amount */
+            amount: number;
+            /** Confirmed At */
+            confirmed_at: string | null;
+            confirmed_by: components["schemas"]["EntryUser"] | null;
+            /** Id */
+            id: string;
+            /** Paid At */
+            paid_at: string | null;
+            payee: components["schemas"]["EntryUser"];
+            payer: components["schemas"]["EntryUser"];
+        };
         /** ShareInput */
         ShareInput: {
             /** Amount */
@@ -1983,6 +2095,7 @@ export interface components {
             name: string;
             /** Start Date */
             start_date: string | null;
+            status: components["schemas"]["WalletStatus"];
         };
         /**
          * WalletKind
@@ -1992,7 +2105,9 @@ export interface components {
         WalletKind: "general" | "travel";
         /**
          * WalletList
-         * @description 自己加入的錢包。`total_balance` 是其中所有一般錢包餘額的總和。
+         * @description 自己加入的錢包, 依加入的先後, 已結帳的排在最後。
+         *
+         *     `total_balance` 是其中所有一般錢包餘額的總和。
          */
         WalletList: {
             /** Count */
@@ -2007,6 +2122,12 @@ export interface components {
             /** Id */
             id: string;
         };
+        /**
+         * WalletStatus
+         * @description 錢包的生命週期。只有旅遊錢包會離開 `active` (見 docs/features.md〈結算流程〉)。
+         * @enum {string}
+         */
+        WalletStatus: "active" | "settling" | "settled";
     };
     responses: never;
     parameters: never;
@@ -3936,6 +4057,227 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EntryOperate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_settlement_route_api_wallets__id__settlement_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettlementInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_settlement_route_api_wallets__id__settlement_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettlementOperate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_settlement_route_api_wallets__id__settlement_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettlementOperate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_settlement_transfer_route_api_wallets__id__settlement_transfers__transfer_id__confirmation_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                transfer_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettlementOperate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unconfirm_settlement_transfer_route_api_wallets__id__settlement_transfers__transfer_id__confirmation_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                transfer_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettlementOperate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mark_settlement_paid_route_api_wallets__id__settlement_transfers__transfer_id__paid_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                transfer_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettlementOperate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unmark_settlement_paid_route_api_wallets__id__settlement_transfers__transfer_id__paid_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                transfer_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettlementOperate"];
                 };
             };
             /** @description Validation Error */

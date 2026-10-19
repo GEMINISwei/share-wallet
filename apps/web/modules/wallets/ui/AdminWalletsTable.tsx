@@ -11,6 +11,7 @@ import type { AdminWalletInfo } from "../types"
 import Amount from "./Amount"
 import LocalDate from "./LocalDate"
 import styles from "./wallets.module.css"
+import WalletStatusBadge from "./WalletStatusBadge"
 
 type AdminWalletsTableProps = {
   wallets: AdminWalletInfo[]
@@ -74,7 +75,10 @@ function AdminWalletRow({
           <Link href={walletPath(wallet.id, "admin")} className={styles.tableLink}>
             {wallet.name}
           </Link>
-          <span className={styles.rowMeta}>{kind}</span>
+          <span className={`${styles.rowMeta} ${styles.statusLine}`}>
+            {kind}
+            <WalletStatusBadge wallet={wallet} />
+          </span>
         </span>
       </td>
       <td data-label={t("colAdmins")}>

@@ -396,3 +396,26 @@ a.row:hover {
   color: var(--color-danger-fg);
   font-size: var(--fs-xs);
 }
+
+/* 清償方案的一筆: 上面是誰付誰多少, 下面是自己能按的按鈕 (沒有時不佔高度)。 */
+.settlementRow {
+  display: flex;
+  flex-direction: column;
+}
+
+.settlementActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: 0 var(--space-4);
+}
+
+.settlementActions:not(:empty) {
+  padding-bottom: var(--space-3);
+}
+
+.statusLine {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}

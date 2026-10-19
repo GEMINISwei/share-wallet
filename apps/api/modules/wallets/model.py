@@ -43,6 +43,14 @@ class WalletKind(StrEnum):
     TRAVEL = "travel"
 
 
+class WalletStatus(StrEnum):
+    """錢包的生命週期。只有旅遊錢包會離開 `active` (見 docs/features.md〈結算流程〉)。"""
+
+    ACTIVE = "active"
+    SETTLING = "settling"
+    SETTLED = "settled"
+
+
 class MemberRole(StrEnum):
     """成員在這個錢包裡的角色。"""
 
@@ -90,6 +98,7 @@ class WalletDetail(TypedDict):
     id: str
     kind: WalletKind
     name: str
+    status: WalletStatus
     balance: int
     destination: str | None
     start_date: date | None
@@ -128,6 +137,8 @@ class WalletTable(BaseTable):
     # 交易裡跑; 合法值由 schema 的 enum 與下面的 CHECK 守住。
     kind: Mapped[str] = mapped_column(String)
     name: Mapped[str]
+    # 存字串的理由同 `kind`。
+    status: Mapped[str] = mapped_column(String, default=WalletStatus.ACTIVE)
     # 餘額是存起來的值 (記帳時當下更新), 不是顯示時才從明細加總, 見 docs/features.md〈餘額〉。
     # 旅遊錢包沒有餘額, 但仍是 0 而不是 NULL: 列表的加總只看一般錢包, 不必處理 NULL。
     balance: Mapped[int] = mapped_column(BigInteger, default=0)
@@ -137,6 +148,8 @@ class WalletTable(BaseTable):
 
     __table_args__ = (
         CheckConstraint("kind IN ('general', 'travel')", name="kind"),
+        CheckConstraint("status IN ('active', 'settling', 'settled')", name="status"),
+        CheckConstraint("kind = 'travel' OR status = 'active'", name="only_travel_settles"),
         CheckConstraint("end_date >= start_date", name="end_not_before_start"),
         # 後台列出所有錢包時的游標分頁 (排序鍵是 created_at + id, 見 `get_page`)。
         Index("ix_wallets_created_at_id", desc("created_at"), desc("id")),
@@ -161,6 +174,28 @@ class WalletTable(BaseTable):
             return
         db = resolve_session(session)
         await db.execute(select(cls.id).where(cls.id == row_id).with_for_update())
+
+    @classmethod
+    async def lock_status(cls, id: str) -> WalletStatus | None:
+        """鎖住錢包這一列並讀出目前的狀態; 錢包不存在時是 None。
+
+        旅遊錢包的記帳與結算都先經過這裡: 開始結算的同時有人記帳, 不鎖的話那一筆會在
+        方案算完之後才寫進去, 帳目就跟方案對不上了。只選欄位的理由同 `lock_balance`。
+        """
+        row_id = parse_uuid(id)
+        if row_id is None:
+            return None
+        status = await resolve_session(None).scalar(
+            select(cls.status).where(cls.id == row_id).with_for_update()
+        )
+        return None if status is None else WalletStatus(status)
+
+    @classmethod
+    async def set_status(cls, id: str, status: WalletStatus) -> None:
+        """只在 `lock_status` 之後呼叫, 理由見那裡。"""
+        await resolve_session(None).execute(
+            update(cls).where(cls.id == parse_uuid(id)).values(status=status, updated_at=utc_now())
+        )
 
     @classmethod
     async def lock_balance(cls, id: str) -> int | None:
@@ -1160,3 +1195,147 @@ class TravelExpenseShareTable(BaseTable):
                 )
             )
         await db.flush()
+
+
+class PlannedTransfer(TypedDict):
+    """清償方案的一筆: 誰付給誰多少。"""
+
+    from_user_id: str
+    to_user_id: str
+    amount: int
+
+
+class SettlementTransferDetail(TypedDict):
+    id: str
+    wallet_id: str
+    from_user_id: str
+    to_user_id: str
+    amount: int
+    paid_at: datetime | None
+    confirmed_at: datetime | None
+    confirmed_by: str | None
+
+
+class TravelSettlementTransferTable(BaseTable):
+    """清償方案的一筆轉帳, 以及它的付款與確認 (見 docs/features.md〈結算流程〉)。
+
+    方案在開始結算時算好整份存進來, 結算中不重算: 帳目鎖住了, 重算只會得到同樣的結果,
+    而存下來才能逐筆記付款與確認。取消結算時整份刪掉, 不留作廢的列: 規格說作廢,
+    之後也沒有地方要看它。
+    """
+
+    __tablename__ = "travel_settlement_transfers"
+
+    wallet_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("wallets.id", ondelete="CASCADE")
+    )
+    # 指向使用者而不是成員紀錄: 封存後有紀錄的人可以離開, 方案上照樣要顯示他。
+    from_user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
+    to_user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
+    amount: Mapped[int] = mapped_column(BigInteger)
+    # 存順序的理由同 `TravelExpenseShareTable.position`。
+    position: Mapped[int] = mapped_column(SmallInteger)
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), default=None)
+    confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), default=None)
+    confirmed_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), default=None
+    )
+
+    __table_args__ = (
+        UniqueConstraint("wallet_id", "position"),
+        CheckConstraint("amount > 0", name="amount"),
+        CheckConstraint("(confirmed_at IS NULL) = (confirmed_by IS NULL)", name="confirmed_pair"),
+    )
+
+    @staticmethod
+    def _detail(row: TravelSettlementTransferTable) -> SettlementTransferDetail:
+        return {
+            "id": str(row.id),
+            "wallet_id": str(row.wallet_id),
+            "from_user_id": str(row.from_user_id),
+            "to_user_id": str(row.to_user_id),
+            "amount": row.amount,
+            "paid_at": row.paid_at,
+            "confirmed_at": row.confirmed_at,
+            "confirmed_by": _optional_id(row.confirmed_by),
+        }
+
+    @classmethod
+    async def create_plan(cls, wallet_id: str, transfers: list[PlannedTransfer]) -> None:
+        db = resolve_session(None)
+        for position, transfer in enumerate(transfers):
+            db.add(
+                cls(
+                    wallet_id=parse_uuid(wallet_id),
+                    from_user_id=parse_uuid(transfer["from_user_id"]),
+                    to_user_id=parse_uuid(transfer["to_user_id"]),
+                    amount=transfer["amount"],
+                    position=position,
+                )
+            )
+        await db.flush()
+
+    @classmethod
+    async def delete_in_wallet(cls, wallet_id: str) -> None:
+        await resolve_session(None).execute(
+            delete(cls).where(cls.wallet_id == parse_uuid(wallet_id))
+        )
+
+    @classmethod
+    async def list_in_wallet(cls, wallet_id: str) -> list[SettlementTransferDetail]:
+        """依方案的順序。重新讀而不從 identity map 拿, 理由同 `TravelExpenseTable`。"""
+        wallet_uuid = parse_uuid(wallet_id)
+        if wallet_uuid is None:
+            return []
+        rows = await resolve_session(None).scalars(
+            select(cls)
+            .where(cls.wallet_id == wallet_uuid)
+            .order_by(cls.position)
+            .execution_options(populate_existing=True)
+        )
+        return [cls._detail(row) for row in rows]
+
+    @classmethod
+    async def find_detail_in_wallet(
+        cls, wallet_id: str, id: str
+    ) -> SettlementTransferDetail | None:
+        wallet_uuid, row_id = parse_uuid(wallet_id), parse_uuid(id)
+        if wallet_uuid is None or row_id is None:
+            return None
+        row = await resolve_session(None).scalar(
+            select(cls)
+            .where(cls.id == row_id, cls.wallet_id == wallet_uuid)
+            .execution_options(populate_existing=True)
+        )
+        return None if row is None else cls._detail(row)
+
+    @classmethod
+    async def set_paid(cls, id: str, paid_at: datetime | None) -> None:
+        await resolve_session(None).execute(
+            update(cls)
+            .where(cls.id == parse_uuid(id))
+            .values(paid_at=paid_at, updated_at=utc_now())
+        )
+
+    @classmethod
+    async def set_confirmed(
+        cls, id: str, confirmed_by: str | None, confirmed_at: datetime | None
+    ) -> None:
+        await resolve_session(None).execute(
+            update(cls)
+            .where(cls.id == parse_uuid(id))
+            .values(
+                confirmed_by=None if confirmed_by is None else parse_uuid(confirmed_by),
+                confirmed_at=confirmed_at,
+                updated_at=utc_now(),
+            )
+        )
+
+    @classmethod
+    async def count_unconfirmed(cls, wallet_id: str) -> int:
+        count = await resolve_session(None).scalar(
+            select(func.count())
+            .select_from(cls)
+            .where(cls.wallet_id == parse_uuid(wallet_id), cls.confirmed_at.is_(None))
+        )
+        return count or 0
