@@ -8,7 +8,7 @@ import {
 } from "@/shared/ui"
 import { useT } from "@/shared/i18n/context"
 import { removeMember, updateMemberRole } from "../actions"
-import { isLastAdmin, memberActions } from "../capabilities"
+import { canInvite, isArchived, isLastAdmin, memberActions } from "../capabilities"
 import { walletsMessages } from "../i18n"
 import { type WalletArea, walletPath, walletsListPath } from "../paths"
 import type { InviteInfo, MemberInfo, MemberRole, WalletInfo } from "../types"
@@ -77,7 +77,7 @@ export default function MembersView({
   }
 
   function menuItems(member: MemberInfo) {
-    const actions = memberActions(member, members, viewer)
+    const actions = memberActions(member, members, viewer, isArchived(wallet))
     return [
       actions.promote && { label: t("promote"), onClick: () => changeRole(member, "admin") },
       actions.demote && { label: t("demote"), onClick: () => changeRole(member, "member") },
@@ -104,10 +104,10 @@ export default function MembersView({
     <WalletShell
       title={t("members")} subtitle={wallet.name}
       backHref={walletPath(wallet.id, area)} backLabel={t("backToWallet")}
-      actions={wallet.can_manage && (
+      actions={canInvite(wallet) && (
         <Button icon={inviteIcon} onClick={openInvite}>{t("invite")}</Button>
       )}
-      mobileActions={wallet.can_manage
+      mobileActions={canInvite(wallet)
         ? [{ icon: inviteIcon, label: t("invite"), onClick: openInvite }]
         : undefined}
     >
@@ -122,7 +122,7 @@ export default function MembersView({
       </ul>
       {self && isLastAdmin(self, members) && <p className={styles.hint}>{t("lastAdminHint")}</p>}
 
-      {wallet.can_manage && (
+      {canInvite(wallet) && (
         <InviteDialog
           open={inviting} walletId={wallet.id} invite={invite} loadError={inviteError}
           onClose={() => setInviting(false)}

@@ -47,7 +47,8 @@ def test_plan_transfers_with_all_zero_returns_empty():
 
 
 def test_plan_transfers_settles_everyone_within_people_minus_one():
-    rng = random.Random(20261019)
+    # 固定種子的隨機淨額, 只是產生測資, 不涉及安全。
+    rng = random.Random(20261019)  # noqa: S311
     for _ in range(200):
         size = rng.randint(2, 30)
         values = [rng.randint(-5000, 5000) for _ in range(size - 1)]

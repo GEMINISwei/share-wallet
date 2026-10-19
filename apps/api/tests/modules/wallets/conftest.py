@@ -347,6 +347,20 @@ def _install_wallets(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -> None:
     async def lock_by_id(id, session=None):
         store.locked.append(id)
 
+    for name, fake in {
+        "find_detail_by_id": find_detail_by_id,
+        "create": create,
+        "update_by_id": update_by_id,
+        "delete_by_id": delete_by_id,
+        "find_joined": find_joined,
+        "lock_by_id": lock_by_id,
+    }.items():
+        monkeypatch.setattr(WalletTable, name, fake)
+
+
+def _install_wallet_status(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -> None:
+    """鎖住並讀出結算狀態、寫回狀態。"""
+
     async def lock_status(id):
         store.locked.append(id)
         wallet = store.wallets.get(id)
@@ -355,17 +369,8 @@ def _install_wallets(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -> None:
     async def set_status(id, status):
         store.wallets[id]["status"] = status
 
-    for name, fake in {
-        "find_detail_by_id": find_detail_by_id,
-        "create": create,
-        "update_by_id": update_by_id,
-        "delete_by_id": delete_by_id,
-        "find_joined": find_joined,
-        "lock_by_id": lock_by_id,
-        "lock_status": lock_status,
-        "set_status": set_status,
-    }.items():
-        monkeypatch.setattr(WalletTable, name, fake)
+    monkeypatch.setattr(WalletTable, "lock_status", lock_status)
+    monkeypatch.setattr(WalletTable, "set_status", set_status)
 
 
 async def _find_nicknames(user_ids):
@@ -767,6 +772,7 @@ def _install_settlements(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -> N
 def store(monkeypatch: pytest.MonkeyPatch) -> FakeStore:
     fake = FakeStore()
     _install_wallets(monkeypatch, fake)
+    _install_wallet_status(monkeypatch, fake)
     _install_members(monkeypatch, fake)
     _install_admin(monkeypatch, fake)
     _install_categories(monkeypatch, fake)

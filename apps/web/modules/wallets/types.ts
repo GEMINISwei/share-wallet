@@ -26,6 +26,8 @@ export type ExpenseLogPage = Schema<"ExpenseLogPage">
 export type ExpenseSnapshot = Schema<"ExpenseSnapshot">
 export type NetBalanceInfo = Schema<"NetBalanceInfo">
 export type SplitMode = Schema<"SplitMode">
+export type WalletStatus = Schema<"WalletStatus">
+export type SettlementTransferInfo = Schema<"SettlementTransferInfo">
 
 /** 後台列表的篩選條件 (網址參數)。空字串代表不篩選。 */
 export type AdminWalletFilters = { name: string; kind: WalletKind | "" }

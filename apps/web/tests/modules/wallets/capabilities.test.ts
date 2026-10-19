@@ -1,18 +1,19 @@
 import { describe, expect, it } from "vitest"
 import {
-  adminsSummary, canRepay, canTransfer, changedFields, entryActions, entryCategoryOptions,
-  entryKindOptions, expenseActions, expenseChangedFields, groupCategories, initialExpenseValues,
-  isLastAdmin, memberActions, owingTargets, shareUserOptions, splitEqually, transferTargets,
-  walletSections,
+  adminsSummary, canInvite, canRepay, canTransfer, changedFields, entryActions,
+  entryCategoryOptions, entryKindOptions, expenseActions, expenseChangedFields, groupCategories,
+  initialExpenseValues, isLastAdmin, memberActions, owingTargets, settlementTransferActions,
+  shareUserOptions, splitEqually, transferTargets, transfersForViewer, travelActions,
+  walletSections, walletStatusBadge,
 } from "@/modules/wallets/capabilities"
 import type {
   CategoryInfo, EntryInfo, EntryLogInfo, EntrySnapshot, ExpenseInfo, ExpenseLogInfo,
-  ExpenseSnapshot, MemberInfo, WalletInfo,
+  ExpenseSnapshot, MemberInfo, SettlementTransferInfo, WalletInfo,
 } from "@/modules/wallets/types"
 
 function wallet(overrides: Partial<WalletInfo>): WalletInfo {
   return {
-    id: "w-1", kind: "general", name: "家用", balance: 0, destination: null,
+    id: "w-1", kind: "general", name: "家用", status: "active", balance: 0, destination: null,
     start_date: null, end_date: null, created_at: "2026-10-17T00:00:00Z",
     my_role: "member", can_manage: false, ...overrides,
   }
@@ -434,5 +435,138 @@ describe("expenseChangedFields", () => {
 
   it("新增沒有改前改後", () => {
     expect(expenseChangedFields({ ...log(before), action: "create", before: null })).toEqual([])
+  })
+})
+
+// ── 結算 ────────────────────────────────────────────────────────────────────
+
+describe("travelActions", () => {
+  const trip = (overrides: Partial<WalletInfo>) => wallet({ kind: "travel", ...overrides })
+
+  it("進行中可以記帳，管理者可以開始結算", () => {
+    expect(travelActions(trip({ can_manage: true }))).toEqual({
+      addEntry: true, startSettlement: true, cancelSettlement: false,
+    })
+    expect(travelActions(trip({ can_manage: false })).startSettlement).toBe(false)
+  })
+
+  it("結算中不能記帳，管理者可以取消結算", () => {
+    expect(travelActions(trip({ status: "settling", can_manage: true }))).toEqual({
+      addEntry: false, startSettlement: false, cancelSettlement: true,
+    })
+    expect(travelActions(trip({ status: "settling" })).cancelSettlement).toBe(false)
+  })
+
+  it("已結帳什麼都不能做", () => {
+    expect(travelActions(trip({ status: "settled", can_manage: true }))).toEqual({
+      addEntry: false, startSettlement: false, cancelSettlement: false,
+    })
+  })
+})
+
+describe("expenseActions 在帳目鎖住時", () => {
+  it("結算中或已結帳，自己記的帳也不能改刪", () => {
+    expect(expenseActions(expense({}), { userId: "bob", canManage: true }, true))
+      .toEqual({ edit: false, delete: false })
+  })
+})
+
+describe("memberActions 在已結帳的錢包", () => {
+  const admin = { userId: "alice", canManage: true }
+
+  it("管理者不能升降或移除成員", () => {
+    expect(memberActions(BOB, [ALICE, BOB], admin, true)).toEqual({
+      promote: false, demote: false, remove: false, leave: false,
+    })
+    expect(memberActions(CAROL_ADMIN, [ALICE, CAROL_ADMIN], admin, true).demote).toBe(false)
+  })
+
+  it("自己可以離開，最後一位管理者不行", () => {
+    expect(memberActions(BOB, [ALICE, BOB], { userId: "bob", canManage: false }, true).leave)
+      .toBe(true)
+    expect(memberActions(ALICE, [ALICE, BOB], admin, true).leave).toBe(false)
+  })
+})
+
+describe("canInvite", () => {
+  it("管理者可以邀請，已結帳的錢包不行", () => {
+    expect(canInvite(wallet({ can_manage: true }))).toBe(true)
+    expect(canInvite(wallet({ kind: "travel", status: "settling", can_manage: true }))).toBe(true)
+    expect(canInvite(wallet({ kind: "travel", status: "settled", can_manage: true }))).toBe(false)
+    expect(canInvite(wallet({ can_manage: false }))).toBe(false)
+  })
+})
+
+describe("walletStatusBadge", () => {
+  it("只有結算中與已結帳有標籤", () => {
+    expect(walletStatusBadge(wallet({}))).toBeNull()
+    expect(walletStatusBadge(wallet({ kind: "travel", status: "settling" }))).toBe("settling")
+    expect(walletStatusBadge(wallet({ kind: "travel", status: "settled" }))).toBe("settled")
+  })
+})
+
+function transfer(overrides: Partial<SettlementTransferInfo>): SettlementTransferInfo {
+  return {
+    id: "t-1", amount: 300,
+    payer: { user_id: "bob", nickname: "Bob" }, payee: { user_id: "carol", nickname: "Carol" },
+    paid_at: null, confirmed_at: null, confirmed_by: null, ...overrides,
+  }
+}
+
+const CONFIRMED = {
+  confirmed_at: "2026-11-06T00:00:00Z", confirmed_by: { user_id: "carol", nickname: "Carol" },
+}
+
+describe("settlementTransferActions", () => {
+  const as = (userId: string, canManage = false) => ({ userId, canManage })
+
+  it("付款人可以標記已付款，標記後可以撤回", () => {
+    expect(settlementTransferActions(transfer({}), as("bob"), "settling")).toEqual({
+      markPaid: true, unmarkPaid: false, confirm: false, unconfirm: false,
+    })
+    const paid = transfer({ paid_at: "2026-11-06T00:00:00Z" })
+    expect(settlementTransferActions(paid, as("bob"), "settling")).toMatchObject({
+      markPaid: false, unmarkPaid: true,
+    })
+  })
+
+  it("收款人不必等標記就能確認", () => {
+    expect(settlementTransferActions(transfer({}), as("carol"), "settling").confirm).toBe(true)
+  })
+
+  it("管理者可以確認別人的，付款人自己不行（就算是管理者）", () => {
+    expect(settlementTransferActions(transfer({}), as("alice", true), "settling").confirm)
+      .toBe(true)
+    expect(settlementTransferActions(transfer({}), as("bob", true), "settling").confirm)
+      .toBe(false)
+    expect(settlementTransferActions(transfer({}), as("dave"), "settling").confirm).toBe(false)
+  })
+
+  it("確認後付款人不能再撤回，確認的人或管理者可以撤銷確認", () => {
+    const confirmed = transfer({ paid_at: "2026-11-06T00:00:00Z", ...CONFIRMED })
+    expect(settlementTransferActions(confirmed, as("bob"), "settling")).toEqual({
+      markPaid: false, unmarkPaid: false, confirm: false, unconfirm: false,
+    })
+    expect(settlementTransferActions(confirmed, as("carol"), "settling").unconfirm).toBe(true)
+    expect(settlementTransferActions(confirmed, as("alice", true), "settling").unconfirm)
+      .toBe(true)
+  })
+
+  it("已結帳之後都不能操作", () => {
+    expect(settlementTransferActions(transfer(CONFIRMED), as("carol", true), "settled")).toEqual({
+      markPaid: false, unmarkPaid: false, confirm: false, unconfirm: false,
+    })
+  })
+})
+
+describe("transfersForViewer", () => {
+  it("跟自己有關的排在最前面，其餘維持方案的順序", () => {
+    const transfers = [
+      transfer({ id: "1", payer: { user_id: "alice", nickname: "Alice" } }),
+      transfer({ id: "2" }),
+      transfer({ id: "3", payer: { user_id: "dave", nickname: "Dave" } }),
+      transfer({ id: "4", payee: { user_id: "dave", nickname: "Dave" } }),
+    ]
+    expect(transfersForViewer(transfers, "dave").map((t) => t.id)).toEqual(["3", "4", "1", "2"])
   })
 })

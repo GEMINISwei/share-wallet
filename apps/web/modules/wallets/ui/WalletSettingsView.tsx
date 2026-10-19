@@ -5,6 +5,7 @@ import { type FormEvent, useState } from "react"
 import { Button, Notify, useActionSubmit, useNotify } from "@/shared/ui"
 import { useT } from "@/shared/i18n/context"
 import { updateWallet } from "../actions"
+import { isArchived } from "../capabilities"
 import { walletsMessages } from "../i18n"
 import { type WalletArea, walletPath } from "../paths"
 import type { WalletInfo } from "../types"
@@ -31,6 +32,8 @@ export default function WalletSettingsView({ wallet, area }: WalletSettingsViewP
   const [deleting, setDeleting] = useState(false)
   const { isPending, submit, fieldError } = useActionSubmit()
   const { notify, notifyError, notifySuccess, closeNotify } = useNotify()
+  // 已結帳的錢包只能查看, 設定頁只剩刪除 (見 docs/features.md〈封存〉)。
+  const locked = isPending || isArchived(wallet)
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -51,13 +54,14 @@ export default function WalletSettingsView({ wallet, area }: WalletSettingsViewP
       backHref={walletPath(wallet.id, area)} backLabel={t("backToWallet")}
     >
       <form className={styles.panel} onSubmit={handleSubmit} noValidate>
+        {isArchived(wallet) && <p className={styles.hint}>{t("settingsArchivedHint")}</p>}
         <WalletFields
           values={form.values}
           errors={{ ...form.errors, name: form.errors.name ?? fieldError("name") }}
-          disabled={isPending} showInitialBalance={false} onChange={form.change}
+          disabled={locked} showInitialBalance={false} onChange={form.change}
         />
         <div>
-          <Button type="submit" disabled={isPending}>{isPending ? t("saving") : t("save")}</Button>
+          <Button type="submit" disabled={locked}>{isPending ? t("saving") : t("save")}</Button>
         </div>
       </form>
 

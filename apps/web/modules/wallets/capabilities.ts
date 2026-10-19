@@ -1,7 +1,8 @@
 import type {
   AdvanceTargetInfo, CategoryInfo, CategoryType, EntryFormValues, EntryInfo, EntryKind,
   EntryLogInfo, EntrySnapshot, ExpenseFormValues, ExpenseInfo, ExpenseLogInfo, ExpenseSnapshot,
-  MemberInfo, ShareRowValues, TransferKind, TransferTarget, WalletAdmin, WalletInfo,
+  MemberInfo, SettlementTransferInfo, ShareRowValues, TransferKind, TransferTarget, WalletAdmin,
+  WalletInfo, WalletStatus,
 } from "./types"
 
 // 畫面上的分支。真正的授權在後端 (`modules/wallets/access.py`), 這裡只決定顯示哪些操作,
@@ -36,20 +37,40 @@ export type MemberActions = {
 
 type Viewer = { userId: string; canManage: boolean }
 
-/** 成員清單上某一列可以做的事。自己那一列是「離開」, 別人那一列 (管理者才有) 是「移出」。 */
+/**
+ * 成員清單上某一列可以做的事。自己那一列是「離開」, 別人那一列 (管理者才有) 是「移出」。
+ * 已結帳的旅遊錢包只剩離開 (見 docs/features.md〈封存〉)。
+ */
 export function memberActions(
   member: MemberInfo,
   members: readonly MemberInfo[],
   viewer: Viewer,
+  archived = false,
 ): MemberActions {
   const isSelf = member.user_id === viewer.userId
   const last = isLastAdmin(member, members)
+  const manage = viewer.canManage && !archived
   return {
-    promote: viewer.canManage && member.role === "member",
-    demote: viewer.canManage && member.role === "admin" && !last,
-    remove: viewer.canManage && !isSelf && !last,
+    promote: manage && member.role === "member",
+    demote: manage && member.role === "admin" && !last,
+    remove: manage && !isSelf && !last,
     leave: isSelf && !last,
   }
+}
+
+/** 已結帳的旅遊錢包封存, 只能查看。 */
+export function isArchived(wallet: WalletInfo) {
+  return wallet.status === "settled"
+}
+
+/** 管理者才看得到邀請連結; 已結帳的錢包不能邀請。 */
+export function canInvite(wallet: WalletInfo) {
+  return wallet.can_manage && !isArchived(wallet)
+}
+
+/** 錢包列表與標題上的狀態標籤: 進行中不標。 */
+export function walletStatusBadge(wallet: Pick<WalletInfo, "status">): Exclude<WalletStatus, "active"> | null {
+  return wallet.status === "active" ? null : wallet.status
 }
 
 /** 依類型分組, 組內維持後端給的順序 (建立順序)。 */
@@ -161,10 +182,58 @@ export function changedFields(log: EntryLogInfo): (keyof EntrySnapshot)[] {
 
 // ── 旅遊錢包 ────────────────────────────────────────────────────────────────
 
-/** 旅遊錢包的帳: 權限同一般錢包, 所有欄位都可以改 (見 docs/features.md〈記帳〉)。 */
-export function expenseActions(expense: ExpenseInfo, viewer: Viewer) {
-  const allowed = canModify(expense.created_by.user_id, viewer)
+/**
+ * 旅遊錢包的帳: 權限同一般錢包, 所有欄位都可以改 (見 docs/features.md〈記帳〉)。
+ * 開始結算之後帳目鎖住 (`locked`), 誰都不能改刪。
+ */
+export function expenseActions(expense: ExpenseInfo, viewer: Viewer, locked = false) {
+  const allowed = !locked && canModify(expense.created_by.user_id, viewer)
   return { edit: allowed, delete: allowed }
+}
+
+/** 旅遊錢包頁標題列的操作: 進行中記帳、管理者開始結算; 結算中管理者可以取消。 */
+export function travelActions(wallet: WalletInfo) {
+  return {
+    addEntry: wallet.status === "active",
+    startSettlement: wallet.can_manage && wallet.status === "active",
+    cancelSettlement: wallet.can_manage && wallet.status === "settling",
+  }
+}
+
+/**
+ * 清償方案某一筆可以做的事, 規則同後端 (`settlement.py`): 付款人標記、撤回「我已付款」;
+ * 收款人或管理者確認 (付款人自己不行), 確認的人或管理者撤銷。都只在結算中。
+ */
+export function settlementTransferActions(
+  transfer: SettlementTransferInfo,
+  viewer: Viewer,
+  status: WalletStatus,
+) {
+  const settling = status === "settling"
+  const confirmed = transfer.confirmed_at !== null
+  const open = settling && !confirmed
+  const isPayer = transfer.payer.user_id === viewer.userId
+  const payerOpen = open && isPayer
+  return {
+    markPaid: payerOpen && transfer.paid_at === null,
+    unmarkPaid: payerOpen && transfer.paid_at !== null,
+    confirm: open && !isPayer && isSelfOrAdmin(transfer.payee.user_id, viewer),
+    unconfirm: settling && confirmed && isSelfOrAdmin(transfer.confirmed_by?.user_id, viewer),
+  }
+}
+
+function isSelfOrAdmin(userId: string | undefined, viewer: Viewer) {
+  return userId === viewer.userId || viewer.canManage
+}
+
+/** 方案的顯示順序: 跟自己有關 (要付或要收) 的排最前面, 其餘維持後端的順序。 */
+export function transfersForViewer(
+  transfers: readonly SettlementTransferInfo[],
+  userId: string,
+): SettlementTransferInfo[] {
+  const mine = (t: SettlementTransferInfo) =>
+    t.payer.user_id === userId || t.payee.user_id === userId
+  return [...transfers.filter(mine), ...transfers.filter((t) => !mine(t))]
 }
 
 type Share = { user_id: string; amount: number }

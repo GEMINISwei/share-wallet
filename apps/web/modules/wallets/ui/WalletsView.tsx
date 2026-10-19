@@ -10,6 +10,7 @@ import { walletPath } from "../paths"
 import type { WalletInfo } from "../types"
 import Amount from "./Amount"
 import CreateWalletDialog from "./CreateWalletDialog"
+import WalletStatusBadge from "./WalletStatusBadge"
 import styles from "./wallets.module.css"
 
 type WalletsViewProps = {
@@ -70,6 +71,7 @@ function WalletRow({ wallet }: { wallet: WalletInfo }) {
         <span className={styles.rowMeta}>{meta}</span>
       </span>
       <span className={styles.rowEnd}>
+        <WalletStatusBadge wallet={wallet} />
         {wallet.balance !== null && <Amount value={wallet.balance} />}
         <ChevronRight size={ICON_SIZE.sm} aria-hidden="true" />
       </span>

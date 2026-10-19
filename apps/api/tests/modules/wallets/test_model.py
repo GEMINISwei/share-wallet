@@ -22,6 +22,7 @@ from modules.wallets.model import (
     EntryLogDetail,
     ExpenseDetail,
     MemberRole,
+    PlannedTransfer,
     SettlementTransferDetail,
     SplitMode,
     TravelExpenseShareTable,
@@ -860,7 +861,7 @@ async def test_delete_settlement_plan_only_touches_that_wallet(db):
     alice, bob = await _user("alice"), await _user("bob")
     wallet_id = await _travel_wallet({alice: MemberRole.ADMIN, bob: MemberRole.MEMBER})
     other = await _travel_wallet({alice: MemberRole.ADMIN, bob: MemberRole.MEMBER})
-    transfer = {"from_user_id": bob, "to_user_id": alice, "amount": 100}
+    transfer: PlannedTransfer = {"from_user_id": bob, "to_user_id": alice, "amount": 100}
     await TravelSettlementTransferTable.create_plan(wallet_id, [transfer])
     await TravelSettlementTransferTable.create_plan(other, [transfer])
 
