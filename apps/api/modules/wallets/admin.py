@@ -17,6 +17,7 @@ from .model import (
     WalletDetail,
     WalletKind,
     WalletMemberTable,
+    WalletStatus,
     WalletTable,
 )
 from .schema import (
@@ -48,6 +49,7 @@ def _to_admin_info(
         id=wallet["id"],
         kind=WalletKind(wallet["kind"]),
         name=wallet["name"],
+        status=WalletStatus(wallet["status"]),
         balance=wallet["balance"] if wallet["kind"] == WalletKind.GENERAL else None,
         destination=wallet["destination"],
         start_date=wallet["start_date"],

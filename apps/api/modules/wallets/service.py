@@ -14,6 +14,7 @@ from .model import (
     WalletDetail,
     WalletKind,
     WalletMemberTable,
+    WalletStatus,
     WalletTable,
 )
 from .schema import (
@@ -66,6 +67,7 @@ def _to_info(wallet: WalletDetail, role: MemberRole | None, manageable: bool) ->
         id=wallet["id"],
         kind=WalletKind(wallet["kind"]),
         name=wallet["name"],
+        status=WalletStatus(wallet["status"]),
         balance=wallet["balance"] if is_general else None,
         destination=wallet["destination"],
         start_date=wallet["start_date"],
@@ -77,12 +79,17 @@ def _to_info(wallet: WalletDetail, role: MemberRole | None, manageable: bool) ->
 
 
 async def list_wallets(current_user: CurrentUser) -> WalletList:
-    """只列自己加入的錢包, 超級管理者也一樣 (所有錢包在後台看)。"""
+    """只列自己加入的錢包, 超級管理者也一樣 (所有錢包在後台看)。
+
+    已結帳的排在最後 (見 docs/features.md〈結算流程〉): 舊旅程只是留著查看。
+    """
     joined = await WalletTable.find_joined(current_user["id"])
-    wallets = [
+    infos = [
         _to_info(item["wallet"], item["role"], can_manage(item["role"], current_user))
         for item in joined
     ]
+    # sorted 是穩定的: 其他的維持加入的先後。
+    wallets = sorted(infos, key=lambda wallet: wallet.status is WalletStatus.SETTLED)
     total = sum(wallet.balance or 0 for wallet in wallets if wallet.kind is WalletKind.GENERAL)
     return WalletList(list_data=wallets, count=len(wallets), total_balance=total)
 
@@ -99,6 +106,9 @@ async def update_wallet(
     # 類型決定了錢包有哪些資料 (餘額或起訖日), 換類型等於換一個錢包。
     if form_data.kind != access.wallet["kind"]:
         raise LangException(400, WalletError.KIND_MISMATCH)
+    # 結算中可以改 (名稱與日期不影響金額), 已結帳的只能查看 (見 docs/features.md〈封存〉)。
+    if await WalletTable.lock_status(id) is WalletStatus.SETTLED:
+        raise LangException(409, WalletError.WALLET_ARCHIVED)
 
     data: dict[str, Any] = {"name": form_data.name}
     if isinstance(form_data, TravelWalletUpdate):

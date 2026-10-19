@@ -17,6 +17,7 @@ from . import (
     invites,
     members,
     service,
+    settlement,
     transfers,
 )
 from .model import WalletKind
@@ -49,6 +50,8 @@ from .schema import (
     MoneyUpdate,
     NetBalanceList,
     RepaymentList,
+    SettlementInfo,
+    SettlementOperate,
     TransferCreate,
     TransferUpdate,
     UuidText,
@@ -408,6 +411,76 @@ async def get_net_balance_list_route(
 ) -> NetBalanceList:
     """旅遊錢包每個成員的淨額 (付的 − 分攤的), 依加入的先後排序。"""
     return await expenses.list_net_balances(id, current_user)
+
+
+@router.get("/{id}/settlement")
+async def get_settlement_route(
+    id: UuidText,
+    current_user: CurrentUser = Depends(check_user_permission()),
+) -> SettlementInfo:
+    """旅遊錢包的結算狀態與清償方案, 每一筆的付款與確認。進行中沒有方案。"""
+    return await settlement.get_settlement(id, current_user)
+
+
+@router.post("/{id}/settlement")
+async def start_settlement_route(
+    id: UuidText,
+    current_user: CurrentUser = Depends(check_user_permission()),
+) -> SettlementOperate:
+    """開始結算 (錢包管理者): 帳目鎖住, 依每人淨額算出清償方案。
+
+    大家的淨額都是 0 時沒有方案, 直接已結帳。
+    """
+    return await settlement.start_settlement(id, current_user)
+
+
+@router.delete("/{id}/settlement")
+async def cancel_settlement_route(
+    id: UuidText,
+    current_user: CurrentUser = Depends(check_user_permission()),
+) -> SettlementOperate:
+    """取消結算 (錢包管理者): 回到進行中, 方案連同付款與確認全部作廢。"""
+    return await settlement.cancel_settlement(id, current_user)
+
+
+@router.post("/{id}/settlement/transfers/{transfer_id}/paid")
+async def mark_settlement_paid_route(
+    id: UuidText,
+    transfer_id: UuidText,
+    current_user: CurrentUser = Depends(check_user_permission()),
+) -> SettlementOperate:
+    """付款人標記「我已付款」。"""
+    return await settlement.mark_paid(id, transfer_id, current_user)
+
+
+@router.delete("/{id}/settlement/transfers/{transfer_id}/paid")
+async def unmark_settlement_paid_route(
+    id: UuidText,
+    transfer_id: UuidText,
+    current_user: CurrentUser = Depends(check_user_permission()),
+) -> SettlementOperate:
+    """付款人撤回「我已付款」, 確認收款之前才可以。"""
+    return await settlement.unmark_paid(id, transfer_id, current_user)
+
+
+@router.post("/{id}/settlement/transfers/{transfer_id}/confirmation")
+async def confirm_settlement_transfer_route(
+    id: UuidText,
+    transfer_id: UuidText,
+    current_user: CurrentUser = Depends(check_user_permission()),
+) -> SettlementOperate:
+    """收款人或錢包管理者確認收款; 付款人自己不行。每一筆都確認後錢包封存。"""
+    return await settlement.confirm_transfer(id, transfer_id, current_user)
+
+
+@router.delete("/{id}/settlement/transfers/{transfer_id}/confirmation")
+async def unconfirm_settlement_transfer_route(
+    id: UuidText,
+    transfer_id: UuidText,
+    current_user: CurrentUser = Depends(check_user_permission()),
+) -> SettlementOperate:
+    """確認的人或錢包管理者撤銷確認, 結算中才可以。"""
+    return await settlement.unconfirm_transfer(id, transfer_id, current_user)
 
 
 @router.get("/{id}/invite")

@@ -14,7 +14,15 @@ from shared.http.errors import BaseError, LangText, resolve_text
 from shared.http.schema import PaginatedResponse, SimpleListResponse, UtcDateTime
 from shared.http.schema import UuidText as UuidText
 
-from .model import CategoryType, EntryKind, EntryLogAction, MemberRole, SplitMode, WalletKind
+from .model import (
+    CategoryType,
+    EntryKind,
+    EntryLogAction,
+    MemberRole,
+    SplitMode,
+    WalletKind,
+    WalletStatus,
+)
 
 # JavaScript 數字能精確表示的整數上限。資料庫是 BIGINT, 但超過這個值送到瀏覽器就會失真,
 # 而且不會有任何錯誤。
@@ -106,6 +114,8 @@ class WalletInfo(BaseModel):
     id: str
     kind: WalletKind
     name: str
+    #: 一般錢包一律是 `active`。
+    status: WalletStatus
     balance: int | None
     destination: str | None
     start_date: date | None
@@ -118,7 +128,10 @@ class WalletInfo(BaseModel):
 
 
 class WalletList(SimpleListResponse["WalletInfo"]):
-    """自己加入的錢包。`total_balance` 是其中所有一般錢包餘額的總和。"""
+    """自己加入的錢包, 依加入的先後, 已結帳的排在最後。
+
+    `total_balance` 是其中所有一般錢包餘額的總和。
+    """
 
     total_balance: int
 
@@ -134,6 +147,8 @@ class AdminWalletInfo(BaseModel):
     id: str
     kind: WalletKind
     name: str
+    #: 一般錢包一律是 `active`。
+    status: WalletStatus
     balance: int | None
     destination: str | None
     start_date: date | None
@@ -524,3 +539,32 @@ class ExpenseLogPage(BaseModel):
 
     list_data: list[ExpenseLogInfo]
     next_cursor: str | None
+
+
+class SettlementTransferInfo(BaseModel):
+    """清償方案的一筆: `payer` 付給 `payee`。"""
+
+    id: str
+    payer: EntryUser
+    payee: EntryUser
+    amount: int
+    #: 付款人標記「我已付款」的時間; 沒標記是 null。
+    paid_at: UtcDateTime | None
+    #: 確認收款的時間; 還沒確認是 null。
+    confirmed_at: UtcDateTime | None
+    #: 確認收款的人 (收款人或管理者); 還沒確認是 null。
+    confirmed_by: EntryUser | None
+
+
+class SettlementInfo(BaseModel):
+    """旅遊錢包的結算。進行中沒有方案, `transfers` 是空的。"""
+
+    status: WalletStatus
+    #: 依付款人加入錢包的順序。
+    transfers: list[SettlementTransferInfo]
+
+
+class SettlementOperate(BaseModel):
+    """結算操作之後錢包的狀態: 最後一筆確認收款後是 `settled`。"""
+
+    status: WalletStatus

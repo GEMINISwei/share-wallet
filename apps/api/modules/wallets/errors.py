@@ -91,3 +91,31 @@ class WalletError(BaseError):
         zh="這位成員在這個錢包有付款或分攤紀錄，不能離開或被移除",
         en="This member has payments or shares in this wallet and cannot leave or be removed",
     )
+    LEDGER_LOCKED = LangText(
+        zh="結算中或已結帳的錢包不能修改帳目",
+        en="Entries cannot be changed while settling or after settlement",
+    )
+    WALLET_ARCHIVED = LangText(
+        zh="已結帳的錢包只能查看", en="This wallet has been settled and is read-only"
+    )
+    SETTLEMENT_STARTED = LangText(
+        zh="這個錢包已經開始結算", en="Settlement has already started for this wallet"
+    )
+    NOT_SETTLING = LangText(zh="這個錢包不在結算中", en="This wallet is not being settled")
+    SETTLEMENT_TRANSFER_NOT_FOUND = LangText(zh="這筆轉帳不存在", en="Transfer Not Found")
+    NOT_SETTLEMENT_PAYER = LangText(
+        zh="只有付款人可以標記付款", en="Only the payer can mark this as paid"
+    )
+    SETTLEMENT_CONFIRMED = LangText(
+        zh="這筆已經確認收款", en="This transfer has already been confirmed"
+    )
+    PAYER_CANNOT_CONFIRM = LangText(
+        zh="付款人不能確認自己的付款", en="The payer cannot confirm their own payment"
+    )
+    NOT_SETTLEMENT_PAYEE = LangText(
+        zh="只有收款人或管理者可以確認收款", en="Only the payee or an admin can confirm"
+    )
+    NOT_CONFIRMER = LangText(
+        zh="只有確認的人或管理者可以撤銷確認",
+        en="Only whoever confirmed it or an admin can undo the confirmation",
+    )
