@@ -7,21 +7,26 @@ import { useT } from "@/shared/i18n/context"
 import { createWallet } from "../actions"
 import { walletsMessages } from "../i18n"
 import { walletPath } from "../paths"
-import { toCreateRequest } from "../validation"
+import type { WalletKind } from "../types"
+import { emptyWalletForm, toCreateRequest } from "../validation"
 import KindOptions from "./KindOptions"
-import { EMPTY_WALLET_FORM, useWalletForm } from "./useWalletForm"
+import { useWalletForm } from "./useWalletForm"
 import WalletFields from "./WalletFields"
 
 type CreateWalletDialogProps = {
   open: boolean
+  /** 預設的類型。表單只在掛上時讀一次, 要跟著分頁變時由呼叫端換 `key`。 */
+  defaultKind: WalletKind
   onClose: () => void
   onError: (message: string) => void
 }
 
-export default function CreateWalletDialog({ open, onClose, onError }: CreateWalletDialogProps) {
+export default function CreateWalletDialog(
+  { open, defaultKind, onClose, onError }: CreateWalletDialogProps,
+) {
   const t = useT(walletsMessages)
   const router = useRouter()
-  const form = useWalletForm(EMPTY_WALLET_FORM)
+  const form = useWalletForm(emptyWalletForm(defaultKind))
   const { isPending, submit, fieldError } = useActionSubmit()
 
   function handleClose() {

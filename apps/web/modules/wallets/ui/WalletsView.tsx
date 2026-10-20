@@ -69,7 +69,8 @@ export default function WalletsView(
       </div>
 
       <CreateWalletDialog
-        open={creating} onClose={() => setCreating(false)} onError={notifyError}
+        key={tab} open={creating} defaultKind={tab}
+        onClose={() => setCreating(false)} onError={notifyError}
       />
       <Notify {...notify} onOpenChange={(open) => { if (!open) closeNotify() }} />
     </Container>

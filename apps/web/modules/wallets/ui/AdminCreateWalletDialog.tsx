@@ -8,9 +8,9 @@ import { createWalletForUser } from "../actions"
 import { walletsMessages } from "../i18n"
 import { walletPath } from "../paths"
 import type { UserOption } from "../types"
-import { toAdminCreateRequest, validateAdminUser } from "../validation"
+import { emptyWalletForm, toAdminCreateRequest, validateAdminUser } from "../validation"
 import KindOptions from "./KindOptions"
-import { EMPTY_WALLET_FORM, useWalletForm } from "./useWalletForm"
+import { useWalletForm } from "./useWalletForm"
 import WalletFields from "./WalletFields"
 import styles from "./wallets.module.css"
 
@@ -28,7 +28,7 @@ export default function AdminCreateWalletDialog({
   const t = useT(walletsMessages)
   const locale = useLocale()
   const router = useRouter()
-  const form = useWalletForm(EMPTY_WALLET_FORM)
+  const form = useWalletForm(emptyWalletForm())
   const [adminUserId, setAdminUserId] = useState("")
   const [adminError, setAdminError] = useState<string>()
   const { isPending, submit, fieldError } = useActionSubmit()
