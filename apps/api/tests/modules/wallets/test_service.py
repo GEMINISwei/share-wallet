@@ -3,7 +3,7 @@
 import pytest
 from httpx import AsyncClient
 
-from modules.wallets.model import CategoryType, MemberRole, WalletKind
+from modules.wallets.model import CategoryType, MemberRole, WalletKind, WalletStatus
 
 from ..helpers import authenticate
 from .conftest import ALICE, BOB, SUPER, FakeStore
@@ -172,6 +172,107 @@ async def test_list_wallets_total_balance_sums_general_wallets_only(client: Asyn
     assert body["count"] == 3
     travel = next(wallet for wallet in body["list_data"] if wallet["kind"] == "travel")
     assert travel["balance"] is None
+
+
+def _favorite(client: AsyncClient, wallet_id: str, value: bool = True):
+    return client.put(f"/api/wallets/{wallet_id}/favorite", json={"is_favorite": value})
+
+
+@pytest.mark.asyncio
+async def test_set_favorite_marks_wallet_for_current_user(client: AsyncClient, store: FakeStore):
+    wallet_id = store.add_wallet(members={ALICE: MemberRole.MEMBER})
+    authenticate(client, "alice")
+
+    response = await _favorite(client, wallet_id)
+
+    assert response.status_code == 200
+    assert (await client.get(f"/api/wallets/{wallet_id}")).json()["is_favorite"] is True
+
+
+@pytest.mark.asyncio
+async def test_unset_favorite_clears_flag(client: AsyncClient, store: FakeStore):
+    wallet_id = store.add_wallet()
+    store.favorites.add((wallet_id, ALICE))
+    authenticate(client, "alice")
+
+    await _favorite(client, wallet_id, False)
+
+    assert (await client.get(f"/api/wallets/{wallet_id}")).json()["is_favorite"] is False
+
+
+@pytest.mark.asyncio
+async def test_favorite_is_per_member(client: AsyncClient, store: FakeStore):
+    wallet_id = store.add_wallet(members={ALICE: MemberRole.ADMIN, BOB: MemberRole.MEMBER})
+    authenticate(client, "alice")
+    await _favorite(client, wallet_id)
+
+    authenticate(client, "bob")
+    body = (await client.get("/api/wallets/")).json()
+
+    assert body["list_data"][0]["is_favorite"] is False
+
+
+@pytest.mark.asyncio
+async def test_set_favorite_on_unjoined_wallet_returns_404(client: AsyncClient, store: FakeStore):
+    wallet_id = store.add_wallet(members={BOB: MemberRole.ADMIN})
+    authenticate(client, "alice")
+
+    response = await _favorite(client, wallet_id)
+
+    assert response.status_code == 404
+    assert store.favorites == set()
+
+
+@pytest.mark.asyncio
+async def test_set_favorite_as_unjoined_super_admin_returns_403(
+    client: AsyncClient, store: FakeStore
+):
+    wallet_id = store.add_wallet(members={BOB: MemberRole.ADMIN})
+    authenticate(client, "super")
+
+    response = await _favorite(client, wallet_id)
+
+    assert response.status_code == 403
+    assert store.favorites == set()
+
+
+@pytest.mark.asyncio
+async def test_set_favorite_allowed_on_settled_wallet(client: AsyncClient, store: FakeStore):
+    wallet_id = store.add_wallet(kind=WalletKind.TRAVEL, status=WalletStatus.SETTLED)
+    authenticate(client, "alice")
+
+    response = await _favorite(client, wallet_id)
+
+    assert response.status_code == 200
+    assert (wallet_id, ALICE) in store.favorites
+
+
+@pytest.mark.asyncio
+async def test_list_wallets_puts_favorites_first(client: AsyncClient, store: FakeStore):
+    first = store.add_wallet(name="一")
+    second = store.add_wallet(name="二")
+    third = store.add_wallet(name="三")
+    store.favorites.add((third, ALICE))
+    authenticate(client, "alice")
+
+    body = (await client.get("/api/wallets/")).json()
+
+    assert [wallet["id"] for wallet in body["list_data"]] == [third, first, second]
+    assert [wallet["is_favorite"] for wallet in body["list_data"]] == [True, False, False]
+
+
+@pytest.mark.asyncio
+async def test_list_wallets_keeps_settled_last_even_if_favorite(
+    client: AsyncClient, store: FakeStore
+):
+    settled = store.add_wallet(kind=WalletKind.TRAVEL, status=WalletStatus.SETTLED)
+    active = store.add_wallet(kind=WalletKind.TRAVEL)
+    store.favorites.add((settled, ALICE))
+    authenticate(client, "alice")
+
+    body = (await client.get("/api/wallets/")).json()
+
+    assert [wallet["id"] for wallet in body["list_data"]] == [active, settled]
 
 
 @pytest.mark.asyncio

@@ -101,6 +101,21 @@ async def test_member_role_queries(db):
     ]
 
 
+async def test_set_favorite_marks_only_that_member(db):
+    alice, bob = await _user("alice"), await _user("bob")
+    wallet_id = await _wallet({alice: MemberRole.ADMIN, bob: MemberRole.MEMBER})
+
+    await WalletMemberTable.set_favorite(wallet_id, alice, True)
+
+    assert await WalletMemberTable.find_favorite(wallet_id, alice) is True
+    assert await WalletMemberTable.find_favorite(wallet_id, bob) is False
+    assert [item["is_favorite"] for item in await WalletTable.find_joined(alice)] == [True]
+    assert [item["is_favorite"] for item in await WalletTable.find_joined(bob)] == [False]
+
+    await WalletMemberTable.set_favorite(wallet_id, alice, False)
+    assert await WalletMemberTable.find_favorite(wallet_id, alice) is False
+
+
 async def test_member_is_unique_per_wallet(db):
     alice = await _user("alice")
     wallet_id = await _wallet({alice: MemberRole.ADMIN})
