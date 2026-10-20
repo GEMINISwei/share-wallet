@@ -21,6 +21,11 @@ make start                         # 建置 image 並啟動
 從原始碼 bind mount 的）。`MODE=production` 時 `make start` 只認停在 `v<APP_VERSION>` tag 上的
 checkout：在主機上 `git pull` 了 main 再啟動，等於上線一份沒發版、沒經過 CI 的程式碼。
 
+nginx 的模板（`infra/nginx/`）有變時，`make start` 會重建 nginx，沒變就不動。bind mount 的內容變了，
+compose 本身看不出來，所以由 `scripts/lib/compose.sh` 把內容的雜湊放進 nginx 的 label。
+重建之前會先用一次性的容器跑 `nginx -t`；**模板寫錯時 `make start` 在啟動任何服務之前就失敗**，
+線上的 nginx 維持原樣。
+
 **`.env` 的 `MODE` 決定這個目錄是哪種環境**（`make init prod` 寫入 `production`），一個目錄只會有
 一種。`MODE=production` 時這些指令會直接拒絕，防的是手誤，不是權限控制（能上主機的人照樣可以改 `.env`）：
 
@@ -31,6 +36,12 @@ checkout：在主機上 `git pull` 了 main 再啟動，等於上線一份沒發
 | `make db migration`、`make check`、`make gen-types`、`make release`、`make init dev` | 開發機的工作 |
 
 `make services down` 在正式環境要先確認（資料留在 volume，但服務會停）。
+
+`make services restart` 原地重啟現有的容器（migrate 除外），在正式環境也要先確認。它不重建容器、不拉也不建 image，
+所以主機上不必知道 image 名稱、不必登入 GHCR，跑的是本機建置的還是 registry 拉的都照原樣。
+**它不套用任何變更**：`.env`、compose、image 變了要用 `make start`；容器已經 `down` 掉時也只能 `make start`。
+nginx 模板改了也用 `make start`：它會先跑 `nginx -t` 再重建 nginx。restart 雖然也會重新展開模板，
+但**不會先檢查**，模板寫錯時 nginx 起不來，整個站就停了。
 
 `make services` 會列出這個專案的 volume（以 compose 的專案標籤篩選），名稱不是 `<專案>_<MODE>_`
 開頭的標 `← Not Matched`：另一種模式留下的，或改過命名之前的舊 volume，目前的 `MODE` 用不到，
