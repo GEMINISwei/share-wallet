@@ -125,10 +125,16 @@ class WalletInfo(BaseModel):
     my_role: MemberRole | None
     #: 能不能管理這個錢包 (設定、成員、分類、刪除)。
     can_manage: bool
+    #: 自己有沒有把它設為最愛; 沒有加入時是 false。
+    is_favorite: bool
+
+
+class FavoriteUpdate(BaseModel):
+    is_favorite: bool
 
 
 class WalletList(SimpleListResponse["WalletInfo"]):
-    """自己加入的錢包, 依加入的先後, 已結帳的排在最後。
+    """自己加入的錢包: 最愛的在前, 其餘依加入的先後, 已結帳的一律排在最後。
 
     `total_balance` 是其中所有一般錢包餘額的總和。
     """

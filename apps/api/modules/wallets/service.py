@@ -18,6 +18,7 @@ from .model import (
     WalletTable,
 )
 from .schema import (
+    FavoriteUpdate,
     GeneralWalletCreate,
     TravelWalletCreate,
     TravelWalletUpdate,
@@ -61,7 +62,9 @@ async def create_wallet_with_admin(
     return WalletOperate(id=created["id"])
 
 
-def _to_info(wallet: WalletDetail, role: MemberRole | None, manageable: bool) -> WalletInfo:
+def _to_info(
+    wallet: WalletDetail, role: MemberRole | None, manageable: bool, favorite: bool
+) -> WalletInfo:
     is_general = wallet["kind"] == WalletKind.GENERAL
     return WalletInfo(
         id=wallet["id"],
@@ -75,28 +78,47 @@ def _to_info(wallet: WalletDetail, role: MemberRole | None, manageable: bool) ->
         created_at=wallet["created_at"],
         my_role=role,
         can_manage=manageable,
+        is_favorite=favorite,
     )
 
 
 async def list_wallets(current_user: CurrentUser) -> WalletList:
     """只列自己加入的錢包, 超級管理者也一樣 (所有錢包在後台看)。
 
-    已結帳的排在最後 (見 docs/features.md〈結算流程〉): 舊旅程只是留著查看。
+    最愛的在前, 已結帳的不論是不是最愛都排在最後 (見 docs/features.md〈錢包列表〉)。
     """
     joined = await WalletTable.find_joined(current_user["id"])
     infos = [
-        _to_info(item["wallet"], item["role"], can_manage(item["role"], current_user))
+        _to_info(
+            item["wallet"],
+            item["role"],
+            can_manage(item["role"], current_user),
+            item["is_favorite"],
+        )
         for item in joined
     ]
     # sorted 是穩定的: 其他的維持加入的先後。
-    wallets = sorted(infos, key=lambda wallet: wallet.status is WalletStatus.SETTLED)
+    wallets = sorted(
+        infos,
+        key=lambda wallet: (wallet.status is WalletStatus.SETTLED, not wallet.is_favorite),
+    )
     total = sum(wallet.balance or 0 for wallet in wallets if wallet.kind is WalletKind.GENERAL)
     return WalletList(list_data=wallets, count=len(wallets), total_balance=total)
 
 
 async def get_wallet(id: str, current_user: CurrentUser) -> WalletInfo:
     access = await open_wallet(id, current_user)
-    return _to_info(access.wallet, access.role, access.can_manage)
+    favorite = await WalletMemberTable.find_favorite(id, current_user["id"])
+    return _to_info(access.wallet, access.role, access.can_manage, favorite)
+
+
+async def set_favorite(id: str, form_data: FavoriteUpdate, current_user: CurrentUser) -> WalletOperate:
+    """最愛記在自己的成員紀錄上, 所以沒加入的超級管理者不能設。已結帳的錢包也可以設。"""
+    access = await open_wallet(id, current_user)
+    if access.role is None:
+        raise LangException(403, WalletError.FAVORITE_NOT_MEMBER)
+    await WalletMemberTable.set_favorite(id, current_user["id"], form_data.is_favorite)
+    return WalletOperate(id=id)
 
 
 async def update_wallet(

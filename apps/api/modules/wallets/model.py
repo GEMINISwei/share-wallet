@@ -19,6 +19,7 @@ from sqlalchemy import (
     UniqueConstraint,
     delete,
     desc,
+    false,
     func,
     select,
     tuple_,
@@ -109,6 +110,7 @@ class WalletDetail(TypedDict):
 class JoinedWallet(TypedDict):
     wallet: WalletDetail
     role: MemberRole
+    is_favorite: bool
 
 
 class MemberDetail(TypedDict):
@@ -229,15 +231,19 @@ class WalletTable(BaseTable):
         if row_id is None:
             return []
         statement = (
-            select(cls, WalletMemberTable.role)
+            select(cls, WalletMemberTable.role, WalletMemberTable.is_favorite)
             .join(WalletMemberTable, WalletMemberTable.wallet_id == cls.id)
             .where(WalletMemberTable.user_id == row_id)
             .order_by(WalletMemberTable.created_at.asc(), cls.id.asc())
         )
         rows = (await resolve_session(None).execute(statement)).all()
         return [
-            {"wallet": cast(WalletDetail, wallet.to_detail()), "role": MemberRole(role)}
-            for wallet, role in rows
+            {
+                "wallet": cast(WalletDetail, wallet.to_detail()),
+                "role": MemberRole(role),
+                "is_favorite": is_favorite,
+            }
+            for wallet, role, is_favorite in rows
         ]
 
     @classmethod
@@ -285,6 +291,9 @@ class WalletMemberTable(BaseTable):
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
     role: Mapped[str] = mapped_column(String)
+    # 最愛是每個人自己的標記 (見 docs/features.md〈錢包列表〉), 所以放在成員紀錄而不是錢包上;
+    # 離開錢包時跟著成員紀錄一起消失。
+    is_favorite: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
 
     __table_args__ = (
         UniqueConstraint("wallet_id", "user_id"),
@@ -306,6 +315,23 @@ class WalletMemberTable(BaseTable):
             select(cls.role).where(*cls._key(wallet_id, user_id))
         )
         return None if role is None else MemberRole(role)
+
+    @classmethod
+    async def find_favorite(cls, wallet_id: str, user_id: str) -> bool:
+        """不是成員時是 False。"""
+        if parse_uuid(wallet_id) is None or parse_uuid(user_id) is None:
+            return False
+        value = await resolve_session(None).scalar(
+            select(cls.is_favorite).where(*cls._key(wallet_id, user_id))
+        )
+        return bool(value)
+
+    @classmethod
+    async def set_favorite(cls, wallet_id: str, user_id: str, value: bool) -> None:
+        # 不動 `updated_at`: 最愛是個人的顯示偏好, 不算錢包成員資料的變更。
+        await resolve_session(None).execute(
+            update(cls).where(*cls._key(wallet_id, user_id)).values(is_favorite=value)
+        )
 
     @classmethod
     async def list_members(cls, wallet_id: str) -> list[MemberDetail]:

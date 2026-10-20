@@ -734,6 +734,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/wallets/{id}/favorite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Favorite Route
+         * @description 把錢包設為自己的最愛, 或取消。只影響自己的列表排序。
+         */
+        put: operations["set_favorite_route_api_wallets__id__favorite_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/wallets/{id}/invite": {
         parameters: {
             query?: never;
@@ -1515,6 +1535,11 @@ export interface components {
             shares: components["schemas"]["ShareSnapshot"][];
             split_mode: components["schemas"]["SplitMode"];
         };
+        /** FavoriteUpdate */
+        FavoriteUpdate: {
+            /** Is Favorite */
+            is_favorite: boolean;
+        };
         /** GeneralWalletCreate */
         GeneralWalletCreate: {
             /**
@@ -2089,6 +2114,8 @@ export interface components {
             end_date: string | null;
             /** Id */
             id: string;
+            /** Is Favorite */
+            is_favorite: boolean;
             kind: components["schemas"]["WalletKind"];
             my_role: components["schemas"]["MemberRole"] | null;
             /** Name */
@@ -2105,7 +2132,7 @@ export interface components {
         WalletKind: "general" | "travel";
         /**
          * WalletList
-         * @description 自己加入的錢包, 依加入的先後, 已結帳的排在最後。
+         * @description 自己加入的錢包: 最愛的在前, 其餘依加入的先後, 已結帳的一律排在最後。
          *
          *     `total_balance` 是其中所有一般錢包餘額的總和。
          */
@@ -3798,6 +3825,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ExpenseLogList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_favorite_route_api_wallets__id__favorite_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FavoriteUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WalletOperate"];
                 };
             };
             /** @description Validation Error */

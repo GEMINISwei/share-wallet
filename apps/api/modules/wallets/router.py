@@ -41,6 +41,7 @@ from .schema import (
     ExpenseLogList,
     ExpenseLogPage,
     ExpensePage,
+    FavoriteUpdate,
     InviteInfo,
     InvitePreview,
     InviteState,
@@ -108,6 +109,16 @@ async def delete_wallet_route(
 ) -> WalletOperate:
     """永久刪除錢包, 連同成員與分類。"""
     return await service.delete_wallet(id, current_user)
+
+
+@router.put("/{id}/favorite")
+async def set_favorite_route(
+    id: UuidText,
+    form_data: FavoriteUpdate,
+    current_user: CurrentUser = Depends(check_user_permission()),
+) -> WalletOperate:
+    """把錢包設為自己的最愛, 或取消。只影響自己的列表排序。"""
+    return await service.set_favorite(id, form_data, current_user)
 
 
 @router.get("/{id}/members")
