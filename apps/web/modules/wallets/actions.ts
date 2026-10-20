@@ -23,6 +23,14 @@ export async function updateWallet(id: string, data: ApiRequestBody<"/wallets/{i
   return apiPatch({ url: "/wallets/{id}", params: { id }, data, refresh: refreshWallets })
 }
 
+/** 只影響自己的列表排序; 錢包頁由畫面在成功後 `router.refresh()`。 */
+export async function setFavorite(id: string, isFavorite: boolean) {
+  return apiPatch({
+    url: "/wallets/{id}/favorite", params: { id }, data: { is_favorite: isFavorite },
+    refresh: refreshWallets,
+  })
+}
+
 export async function deleteWallet(id: string) {
   return apiDelete({ url: "/wallets/{id}", params: { id }, refresh: refreshWallets })
 }

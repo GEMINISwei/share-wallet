@@ -1,7 +1,9 @@
-import { WalletsPage, generateWalletsMetadata } from "@/modules/wallets/public.server"
+import {
+  WalletsPage, generateWalletsMetadata, type WalletsPageProps,
+} from "@/modules/wallets/public.server"
 
 export const generateMetadata = generateWalletsMetadata
 
-export default function Page() {
-  return <WalletsPage />
+export default function Page(props: WalletsPageProps) {
+  return <WalletsPage {...props} />
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
-  canConfirmDelete, hasErrors, parseAmount, shareRemainder, toExpenseRequest,
+  canConfirmDelete, emptyWalletForm, hasErrors, parseAmount, shareRemainder, toExpenseRequest,
   validateExpenseForm, parsePositiveAmount, toAdjustRequest,
   toAdminCreateRequest, toAdvanceRequest, toCreateRequest, toEntryRequest, toMoneyRequest,
   toTransferRequest, toTransferUpdateRequest, toUpdateRequest, validateAdjustForm,
@@ -319,5 +319,13 @@ describe("toExpenseRequest", () => {
       shares: [{ user_id: "carol", amount: 70 }, { user_id: "alice", amount: 30 }],
       entry_date: "2026-11-02", note: "",
     })
+  })
+})
+
+describe("emptyWalletForm", () => {
+  it("預設類型跟著列表分頁", () => {
+    expect(emptyWalletForm("travel").kind).toBe("travel")
+    expect(emptyWalletForm("general").kind).toBe("general")
+    expect(emptyWalletForm("travel").name).toBe("")
   })
 })

@@ -10,6 +10,9 @@ class WalletError(BaseError):
         zh="指定的管理者不存在或已停用", en="The chosen admin does not exist or is disabled"
     )
     MEMBER_NOT_FOUND = LangText(zh="成員不存在", en="Member Not Found")
+    FAVORITE_NOT_MEMBER = LangText(
+        zh="只有錢包成員可以設為最愛", en="Only wallet members can mark a wallet as favorite"
+    )
     LAST_ADMIN = LangText(
         zh="錢包至少要有一位管理者，請先把其他成員升為管理者",
         en="A wallet needs at least one admin. Promote another member first",

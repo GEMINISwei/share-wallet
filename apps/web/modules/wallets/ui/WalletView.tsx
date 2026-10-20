@@ -15,6 +15,7 @@ import Amount from "./Amount"
 import EntryList from "./EntryList"
 import LedgerDialogs, { type LedgerDialog } from "./LedgerDialogs"
 import TravelWalletView, { type TravelLedger } from "./TravelWalletView"
+import { useFavoriteAction } from "./useFavoriteAction"
 import WalletLinks from "./WalletLinks"
 import WalletShell from "./WalletShell"
 import styles from "./wallets.module.css"
@@ -62,19 +63,26 @@ function GeneralWalletView(
   const adjustIcon = <Scale size={ICON_SIZE.sm} />
   const openAdd = () => setDialog({ kind: "add" })
   const openAdjust = () => setDialog({ kind: "adjust" })
+  const favorite = useFavoriteAction(wallet, { success: notifySuccess, error: notifyError })
 
   return (
     <WalletShell
-      title={wallet.name} subtitle={t("kindGeneral")} backHref={walletsListPath(area)} backLabel={t("backToList")}
-      actions={ledger && (
+      title={wallet.name} subtitle={t("kindGeneral")} backHref={walletsListPath(area, wallet.kind)} backLabel={t("backToList")}
+      actions={(ledger || favorite) && (
         <>
-          <Button variant="outlined" icon={adjustIcon} onClick={openAdjust}>{t("adjustBalance")}</Button>
-          <Button icon={addIcon} onClick={openAdd}>{t("addEntry")}</Button>
+          {favorite && (
+            <Button variant="outlined" icon={favorite.icon} onClick={favorite.onClick}>
+              {favorite.label}
+            </Button>
+          )}
+          {ledger && <Button variant="outlined" icon={adjustIcon} onClick={openAdjust}>{t("adjustBalance")}</Button>}
+          {ledger && <Button icon={addIcon} onClick={openAdd}>{t("addEntry")}</Button>}
         </>
       )}
-      mobileActions={ledger ? [
-        { icon: addIcon, label: t("addEntry"), onClick: openAdd },
-        { icon: adjustIcon, label: t("adjustBalance"), onClick: openAdjust },
+      mobileActions={ledger || favorite ? [
+        ledger && { icon: addIcon, label: t("addEntry"), onClick: openAdd },
+        ledger && { icon: adjustIcon, label: t("adjustBalance"), onClick: openAdjust },
+        favorite,
       ] : undefined}
     >
       {wallet.balance !== null && (

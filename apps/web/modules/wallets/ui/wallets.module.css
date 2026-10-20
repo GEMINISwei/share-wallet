@@ -1,10 +1,10 @@
-/* 錢包模組的畫面。以手機為主: 卡片與列一律單欄, 桌機只是把同一欄放寬到 --container-content。 */
+/* 錢包模組的畫面。以手機為主: 卡片與列一律單欄, 桌機是同一欄放寬到整個內容區,
+ * 跟其他頁一樣用滿可用的寬度 (只限寬不置中時整欄會靠左)。 */
 
 .content {
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
-  max-width: var(--container-content);
 }
 
 .backLink {
@@ -86,6 +86,18 @@ a.row:hover {
   color: var(--color-text-heading);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.rowTitleLine {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.favoriteStar {
+  flex-shrink: 0;
+  color: var(--color-warning-fg);
 }
 
 .rowMeta {

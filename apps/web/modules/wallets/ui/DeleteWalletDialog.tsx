@@ -37,7 +37,7 @@ export default function DeleteWalletDialog({
     event.preventDefault()
     if (!canConfirmDelete(input, wallet.name)) return
     submit(() => deleteWallet(wallet.id), {
-      onSuccess: () => router.push(walletsListPath(area)),
+      onSuccess: () => router.push(walletsListPath(area, wallet.kind)),
       onError,
       errorFallback: t("deleteFailed"),
     })

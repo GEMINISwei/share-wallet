@@ -62,7 +62,7 @@ export default function MembersView({
         setRemoval(null)
         // 離開之後這個錢包就打不開了, 回到列表。
         if (leaving) {
-          router.push(walletsListPath(area))
+          router.push(walletsListPath(area, wallet.kind))
           return
         }
         notifySuccess(t("memberRemoved"))

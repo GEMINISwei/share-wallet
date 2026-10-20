@@ -10,7 +10,7 @@ import { walletsMessages } from "./i18n"
 import type {
   AdjustFormErrors, AdjustFormValues, EntryFormErrors, EntryFormValues, ExpenseFormErrors,
   ExpenseFormValues, RepayFormErrors, RepayFormValues, ShareRowValues, WalletFormErrors,
-  WalletFormValues,
+  WalletFormValues, WalletKind,
 } from "./types"
 
 type WalletCreateRequest = ApiRequestBody<"/wallets/", "post">
@@ -201,6 +201,11 @@ function travelFields(values: WalletFormValues) {
     start_date: values.start_date,
     end_date: values.end_date,
   }
+}
+
+/** 建立錢包的空白表單。類型預設跟著使用者正在看的列表分頁 (見 docs/features.md〈錢包列表〉)。 */
+export function emptyWalletForm(kind: WalletKind = "general"): WalletFormValues {
+  return { kind, name: "", initial_balance: "", destination: "", start_date: "", end_date: "" }
 }
 
 /** 已通過 `validateWalletForm` 的表單值 → 建立錢包的請求。 */

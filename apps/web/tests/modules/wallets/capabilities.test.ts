@@ -4,7 +4,7 @@ import {
   entryCategoryOptions, entryKindOptions, expenseActions, expenseChangedFields, groupCategories,
   initialExpenseValues, isLastAdmin, memberActions, owingTargets, settlementTransferActions,
   shareUserOptions, splitEqually, transferTargets, transfersForViewer, travelActions,
-  walletSections, walletStatusBadge,
+  walletListTab, walletSections, walletStatusBadge, walletsOfTab,
 } from "@/modules/wallets/capabilities"
 import type {
   CategoryInfo, EntryInfo, EntryLogInfo, EntrySnapshot, ExpenseInfo, ExpenseLogInfo,
@@ -15,7 +15,7 @@ function wallet(overrides: Partial<WalletInfo>): WalletInfo {
   return {
     id: "w-1", kind: "general", name: "家用", status: "active", balance: 0, destination: null,
     start_date: null, end_date: null, created_at: "2026-10-17T00:00:00Z",
-    my_role: "member", can_manage: false, ...overrides,
+    my_role: "member", can_manage: false, is_favorite: false, ...overrides,
   }
 }
 
@@ -568,5 +568,24 @@ describe("transfersForViewer", () => {
       transfer({ id: "4", payee: { user_id: "dave", nickname: "Dave" } }),
     ]
     expect(transfersForViewer(transfers, "dave").map((t) => t.id)).toEqual(["3", "4", "1", "2"])
+  })
+})
+
+describe("walletListTab", () => {
+  it("沒有或不認得的參數預設一般", () => {
+    expect(walletListTab(undefined)).toBe("general")
+    expect(walletListTab("other")).toBe("general")
+    expect(walletListTab("travel")).toBe("travel")
+  })
+})
+
+describe("walletsOfTab", () => {
+  it("只留該類型並保留順序", () => {
+    const list = [
+      wallet({ id: "t1", kind: "travel" }), wallet({ id: "g1" }),
+      wallet({ id: "t2", kind: "travel" }), wallet({ id: "g2" }),
+    ]
+    expect(walletsOfTab(list, "travel").map((item) => item.id)).toEqual(["t1", "t2"])
+    expect(walletsOfTab(list, "general").map((item) => item.id)).toEqual(["g1", "g2"])
   })
 })

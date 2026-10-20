@@ -2,12 +2,22 @@ import type {
   AdvanceTargetInfo, CategoryInfo, CategoryType, EntryFormValues, EntryInfo, EntryKind,
   EntryLogInfo, EntrySnapshot, ExpenseFormValues, ExpenseInfo, ExpenseLogInfo, ExpenseSnapshot,
   MemberInfo, SettlementTransferInfo, ShareRowValues, TransferKind, TransferTarget, WalletAdmin,
-  WalletInfo, WalletStatus,
+  WalletInfo, WalletKind, WalletStatus,
 } from "./types"
 
 // 畫面上的分支。真正的授權在後端 (`modules/wallets/access.py`), 這裡只決定顯示哪些操作,
 // 規則要與後端同一組: 管理者 (或超級管理者, 後端給的 `can_manage`) 才能管理,
 // 錢包至少要有一位管理者。
+
+/** 錢包列表的分頁。沒有或不認得的參數回到預設的一般分頁, 不報錯。 */
+export function walletListTab(param: string | undefined): WalletKind {
+  return param === "travel" ? "travel" : "general"
+}
+
+/** 分頁裡的錢包。排序 (最愛在前、已結帳最後) 由後端決定, 這裡只篩不排。 */
+export function walletsOfTab(wallets: readonly WalletInfo[], tab: WalletKind) {
+  return wallets.filter((wallet) => wallet.kind === tab)
+}
 
 /** 錢包頁上要列出哪些入口。分類只屬於一般錢包, 設定只給管理者。 */
 export function walletSections(wallet: WalletInfo) {

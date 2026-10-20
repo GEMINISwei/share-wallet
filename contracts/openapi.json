@@ -1284,6 +1284,19 @@
         "title": "ExpenseSnapshot",
         "type": "object"
       },
+      "FavoriteUpdate": {
+        "properties": {
+          "is_favorite": {
+            "title": "Is Favorite",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "is_favorite"
+        ],
+        "title": "FavoriteUpdate",
+        "type": "object"
+      },
       "GeneralWalletCreate": {
         "properties": {
           "initial_balance": {
@@ -2691,6 +2704,10 @@
             "title": "Id",
             "type": "string"
           },
+          "is_favorite": {
+            "title": "Is Favorite",
+            "type": "boolean"
+          },
           "kind": {
             "$ref": "#/components/schemas/WalletKind"
           },
@@ -2735,7 +2752,8 @@
           "end_date",
           "created_at",
           "my_role",
-          "can_manage"
+          "can_manage",
+          "is_favorite"
         ],
         "title": "WalletInfo",
         "type": "object"
@@ -2750,7 +2768,7 @@
         "type": "string"
       },
       "WalletList": {
-        "description": "自己加入的錢包, 依加入的先後, 已結帳的排在最後。\n\n`total_balance` 是其中所有一般錢包餘額的總和。",
+        "description": "自己加入的錢包: 最愛的在前, 其餘依加入的先後, 已結帳的一律排在最後。\n\n`total_balance` 是其中所有一般錢包餘額的總和。",
         "properties": {
           "count": {
             "title": "Count",
@@ -5521,6 +5539,59 @@
           }
         },
         "summary": "Get Expense Log List Route",
+        "tags": [
+          "wallets"
+        ]
+      }
+    },
+    "/api/wallets/{id}/favorite": {
+      "patch": {
+        "description": "把錢包設為自己的最愛, 或取消。只影響自己的列表排序。",
+        "operationId": "set_favorite_route_api_wallets__id__favorite_patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "title": "Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FavoriteUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalletOperate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Favorite Route",
         "tags": [
           "wallets"
         ]
