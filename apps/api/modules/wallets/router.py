@@ -111,7 +111,7 @@ async def delete_wallet_route(
     return await service.delete_wallet(id, current_user)
 
 
-@router.put("/{id}/favorite")
+@router.patch("/{id}/favorite")
 async def set_favorite_route(
     id: UuidText,
     form_data: FavoriteUpdate,

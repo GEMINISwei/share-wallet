@@ -112,7 +112,9 @@ async def get_wallet(id: str, current_user: CurrentUser) -> WalletInfo:
     return _to_info(access.wallet, access.role, access.can_manage, favorite)
 
 
-async def set_favorite(id: str, form_data: FavoriteUpdate, current_user: CurrentUser) -> WalletOperate:
+async def set_favorite(
+    id: str, form_data: FavoriteUpdate, current_user: CurrentUser
+) -> WalletOperate:
     """最愛記在自己的成員紀錄上, 所以沒加入的超級管理者不能設。已結帳的錢包也可以設。"""
     access = await open_wallet(id, current_user)
     if access.role is None:

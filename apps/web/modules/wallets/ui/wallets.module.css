@@ -88,6 +88,18 @@ a.row:hover {
   white-space: nowrap;
 }
 
+.rowTitleLine {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.favoriteStar {
+  flex-shrink: 0;
+  color: var(--color-warning-fg);
+}
+
 .rowMeta {
   font-size: var(--fs-xs);
   color: var(--color-text-muted);

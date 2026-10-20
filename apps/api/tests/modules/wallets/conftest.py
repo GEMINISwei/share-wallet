@@ -341,7 +341,11 @@ def _install_wallets(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -> None:
 
     async def find_joined(user_id):
         return [
-            {"wallet": store.wallets[wid], "role": role, "is_favorite": (wid, uid) in store.favorites}
+            {
+                "wallet": store.wallets[wid],
+                "role": role,
+                "is_favorite": (wid, uid) in store.favorites,
+            }
             for (wid, uid), role in store.members.items()
             if uid == user_id
         ]
@@ -380,6 +384,20 @@ async def _find_nicknames(user_ids):
     return {uid: by_id[uid] for uid in user_ids if uid in by_id}
 
 
+def _install_favorites(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -> None:
+    async def find_favorite(wallet_id, user_id):
+        return (wallet_id, user_id) in store.favorites
+
+    async def set_favorite(wallet_id, user_id, value):
+        if value:
+            store.favorites.add((wallet_id, user_id))
+        else:
+            store.favorites.discard((wallet_id, user_id))
+
+    monkeypatch.setattr(WalletMemberTable, "find_favorite", find_favorite)
+    monkeypatch.setattr(WalletMemberTable, "set_favorite", set_favorite)
+
+
 def _install_members(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -> None:
     async def create(data, session=None):
         store.members[(data["wallet_id"], data["user_id"])] = MemberRole(data["role"])
@@ -401,15 +419,6 @@ def _install_members(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -> None:
         store.members.pop((wallet_id, user_id), None)
         store.favorites.discard((wallet_id, user_id))
 
-    async def find_favorite(wallet_id, user_id):
-        return (wallet_id, user_id) in store.favorites
-
-    async def set_favorite(wallet_id, user_id, value):
-        if value:
-            store.favorites.add((wallet_id, user_id))
-        else:
-            store.favorites.discard((wallet_id, user_id))
-
     async def add_if_absent(wallet_id, user_id, role):
         store.members.setdefault((wallet_id, user_id), role)
 
@@ -421,8 +430,6 @@ def _install_members(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -> None:
         "set_role": set_role,
         "remove": remove,
         "add_if_absent": add_if_absent,
-        "find_favorite": find_favorite,
-        "set_favorite": set_favorite,
     }.items():
         monkeypatch.setattr(WalletMemberTable, name, fake)
     for service in (
@@ -788,6 +795,7 @@ def store(monkeypatch: pytest.MonkeyPatch) -> FakeStore:
     _install_wallets(monkeypatch, fake)
     _install_wallet_status(monkeypatch, fake)
     _install_members(monkeypatch, fake)
+    _install_favorites(monkeypatch, fake)
     _install_admin(monkeypatch, fake)
     _install_categories(monkeypatch, fake)
     _install_invites(monkeypatch, fake)

@@ -175,7 +175,7 @@ async def test_list_wallets_total_balance_sums_general_wallets_only(client: Asyn
 
 
 def _favorite(client: AsyncClient, wallet_id: str, value: bool = True):
-    return client.put(f"/api/wallets/{wallet_id}/favorite", json={"is_favorite": value})
+    return client.patch(f"/api/wallets/{wallet_id}/favorite", json={"is_favorite": value})
 
 
 @pytest.mark.asyncio

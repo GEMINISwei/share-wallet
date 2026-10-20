@@ -5545,9 +5545,9 @@
       }
     },
     "/api/wallets/{id}/favorite": {
-      "put": {
+      "patch": {
         "description": "把錢包設為自己的最愛, 或取消。只影響自己的列表排序。",
-        "operationId": "set_favorite_route_api_wallets__id__favorite_put",
+        "operationId": "set_favorite_route_api_wallets__id__favorite_patch",
         "parameters": [
           {
             "in": "path",

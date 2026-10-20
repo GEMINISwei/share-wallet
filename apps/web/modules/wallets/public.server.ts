@@ -1,6 +1,7 @@
 import "server-only"
 export { WALLETS_PATH } from "./manifest"
 export { default as WalletsPage, generateMetadata as generateWalletsMetadata } from "./page.server"
+export type { WalletsPageProps } from "./page.server"
 export {
   default as WalletPage, AdminWalletPage, generateMetadata as generateWalletMetadata,
 } from "./wallet-page.server"

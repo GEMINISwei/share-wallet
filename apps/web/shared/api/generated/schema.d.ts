@@ -742,16 +742,16 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /**
-         * Set Favorite Route
-         * @description 把錢包設為自己的最愛, 或取消。只影響自己的列表排序。
-         */
-        put: operations["set_favorite_route_api_wallets__id__favorite_put"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Set Favorite Route
+         * @description 把錢包設為自己的最愛, 或取消。只影響自己的列表排序。
+         */
+        patch: operations["set_favorite_route_api_wallets__id__favorite_patch"];
         trace?: never;
     };
     "/api/wallets/{id}/invite": {
@@ -3838,7 +3838,7 @@ export interface operations {
             };
         };
     };
-    set_favorite_route_api_wallets__id__favorite_put: {
+    set_favorite_route_api_wallets__id__favorite_patch: {
         parameters: {
             query?: never;
             header?: never;
