@@ -84,3 +84,19 @@
   align-items: center;
   flex-shrink: 0;
 }
+
+/* MenuSheet: 面板裡的項目是手指點的, 每一列給完整的觸控高度, 字也比下拉選單大一階。 */
+.sheetList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.sheetItem {
+  composes: item;
+  min-height: var(--control-height-lg);
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--fs-base);
+}
