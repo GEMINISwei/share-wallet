@@ -22,12 +22,26 @@
 
 .summary {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
   padding: var(--space-5);
   border-radius: var(--radius-lg);
   background: var(--color-primary-container);
   color: var(--color-on-primary-container);
+}
+
+.summaryMain {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+/* 摘要列的「記一筆」只在手機出現; 桌機的在標題列。 */
+.summaryAdd {
+  display: none;
+  flex-shrink: 0;
 }
 
 .summaryLabel {
@@ -430,4 +444,30 @@ a.row:hover {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+}
+
+/* 錢包頁的手機版只留摘要列、清償方案與帳目, 其他收進標題列的 ⋮ 選單
+ * (見 docs/features.md〈錢包頁的版面〉)。放在檔尾, 才蓋得過同權重的 display。 */
+@media (min-width: 721px) {
+  .mobileOnly {
+    display: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .desktopOnly {
+    display: none;
+  }
+
+  .summary {
+    padding: var(--space-4);
+  }
+
+  .summaryValue {
+    font-size: var(--fs-h2);
+  }
+
+  .summaryAdd {
+    display: flex;
+  }
 }

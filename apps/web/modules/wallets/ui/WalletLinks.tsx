@@ -12,7 +12,7 @@ import {
 import type { WalletInfo } from "../types"
 import styles from "./wallets.module.css"
 
-/** 錢包底下其他頁的入口。分類只屬於一般錢包, 設定只給管理者。 */
+/** 桌機錢包頁上其他頁的入口; 手機收進 ⋮ 選單。分類只屬於一般錢包, 設定只給管理者。 */
 export default function WalletLinks({ wallet, area }: { wallet: WalletInfo; area: WalletArea }) {
   const t = useT(walletsMessages)
   const sections = walletSections(wallet)
@@ -33,7 +33,7 @@ export default function WalletLinks({ wallet, area }: { wallet: WalletInfo; area
   ].filter((link) => link.show)
 
   return (
-    <ul className={styles.list}>
+    <ul className={`${styles.list} ${styles.desktopOnly}`}>
       {links.map((link) => (
         <li key={link.href}>
           <Link href={link.href} className={styles.row}>

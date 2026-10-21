@@ -1,8 +1,8 @@
 import type {
   AdvanceTargetInfo, CategoryInfo, CategoryType, EntryFormValues, EntryInfo, EntryKind,
   EntryLogInfo, EntrySnapshot, ExpenseFormValues, ExpenseInfo, ExpenseLogInfo, ExpenseSnapshot,
-  MemberInfo, SettlementTransferInfo, ShareRowValues, TransferKind, TransferTarget, WalletAdmin,
-  WalletInfo, WalletKind, WalletStatus,
+  MemberInfo, NetBalanceInfo, SettlementTransferInfo, ShareRowValues, TransferKind, TransferTarget,
+  WalletAdmin, WalletInfo, WalletKind, WalletStatus,
 } from "./types"
 
 // 畫面上的分支。真正的授權在後端 (`modules/wallets/access.py`), 這裡只決定顯示哪些操作,
@@ -27,6 +27,51 @@ export function walletSections(wallet: WalletInfo) {
     history: true,
     settings: wallet.can_manage,
   }
+}
+
+export type WalletMenuItem =
+  | "adjust" | "owing" | "startSettlement" | "cancelSettlement" | "netBalances"
+  | "members" | "categories" | "history" | "settings" | "favorite"
+
+/**
+ * 手機錢包頁 ⋮ 選單的項目, 依顯示順序 (見 docs/features.md〈錢包頁的版面〉)。
+ * `ready` 是帳目與成員都載入成功: 失敗時不能開始結算, 因為管理者看不到要結算的帳。
+ */
+export function walletMenuItems(wallet: WalletInfo, ready: boolean): WalletMenuItem[] {
+  const sections = walletSections(wallet)
+  const travel = travelActions(wallet)
+  const head: (WalletMenuItem | false)[] = wallet.kind === "general"
+    ? ["adjust", "owing"]
+    : [
+      ready && travel.startSettlement && "startSettlement",
+      travel.cancelSettlement && "cancelSettlement",
+      "netBalances",
+    ]
+  const items: (WalletMenuItem | false)[] = [
+    ...head,
+    sections.members && "members",
+    sections.categories && "categories",
+    sections.history && "history",
+    sections.settings && "settings",
+    // 最愛記在自己的成員紀錄上, 沒加入的超級管理者沒有。
+    wallet.my_role !== null && "favorite",
+  ]
+  return items.filter((item): item is WalletMenuItem => item !== false)
+}
+
+/** 摘要列的「記一筆」: 資料載入成功才能記; 旅遊錢包還要是進行中 (結算中帳目鎖住)。 */
+export function canAddEntry(wallet: WalletInfo, ready: boolean) {
+  return ready && (wallet.kind === "general" || travelActions(wallet).addEntry)
+}
+
+/** 旅遊錢包摘要列的「我的淨額」。沒加入 (超級管理者) 或淨額載入失敗時沒有。 */
+export function myNetBalance(
+  balances: readonly Pick<NetBalanceInfo, "user_id" | "net">[],
+  userId: string,
+  failed: boolean,
+): number | null {
+  if (failed) return null
+  return balances.find((balance) => balance.user_id === userId)?.net ?? null
 }
 
 function adminCount(members: readonly MemberInfo[]) {

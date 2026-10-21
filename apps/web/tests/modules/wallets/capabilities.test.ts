@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest"
 import {
-  adminsSummary, canInvite, canRepay, canTransfer, changedFields, entryActions,
+  adminsSummary, canAddEntry, canInvite, canRepay, canTransfer, changedFields, entryActions,
   entryCategoryOptions, entryKindOptions, expenseActions, expenseChangedFields, groupCategories,
-  initialExpenseValues, isLastAdmin, memberActions, owingTargets, settlementTransferActions,
-  shareUserOptions, splitEqually, transferTargets, transfersForViewer, travelActions,
-  walletListTab, walletSections, walletStatusBadge, walletsOfTab,
+  initialExpenseValues, isLastAdmin, memberActions, myNetBalance, owingTargets,
+  settlementTransferActions, shareUserOptions, splitEqually, transferTargets, transfersForViewer,
+  travelActions, walletListTab, walletMenuItems, walletSections, walletStatusBadge, walletsOfTab,
 } from "@/modules/wallets/capabilities"
 import type {
   CategoryInfo, EntryInfo, EntryLogInfo, EntrySnapshot, ExpenseInfo, ExpenseLogInfo,
@@ -587,5 +587,77 @@ describe("walletsOfTab", () => {
     ]
     expect(walletsOfTab(list, "travel").map((item) => item.id)).toEqual(["t1", "t2"])
     expect(walletsOfTab(list, "general").map((item) => item.id)).toEqual(["g1", "g2"])
+  })
+})
+
+describe("walletMenuItems", () => {
+  const trip = (overrides: Partial<WalletInfo>) => wallet({ kind: "travel", ...overrides })
+  const admin = { my_role: "admin", can_manage: true } as const
+
+  it("一般錢包依序是調整餘額、代墊未還、成員、分類、異動紀錄、設定、最愛", () => {
+    expect(walletMenuItems(wallet(admin), true)).toEqual([
+      "adjust", "owing", "members", "categories", "history", "settings", "favorite",
+    ])
+  })
+
+  it("成員看不到設定", () => {
+    expect(walletMenuItems(wallet({}), true)).not.toContain("settings")
+    expect(walletMenuItems(trip({}), true)).not.toContain("settings")
+  })
+
+  it("沒加入的超級管理者沒有最愛", () => {
+    expect(walletMenuItems(wallet({ my_role: null, can_manage: true }), true)).not.toContain("favorite")
+  })
+
+  it("旅遊錢包進行中，管理者依序是開始結算、每人淨額、成員、異動紀錄、設定、最愛", () => {
+    expect(walletMenuItems(trip(admin), true)).toEqual([
+      "startSettlement", "netBalances", "members", "history", "settings", "favorite",
+    ])
+    expect(walletMenuItems(trip({}), true)).not.toContain("startSettlement")
+  })
+
+  it("旅遊錢包資料載入失敗時不能開始結算", () => {
+    expect(walletMenuItems(trip(admin), false)).not.toContain("startSettlement")
+  })
+
+  it("旅遊錢包結算中，管理者可以取消結算；已結帳沒有結算項目", () => {
+    expect(walletMenuItems(trip({ ...admin, status: "settling" }), true)[0]).toBe("cancelSettlement")
+    expect(walletMenuItems(trip({ status: "settling" }), true)).not.toContain("cancelSettlement")
+    expect(walletMenuItems(trip({ ...admin, status: "settled" }), true)).toEqual([
+      "netBalances", "members", "history", "settings", "favorite",
+    ])
+  })
+})
+
+describe("canAddEntry", () => {
+  it("一般錢包資料載入成功才能記一筆", () => {
+    expect(canAddEntry(wallet({}), true)).toBe(true)
+    expect(canAddEntry(wallet({}), false)).toBe(false)
+  })
+
+  it("旅遊錢包只有進行中、資料載入成功才能記一筆", () => {
+    expect(canAddEntry(wallet({ kind: "travel" }), true)).toBe(true)
+    expect(canAddEntry(wallet({ kind: "travel" }), false)).toBe(false)
+    expect(canAddEntry(wallet({ kind: "travel", status: "settling" }), true)).toBe(false)
+    expect(canAddEntry(wallet({ kind: "travel", status: "settled" }), true)).toBe(false)
+  })
+})
+
+describe("myNetBalance", () => {
+  const balances = [
+    { user_id: "alice", nickname: "Alice", net: 300 },
+    { user_id: "bob", nickname: "Bob", net: -300 },
+  ]
+
+  it("取目前使用者的淨額", () => {
+    expect(myNetBalance(balances, "bob", false)).toBe(-300)
+  })
+
+  it("沒加入的超級管理者沒有淨額", () => {
+    expect(myNetBalance(balances, "root", false)).toBeNull()
+  })
+
+  it("淨額載入失敗時沒有淨額", () => {
+    expect(myNetBalance(balances, "alice", true)).toBeNull()
   })
 })

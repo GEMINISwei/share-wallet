@@ -5,21 +5,23 @@ import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { Button, ErrorState, ICON_SIZE, type MenuItem, Notify, useNotify } from "@/shared/ui"
 import { useT } from "@/shared/i18n/context"
-import { travelActions } from "../capabilities"
+import { canAddEntry, myNetBalance, travelActions } from "../capabilities"
 import { walletsMessages } from "../i18n"
 import { type WalletArea, walletsListPath } from "../paths"
 import type {
   ExpensePage, MemberInfo, NetBalanceInfo, SettlementTransferInfo, WalletInfo,
 } from "../types"
 import ExpenseList from "./ExpenseList"
-import NetBalanceList from "./NetBalanceList"
+import NetBalanceList, { NetBalancesDialog } from "./NetBalanceList"
 import SettlementConfirm, { type SettlementStep } from "./SettlementConfirm"
 import SettlementPanel from "./SettlementPanel"
 import TravelDialogs, { type TravelDialog } from "./TravelDialogs"
 import WalletLinks from "./WalletLinks"
 import WalletShell from "./WalletShell"
 import WalletStatusBadge from "./WalletStatusBadge"
+import WalletSummary from "./WalletSummary"
 import { useFavoriteAction } from "./useFavoriteAction"
+import { useWalletMenu } from "./useWalletMenu"
 import styles from "./wallets.module.css"
 
 /** 旅遊錢包頁的資料。 */
@@ -39,12 +41,12 @@ export type TravelLedger = {
 
 type TravelWalletViewProps = { wallet: WalletInfo; area: WalletArea; travel: TravelLedger }
 
+/** 桌機標題列的按鈕: 進行中記帳、管理者開始結算; 結算中管理者可以取消。手機改用 ⋮ 選單。 */
 function useHeaderActions(wallet: WalletInfo, ready: boolean, open: {
   add: () => void; settlement: (step: SettlementStep) => void
-}, favorite: ReturnType<typeof useFavoriteAction>) {
+}, favorite: MenuItem | null) {
   const t = useT(walletsMessages)
   const can = travelActions(wallet)
-  // 記帳與結算的入口只放標題列 (手機收進 ⋮ 選單), 理由同一般錢包。
   const items = ([
     ready && can.addEntry && { icon: <Plus size={ICON_SIZE.sm} />, label: t("addEntry"), onClick: open.add },
     ready && can.startSettlement && {
@@ -66,25 +68,35 @@ function useHeaderActions(wallet: WalletInfo, ready: boolean, open: {
       {item.label}
     </Button>
   ))
-  return {
-    actions: buttons.length > 0 && <>{buttons}</>,
-    mobileActions: items.length > 0 ? items : undefined,
-  }
+  return buttons.length > 0 && <>{buttons}</>
 }
 
-/** 旅遊錢包頁: 結算狀態與清償方案、每人淨額、帳目列表, 以及成員、異動紀錄、設定的入口。 */
+/**
+ * 旅遊錢包頁: 結算狀態與清償方案、每人淨額、帳目列表, 以及成員、異動紀錄、設定的入口。
+ * 手機只留摘要列 (我的淨額)、清償方案與帳目, 其他收進 ⋮ 選單 (見 docs/features.md〈錢包頁的版面〉)。
+ */
 export default function TravelWalletView({ wallet, area, travel }: TravelWalletViewProps) {
   const t = useT(walletsMessages)
   const router = useRouter()
   const [dialog, setDialog] = useState<TravelDialog>(null)
   const [settlementStep, setSettlementStep] = useState<SettlementStep>(null)
+  const [balancesOpen, setBalancesOpen] = useState(false)
   const { notify, notifyError, notifySuccess, closeNotify } = useNotify()
   const dates = t("dateRange", { start: wallet.start_date ?? "", end: wallet.end_date ?? "" })
   const ready = !travel.errorMessage
   const favorite = useFavoriteAction(wallet, { success: notifySuccess, error: notifyError })
-  const header = useHeaderActions(wallet, ready, {
-    add: () => setDialog({ kind: "add" }), settlement: setSettlementStep,
-  }, favorite)
+  const openAdd = () => setDialog({ kind: "add" })
+  const actions = useHeaderActions(
+    wallet, ready, { add: openAdd, settlement: setSettlementStep }, favorite,
+  )
+  const menu = useWalletMenu(wallet, area, {
+    ready, favorite,
+    handlers: {
+      startSettlement: () => setSettlementStep("start"),
+      cancelSettlement: () => setSettlementStep("cancel"),
+      netBalances: () => setBalancesOpen(true),
+    },
+  })
 
   function handleSaved(message: string) {
     setDialog(null)
@@ -97,8 +109,13 @@ export default function TravelWalletView({ wallet, area, travel }: TravelWalletV
     <WalletShell
       title={wallet.name} subtitle={`${wallet.destination} · ${dates}`}
       backHref={walletsListPath(area, wallet.kind)} backLabel={t("backToList")}
-      actions={header.actions} mobileActions={header.mobileActions}
+      actions={actions} mobileActions={menu}
     >
+      <WalletSummary
+        mobileOnly label={t("myNetBalance")}
+        value={myNetBalance(travel.balances, travel.currentUserId, travel.balancesFailed)}
+        onAdd={canAddEntry(wallet, ready) ? openAdd : undefined}
+      />
       {wallet.status !== "active" && (
         <>
           <p className={`${styles.hint} ${styles.statusLine}`}>
@@ -130,6 +147,10 @@ export default function TravelWalletView({ wallet, area, travel }: TravelWalletV
           dialog={dialog} onChange={setDialog} onSaved={handleSaved} onError={notifyError}
         />
       )}
+      <NetBalancesDialog
+        balances={travel.balances} failed={travel.balancesFailed}
+        open={balancesOpen} onClose={() => setBalancesOpen(false)}
+      />
       <SettlementConfirm
         walletId={wallet.id} step={settlementStep} onClose={() => setSettlementStep(null)}
         onDone={handleSaved} onError={notifyError}
