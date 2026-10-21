@@ -124,6 +124,17 @@ async def test_start_settlement_with_all_zero_settles_immediately(client, store,
 
 
 @pytest.mark.asyncio
+async def test_start_settlement_without_expenses_returns_409(client, store, wallet):
+    authenticate(client, "alice")
+
+    response = await client.post(f"/api/wallets/{wallet}/settlement")
+
+    assert response.status_code == 409
+    assert store.status(wallet) is WalletStatus.ACTIVE
+    assert store.transfers_of(wallet) == []
+
+
+@pytest.mark.asyncio
 async def test_start_settlement_as_member_returns_403(client, store, wallet):
     authenticate(client, "bob")
 

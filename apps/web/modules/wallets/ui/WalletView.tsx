@@ -5,19 +5,21 @@ import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { Button, ErrorState, ICON_SIZE, Notify, useNotify } from "@/shared/ui"
 import { useT } from "@/shared/i18n/context"
-import { owingTargets } from "../capabilities"
+import { canAddEntry, owingTargets } from "../capabilities"
 import { walletsMessages } from "../i18n"
 import { type WalletArea, walletsListPath } from "../paths"
 import type {
   AdvanceTargetInfo, CategoryInfo, EntryPage, TransferTarget, WalletInfo,
 } from "../types"
-import Amount from "./Amount"
 import EntryList from "./EntryList"
 import LedgerDialogs, { type LedgerDialog } from "./LedgerDialogs"
+import OwingList, { OwingDialog } from "./OwingList"
 import TravelWalletView, { type TravelLedger } from "./TravelWalletView"
 import { useFavoriteAction } from "./useFavoriteAction"
 import WalletLinks from "./WalletLinks"
 import WalletShell from "./WalletShell"
+import WalletSummary from "./WalletSummary"
+import { useWalletMenu } from "./useWalletMenu"
 import styles from "./wallets.module.css"
 
 /** 一般錢包才有的帳目資料; 旅遊錢包是 null。 */
@@ -44,12 +46,23 @@ export default function WalletView({ wallet, area, ledger, travel }: WalletViewP
   return <GeneralWalletView wallet={wallet} area={area} ledger={ledger} />
 }
 
+/** 選單與記一筆要知道的頁面狀態。一般錢包沒有結算, 用不到有沒有帳目。 */
+function ledgerState(ledger: WalletLedger | null) {
+  if (!ledger) return { ready: false, hasOwing: false, hasExpenses: false }
+  return {
+    ready: !ledger.errorMessage,
+    hasOwing: owingTargets(ledger.advanceTargets).length > 0,
+    hasExpenses: false,
+  }
+}
+
 function GeneralWalletView(
   { wallet, area, ledger }: { wallet: WalletInfo; area: WalletArea; ledger: WalletLedger | null },
 ) {
   const t = useT(walletsMessages)
   const router = useRouter()
   const [dialog, setDialog] = useState<LedgerDialog>(null)
+  const [owingOpen, setOwingOpen] = useState(false)
   const { notify, notifyError, notifySuccess, closeNotify } = useNotify()
 
   function handleSaved(message: string) {
@@ -58,12 +71,17 @@ function GeneralWalletView(
     router.refresh()
   }
 
-  // 記帳的入口只放標題列 (手機收進 ⋮ 選單), 空的列表也不再放一顆。
+  // 記一筆在桌機放標題列、手機放摘要列; 空的列表也不再放一顆。
   const addIcon = <Plus size={ICON_SIZE.sm} />
   const adjustIcon = <Scale size={ICON_SIZE.sm} />
   const openAdd = () => setDialog({ kind: "add" })
   const openAdjust = () => setDialog({ kind: "adjust" })
   const favorite = useFavoriteAction(wallet, { success: notifySuccess, error: notifyError })
+  const state = ledgerState(ledger)
+  const menu = useWalletMenu(wallet, area, {
+    state, favorite,
+    handlers: ledger ? { adjust: openAdjust, owing: () => setOwingOpen(true) } : {},
+  })
 
   return (
     <WalletShell
@@ -79,17 +97,13 @@ function GeneralWalletView(
           {ledger && <Button icon={addIcon} onClick={openAdd}>{t("addEntry")}</Button>}
         </>
       )}
-      mobileActions={ledger || favorite ? [
-        ledger && { icon: addIcon, label: t("addEntry"), onClick: openAdd },
-        ledger && { icon: adjustIcon, label: t("adjustBalance"), onClick: openAdjust },
-        favorite,
-      ] : undefined}
+      mobileActions={menu}
     >
       {wallet.balance !== null && (
-        <section className={styles.summary}>
-          <span className={styles.summaryLabel}>{t("balance")}</span>
-          <Amount value={wallet.balance} className={styles.summaryValue} />
-        </section>
+        <WalletSummary
+          label={t("balance")} value={wallet.balance}
+          onAdd={canAddEntry(wallet, state.ready) ? openAdd : undefined}
+        />
       )}
       {ledger && <OwingList targets={ledger.advanceTargets} />}
       {ledger && (
@@ -107,34 +121,19 @@ function GeneralWalletView(
       )}
       <WalletLinks wallet={wallet} area={area} />
       {ledger && (
-        <LedgerDialogs
-          wallet={wallet} categories={ledger.categories} transferTargets={ledger.transferTargets}
-          targetNames={ledger.advanceTargets.map((target) => target.name)}
-          currentUserId={ledger.currentUserId}
-          dialog={dialog} onChange={setDialog} onSaved={handleSaved} onError={notifyError}
-        />
+        <>
+          <LedgerDialogs
+            wallet={wallet} categories={ledger.categories} transferTargets={ledger.transferTargets}
+            targetNames={ledger.advanceTargets.map((target) => target.name)}
+            currentUserId={ledger.currentUserId}
+            dialog={dialog} onChange={setDialog} onSaved={handleSaved} onError={notifyError}
+          />
+          <OwingDialog
+            targets={ledger.advanceTargets} open={owingOpen} onClose={() => setOwingOpen(false)}
+          />
+        </>
       )}
       <Notify {...notify} onOpenChange={(open) => { if (!open) closeNotify() }} />
     </WalletShell>
-  )
-}
-
-/** 代墊未還的清單, 只是顯示: 還款一律從代墊的詳情操作 (見 docs/features.md〈代墊與還款〉)。 */
-function OwingList({ targets }: { targets: AdvanceTargetInfo[] }) {
-  const t = useT(walletsMessages)
-  const owing = owingTargets(targets)
-  if (owing.length === 0) return null
-  return (
-    <section>
-      <h2 className={styles.sectionTitle}>{t("owingList")}</h2>
-      <ul className={`${styles.fieldList} ${styles.owingList}`}>
-        {owing.map((target) => (
-          <li key={target.name} className={styles.fieldRow}>
-            <span>{target.name}</span>
-            <Amount value={target.outstanding} />
-          </li>
-        ))}
-      </ul>
-    </section>
   )
 }
