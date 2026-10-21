@@ -16,6 +16,8 @@
   --color-surface-sunken: #0B0D11;
   --color-surface-input: #171A21;
   --color-surface-hover: #232833;
+  /* 疊在底色上的背景圖 (例如漸層); 底色仍要給, 圖還沒畫出來與 PWA 的啟動畫面看的是底色。 */
+  --bg-app-image: none;
 
   /* ---- 文字 ---- */
   --color-text-display: #F9FAFB;
@@ -67,6 +69,8 @@
   /* 系統字型, 不載入網路字型 (build 不必連網, 使用者也不必下載)。導入 DS 時在這裡換掉。 */
   --font-serif: "Songti TC", "STSong", "Noto Serif CJK TC", serif;
   --font-sans: "PingFang TC", "Microsoft JhengHei", "Noto Sans CJK TC", system-ui, sans-serif;
+  /* 標題用的字型; 元件只認這一個, 換成無襯線時不必把 --font-serif 改成名不副實的值。 */
+  --font-heading: var(--font-serif);
   --fs-h1: 1.875rem;
   --fs-h2: 1.4375rem;
   --fs-h3: 1.125rem;

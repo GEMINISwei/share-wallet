@@ -13,12 +13,14 @@ html, body {
   line-height: var(--lh-normal);
   color: var(--color-text-body);
   background-color: var(--color-bg-app);
+  background-image: var(--bg-app-image);
+  background-attachment: fixed;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 
 h1, h2, h3, h4 {
-  font-family: var(--font-serif);
+  font-family: var(--font-heading);
   color: var(--color-text-heading);
   font-weight: var(--fw-medium);
   letter-spacing: var(--ls-heading);

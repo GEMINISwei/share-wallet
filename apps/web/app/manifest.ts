@@ -21,7 +21,7 @@ export default function manifest(): MetadataRoute.Manifest {
     // 必須等於 `--color-bg-app` (`app/theme.css` 有覆寫就看那裡, 否則看 `shared/ui/styles/tokens.css`)。
     // manifest 是 JSON, 吃不到 `var()` —— 這是整個原始碼裡唯一一個 token 系統
     // 管不到的顏色, 換主題時漏改只有裝了 PWA 的人在啟動畫面看得到。
-    theme_color: "#0F1115",
+    theme_color: "#F3F1F6",
     icons: [
       { src: "/app-icon-192.png", sizes: "192x192", type: "image/png" },
       { src: "/app-icon-512.png", sizes: "512x512", type: "image/png" },
