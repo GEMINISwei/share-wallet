@@ -5,12 +5,13 @@ import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { Button, ErrorState, ICON_SIZE, Notify, useNotify } from "@/shared/ui"
 import { useT } from "@/shared/i18n/context"
-import { canAddEntry, owingTargets } from "../capabilities"
+import { addEntryBlock, canAddEntry, owingTargets } from "../capabilities"
 import { walletsMessages } from "../i18n"
 import { type WalletArea, walletsListPath } from "../paths"
 import type {
   AdvanceTargetInfo, CategoryInfo, EntryPage, TransferTarget, WalletInfo,
 } from "../types"
+import { useAddEntryFromUrl, useWalletAddEntry } from "./AddEntryNav"
 import EntryList from "./EntryList"
 import LedgerDialogs, { type LedgerDialog } from "./LedgerDialogs"
 import OwingList, { OwingDialog } from "./OwingList"
@@ -61,9 +62,11 @@ function GeneralWalletView(
 ) {
   const t = useT(walletsMessages)
   const router = useRouter()
+  const state = ledgerState(ledger)
+  const block = addEntryBlock(wallet, state.ready)
   const [dialog, setDialog] = useState<LedgerDialog>(null)
   const [owingOpen, setOwingOpen] = useState(false)
-  const { notify, notifyError, notifySuccess, closeNotify } = useNotify()
+  const { notify, notifyError, notifySuccess, notifyInfo, closeNotify } = useNotify()
 
   function handleSaved(message: string) {
     setDialog(null)
@@ -71,13 +74,14 @@ function GeneralWalletView(
     router.refresh()
   }
 
-  // 記一筆在桌機放標題列、手機放摘要列; 空的列表也不再放一顆。
+  // 記一筆在桌機放標題列; 手機的使用者區在底部導覽的「＋」, 後台沒有「＋」所以放摘要列。
   const addIcon = <Plus size={ICON_SIZE.sm} />
   const adjustIcon = <Scale size={ICON_SIZE.sm} />
   const openAdd = () => setDialog({ kind: "add" })
   const openAdjust = () => setDialog({ kind: "adjust" })
   const favorite = useFavoriteAction(wallet, { success: notifySuccess, error: notifyError })
-  const state = ledgerState(ledger)
+  useWalletAddEntry(block, openAdd, notifyInfo)
+  useAddEntryFromUrl(openAdd, block === null)
   const menu = useWalletMenu(wallet, area, {
     state, favorite,
     handlers: ledger ? { adjust: openAdjust, owing: () => setOwingOpen(true) } : {},
@@ -102,7 +106,7 @@ function GeneralWalletView(
       {wallet.balance !== null && (
         <WalletSummary
           label={t("balance")} value={wallet.balance}
-          onAdd={canAddEntry(wallet, state.ready) ? openAdd : undefined}
+          onAdd={area === "admin" && canAddEntry(wallet, state.ready) ? openAdd : undefined}
         />
       )}
       {ledger && <OwingList targets={ledger.advanceTargets} />}

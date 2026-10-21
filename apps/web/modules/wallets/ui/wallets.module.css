@@ -471,3 +471,72 @@ a.row:hover {
     display: flex;
   }
 }
+
+/* ---- 底部導覽中間的「＋」(記一筆) ---- */
+/* 跟旁邊的導覽項目一樣高 (stretch), 圓鈕在裡面垂直置中。 */
+.navAdd {
+  display: flex;
+  align-self: stretch;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+/* 實心深色圓鈕: 最常用的操作要一眼找得到。 */
+.navAddCircle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-height-md);
+  height: var(--control-height-md);
+  border-radius: var(--radius-round);
+  background: var(--color-action-primary);
+  color: var(--color-text-on-primary);
+  box-shadow: var(--shadow-md);
+  transition: transform var(--dur-fast) var(--ease-standard);
+}
+
+.navAdd:active .navAddCircle {
+  transform: scale(0.94);
+}
+
+/* 不能記帳時變灰但照樣可以點: 點了由頁面說明原因, 不讓人以為按鈕壞了。 */
+.navAddBlocked .navAddCircle {
+  opacity: var(--opacity-disabled);
+  box-shadow: none;
+}
+
+/* ---- 選錢包面板 ---- */
+.picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.pickerItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: var(--control-height-lg);
+  padding: var(--space-3) var(--space-4);
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pickerItem:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+}
+
+.pickerItem:disabled {
+  cursor: default;
+  opacity: var(--opacity-disabled);
+}

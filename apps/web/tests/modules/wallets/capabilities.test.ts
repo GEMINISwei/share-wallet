@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
-  adminsSummary, canAddEntry, canInvite, canRepay, canStartSettlement, canTransfer, changedFields,
+  addEntryBlock, addEntryPickerGroups, adminsSummary, canAddEntry, canInvite, canRepay,
+  canStartSettlement, canTransfer, changedFields,
   entryActions, entryCategoryOptions, entryKindOptions, expenseActions, expenseChangedFields,
   groupCategories, initialExpenseValues, isLastAdmin, memberActions, myNetBalance, owingTargets,
   settlementTransferActions, shareUserOptions, splitEqually, transferTargets, transfersForViewer,
@@ -683,5 +684,47 @@ describe("myNetBalance", () => {
 
   it("淨額載入失敗時沒有淨額", () => {
     expect(myNetBalance(balances, "alice", true)).toBeNull()
+  })
+})
+
+describe("addEntryBlock", () => {
+  it("可以記帳時沒有阻擋原因", () => {
+    expect(addEntryBlock(wallet({}), true)).toBeNull()
+    expect(addEntryBlock(wallet({ kind: "travel" }), true)).toBeNull()
+  })
+
+  it("旅遊錢包結算中、已結帳時各自說明原因", () => {
+    expect(addEntryBlock(wallet({ kind: "travel", status: "settling" }), true)).toBe("settling")
+    expect(addEntryBlock(wallet({ kind: "travel", status: "settled" }), true)).toBe("settled")
+  })
+
+  it("資料沒載入時說明原因, 但錢包狀態的原因優先", () => {
+    expect(addEntryBlock(wallet({}), false)).toBe("loadFailed")
+    expect(addEntryBlock(wallet({ kind: "travel", status: "settling" }), false)).toBe("settling")
+  })
+})
+
+describe("addEntryPickerGroups", () => {
+  it("分成一般與旅遊兩組, 保留列表的順序", () => {
+    const list = [
+      wallet({ id: "t1", kind: "travel" }), wallet({ id: "g1" }),
+      wallet({ id: "t2", kind: "travel" }), wallet({ id: "g2" }),
+    ]
+    const groups = addEntryPickerGroups(list)
+    expect(groups.general.map((item) => item.wallet.id)).toEqual(["g1", "g2"])
+    expect(groups.travel.map((item) => item.wallet.id)).toEqual(["t1", "t2"])
+  })
+
+  it("已結帳的旅遊錢包不列出", () => {
+    const groups = addEntryPickerGroups([wallet({ id: "t1", kind: "travel", status: "settled" })])
+    expect(groups.travel).toEqual([])
+  })
+
+  it("結算中的旅遊錢包列出, 但標上不能記帳的原因", () => {
+    const groups = addEntryPickerGroups([
+      wallet({ id: "t1", kind: "travel", status: "settling" }), wallet({ id: "g1" }),
+    ])
+    expect(groups.travel.map((item) => item.block)).toEqual(["settling"])
+    expect(groups.general.map((item) => item.block)).toEqual([null])
   })
 })

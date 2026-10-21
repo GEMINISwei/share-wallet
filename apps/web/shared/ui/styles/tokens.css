@@ -122,6 +122,8 @@
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --dur-fast: 120ms;
   --dur-base: 180ms;
+  /* 走的距離長的動畫 (例如從底部滑出的面板): 太快會像閃一下, 看不出是從哪裡來的。 */
+  --dur-slow: 280ms;
 
   /* ---- 控制項、不透明度、圖示 ---- */
   --control-height-sm: 36px;
