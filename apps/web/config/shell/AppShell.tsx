@@ -4,7 +4,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useTransition } from "react"
 import { ChevronsUpDown, House, LayoutDashboard, LogOut, Settings, type LucideIcon } from "lucide-react"
-import { ICON_SIZE, Menu, type MenuItem } from "@/shared/ui"
+import { ICON_SIZE, Menu, MenuSheet, type MenuItem } from "@/shared/ui"
 import { useLocale, useT } from "@/shared/i18n/context"
 import { usePublicConfig } from "@/shared/runtime/context"
 import { appMessages } from "@/config/i18n"
@@ -151,10 +151,9 @@ export default function AppShell({
 
       <nav className={styles.bottomNavigation} aria-label={t("mobileNav")}>
         {renderNav("bottom")}
-        {/* 手機沒有側欄: 切換區域與登出都在這一格的選單裡。 */}
-        <Menu
-          placement="above"
-          fullWidth
+        {/* 手機沒有側欄: 切換區域與登出都在這一格, 開成底部面板讓每一項都好點。 */}
+        <MenuSheet
+          title={nickname || t("account")}
           triggerLabel={t("accountMenu")}
           triggerClassName={styles.bottomNavItem}
           items={accountItems}

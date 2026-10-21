@@ -7,6 +7,7 @@ import ActionMenu from "@/shared/ui/patterns/ActionMenu"
 import FilterDialog, { useStatusFilterOptions } from "@/shared/ui/patterns/FilterDialog"
 import ListTableCard from "@/shared/ui/patterns/ListTableCard"
 import Menu from "@/shared/ui/patterns/Menu"
+import MenuSheet from "@/shared/ui/patterns/MenuSheet"
 import PageHeader from "@/shared/ui/patterns/PageHeader"
 import StatusBadge from "@/shared/ui/patterns/StatusBadge"
 import TableRow from "@/shared/ui/patterns/TableRow"
@@ -64,6 +65,45 @@ describe("shared list patterns", () => {
     const menu = screen.getByRole("menu")
     expect(menu.style.bottom).toBe(`${window.innerHeight - 700 + 4}px`)
     expect(menu.style.top).toBe("")
+  })
+
+  it("MenuSheet 點觸發按鈕打開以標題命名的對話框並列出項目", async () => {
+    render(
+      <MenuSheet
+        title="王小明"
+        trigger={<span>王</span>}
+        triggerLabel="帳號選單"
+        items={[null, { label: "設定", onClick: vi.fn() }, { label: "登出", onClick: vi.fn() }]}
+      />,
+    )
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole("button", { name: "帳號選單" }))
+
+    expect(screen.getByRole("dialog", { name: "王小明" })).toBeInTheDocument()
+    expect(screen.getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["設定", "登出"])
+  })
+
+  it("MenuSheet 選完項目就關閉並執行動作", async () => {
+    const action = vi.fn()
+    render(<MenuSheet title="王小明" trigger="王" triggerLabel="帳號選單" items={[{ label: "登出", onClick: action }]} />)
+
+    await userEvent.click(screen.getByRole("button", { name: "帳號選單" }))
+    await userEvent.click(screen.getByRole("menuitem", { name: "登出" }))
+
+    expect(action).toHaveBeenCalledOnce()
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+  })
+
+  it("MenuSheet 按關閉不執行任何動作", async () => {
+    const action = vi.fn()
+    render(<MenuSheet title="王小明" trigger="王" triggerLabel="帳號選單" items={[{ label: "登出", onClick: action }]} />)
+
+    await userEvent.click(screen.getByRole("button", { name: "帳號選單" }))
+    await userEvent.click(screen.getByRole("button", { name: "關閉" }))
+
+    expect(action).not.toHaveBeenCalled()
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
   })
 
   it("FilterDialog 正規化輸入並導向篩選網址", async () => {
