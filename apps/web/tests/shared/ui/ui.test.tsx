@@ -136,6 +136,18 @@ describe("Modal", () => {
     const dialog = screen.getByRole("dialog")
     expect(dialog.contains(document.activeElement)).toBe(true)
   })
+
+  it("Modal 掛在 body 底下，遮罩不會被外層的 filter 或 transform 限制在外層範圍", () => {
+    render(
+      <nav data-testid="outer">
+        <Modal title="測試" open onOpenChange={() => {}}>內容</Modal>
+      </nav>,
+    )
+
+    const overlay = screen.getByRole("dialog").parentElement!
+    expect(overlay.parentElement).toBe(document.body)
+    expect(screen.getByTestId("outer")).not.toContainElement(overlay)
+  })
 })
 
 describe("Form", () => {

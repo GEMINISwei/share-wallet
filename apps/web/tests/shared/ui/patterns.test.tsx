@@ -106,6 +106,17 @@ describe("shared list patterns", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
   })
 
+  it("MenuSheet 點面板外的遮罩就關閉，不執行任何動作", async () => {
+    const action = vi.fn()
+    render(<MenuSheet title="王小明" trigger="王" triggerLabel="帳號選單" items={[{ label: "登出", onClick: action }]} />)
+
+    await userEvent.click(screen.getByRole("button", { name: "帳號選單" }))
+    await userEvent.click(screen.getByRole("dialog").parentElement!)
+
+    expect(action).not.toHaveBeenCalled()
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+  })
+
   it("FilterDialog 正規化輸入並導向篩選網址", async () => {
     const onClose = vi.fn()
     // 狀態選項現在是 hook (label 跟著語系走), 所以在元件裡取用。
