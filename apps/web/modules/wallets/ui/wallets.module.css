@@ -473,9 +473,11 @@ a.row:hover {
 }
 
 /* ---- 底部導覽中間的「＋」(記一筆) ---- */
+/* 跟旁邊的導覽項目一樣高 (stretch), 圓鈕在裡面垂直置中。 */
 .navAdd {
   display: flex;
-  align-items: flex-start;
+  align-self: stretch;
+  align-items: center;
   justify-content: center;
   min-width: 0;
   padding: 0;
@@ -484,14 +486,13 @@ a.row:hover {
   cursor: pointer;
 }
 
-/* 往上凸出導覽列: 最常用的操作要一眼找得到, 也離拇指最近。 */
+/* 實心深色圓鈕: 最常用的操作要一眼找得到。 */
 .navAddCircle {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: var(--control-height-lg);
-  height: var(--control-height-lg);
-  margin-top: calc(var(--space-4) * -1);
+  width: var(--control-height-md);
+  height: var(--control-height-md);
   border-radius: var(--radius-round);
   background: var(--color-action-primary);
   color: var(--color-text-on-primary);

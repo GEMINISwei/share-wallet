@@ -2,7 +2,7 @@
 
 import { Plus } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { createContext, useContext, useEffect, useRef, useState } from "react"
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react"
 import { ErrorState, ICON_SIZE, Loading, Modal } from "@/shared/ui"
 import { getApiResponseErrorMessage } from "@/shared/api/error"
 import { useT } from "@/shared/i18n/context"
@@ -87,14 +87,11 @@ export function AddEntryNavButton() {
   const t = useT(walletsMessages)
   const registration = useContext(RegistrationContext)
   const [picking, setPicking] = useState(false)
-  const [picker, setPicker] = useState<PickerState>({ status: "loading" })
+  const picker = usePickerWallets()
 
   function openPicker() {
     setPicking(true)
-    setPicker({ status: "loading" })
-    void loadMyWallets().then((res) => setPicker(res.status === "success"
-      ? { status: "ready", groups: addEntryPickerGroups(res.data.list_data) }
-      : { status: "failed", message: getApiResponseErrorMessage(res, t("pickWalletFailed")) }))
+    picker.refresh()
   }
 
   const blocked = registration?.blocked ?? false
@@ -110,10 +107,30 @@ export function AddEntryNavButton() {
         <span className={styles.navAddCircle}><Plus size={ICON_SIZE.lg} /></span>
       </button>
       <Modal title={t("pickWallet")} open={picking} onOpenChange={setPicking}>
-        <PickerBody state={picker} onPicked={() => setPicking(false)} />
+        <PickerBody state={picker.state} onPicked={() => setPicking(false)} />
       </Modal>
     </>
   )
+}
+
+/**
+ * 選錢包面板的資料。外殼掛上時就先取一次: 點了才取的話面板會先出現載入中再換成列表,
+ * 有一段停頓, 高度也會跟著縮。打開時再背景更新, 期間沿用手上的列表, 不退回載入中。
+ */
+function usePickerWallets() {
+  const t = useT(walletsMessages)
+  const [state, setState] = useState<PickerState>({ status: "loading" })
+  const refresh = useCallback(() => {
+    void loadMyWallets().then((res) => setState((current) => {
+      if (res.status === "success") {
+        return { status: "ready", groups: addEntryPickerGroups(res.data.list_data) }
+      }
+      if (current.status === "ready") return current
+      return { status: "failed", message: getApiResponseErrorMessage(res, t("pickWalletFailed")) }
+    }))
+  }, [t])
+  useEffect(() => { refresh() }, [refresh])
+  return { state, refresh }
 }
 
 function PickerBody({ state, onPicked }: { state: PickerState; onPicked: () => void }) {

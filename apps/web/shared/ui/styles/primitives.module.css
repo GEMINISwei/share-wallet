@@ -253,6 +253,7 @@
   padding: var(--space-6);
   background: var(--color-scrim);
   backdrop-filter: blur(3px);
+  animation: overlayIn var(--dur-base) var(--ease-standard);
 }
 
 .modal {
@@ -263,6 +264,20 @@
   border-radius: var(--radius-xl);
   background: var(--color-surface-card);
   box-shadow: var(--shadow-lg);
+  /* 沒有進場動畫時對話框是瞬間跳出來, 看起來像卡了一下才出現。 */
+  animation: modalIn var(--dur-base) var(--ease-out);
+}
+
+@keyframes overlayIn {
+  from { opacity: 0; }
+}
+
+@keyframes modalIn {
+  from { opacity: 0; transform: translateY(var(--space-2)) scale(0.98); }
+}
+
+@keyframes sheetIn {
+  from { transform: translateY(100%); }
 }
 
 .modalHeader {
@@ -527,6 +542,8 @@
     border-left: 0;
     border-radius: var(--radius-xl) var(--radius-xl) 0 0;
     padding-bottom: env(safe-area-inset-bottom);
+    /* 手機是底部面板: 從下方滑上來, 讓人看得出它跟點的位置 (底部導覽、按鈕) 是同一件事。 */
+    animation: sheetIn var(--dur-slow) var(--ease-out);
   }
 
   .modalHeader {
@@ -571,5 +588,12 @@
   .container {
     padding-left: var(--space-5);
     padding-right: var(--space-5);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay,
+  .modal {
+    animation: none;
   }
 }
