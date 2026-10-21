@@ -5,12 +5,15 @@ import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { Button, ErrorState, ICON_SIZE, type MenuItem, Notify, useNotify } from "@/shared/ui"
 import { useT } from "@/shared/i18n/context"
-import { canAddEntry, canStartSettlement, myNetBalance, travelActions } from "../capabilities"
+import {
+  addEntryBlock, canAddEntry, canStartSettlement, myNetBalance, travelActions,
+} from "../capabilities"
 import { walletsMessages } from "../i18n"
 import { type WalletArea, walletsListPath } from "../paths"
 import type {
   ExpensePage, MemberInfo, NetBalanceInfo, SettlementTransferInfo, WalletInfo,
 } from "../types"
+import { useAddEntryFromUrl, useWalletAddEntry } from "./AddEntryNav"
 import ExpenseList from "./ExpenseList"
 import NetBalanceList, { NetBalancesDialog } from "./NetBalanceList"
 import SettlementConfirm, { type SettlementStep } from "./SettlementConfirm"
@@ -78,14 +81,17 @@ function useHeaderActions(wallet: WalletInfo, ready: boolean, canStart: boolean,
 export default function TravelWalletView({ wallet, area, travel }: TravelWalletViewProps) {
   const t = useT(walletsMessages)
   const router = useRouter()
+  const ready = !travel.errorMessage
+  const block = addEntryBlock(wallet, ready)
   const [dialog, setDialog] = useState<TravelDialog>(null)
   const [settlementStep, setSettlementStep] = useState<SettlementStep>(null)
   const [balancesOpen, setBalancesOpen] = useState(false)
-  const { notify, notifyError, notifySuccess, closeNotify } = useNotify()
+  const { notify, notifyError, notifySuccess, notifyInfo, closeNotify } = useNotify()
   const dates = t("dateRange", { start: wallet.start_date ?? "", end: wallet.end_date ?? "" })
-  const ready = !travel.errorMessage
   const favorite = useFavoriteAction(wallet, { success: notifySuccess, error: notifyError })
   const openAdd = () => setDialog({ kind: "add" })
+  useWalletAddEntry(block, openAdd, notifyInfo)
+  useAddEntryFromUrl(openAdd, block === null)
   const hasExpenses = travel.expenses.list_data.length > 0
   const actions = useHeaderActions(
     wallet, ready, canStartSettlement(wallet, ready, hasExpenses),
@@ -116,7 +122,7 @@ export default function TravelWalletView({ wallet, area, travel }: TravelWalletV
       <WalletSummary
         mobileOnly label={t("myNetBalance")}
         value={myNetBalance(travel.balances, travel.currentUserId, travel.balancesFailed)}
-        onAdd={canAddEntry(wallet, ready) ? openAdd : undefined}
+        onAdd={area === "admin" && canAddEntry(wallet, ready) ? openAdd : undefined}
       />
       {wallet.status !== "active" && (
         <>

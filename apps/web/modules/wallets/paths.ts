@@ -39,3 +39,12 @@ export function walletCategoriesPath(id: string, area: WalletArea = "user") {
 export function walletHistoryPath(id: string, area: WalletArea = "user") {
   return `${walletPath(id, area)}/history`
 }
+
+/** 打開錢包頁時直接開「記一筆」: 底部導覽的「＋」在錢包頁以外選好錢包後走這裡。 */
+export function addEntryPath(id: string) {
+  return `${walletPath(id)}?add=1`
+}
+
+export function wantsAddEntry(param: string | null | undefined) {
+  return param === "1"
+}

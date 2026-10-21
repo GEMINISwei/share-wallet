@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
-  walletCategoriesPath, walletMembersPath, walletPath, walletSettingsPath, walletsListPath,
+  addEntryPath, walletCategoriesPath, walletMembersPath, walletPath, walletSettingsPath,
+  walletsListPath, wantsAddEntry,
 } from "@/modules/wallets/paths"
 
 describe("錢包網址", () => {
@@ -26,5 +27,17 @@ describe("walletsListPath", () => {
 
   it("後台列表沒有分頁, 不帶參數", () => {
     expect(walletsListPath("admin", "travel")).toBe("/admin/wallets")
+  })
+})
+
+describe("addEntryPath", () => {
+  it("錢包頁的網址帶上 add=1, 打開時直接記一筆", () => {
+    expect(addEntryPath("w1")).toBe("/wallets/w1?add=1")
+  })
+
+  it("只有 add=1 才算要記一筆", () => {
+    expect(wantsAddEntry("1")).toBe(true)
+    expect(wantsAddEntry(undefined)).toBe(false)
+    expect(wantsAddEntry("yes")).toBe(false)
   })
 })

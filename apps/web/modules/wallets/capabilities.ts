@@ -75,7 +75,36 @@ export function canStartSettlement(wallet: WalletInfo, ready: boolean, hasExpens
 
 /** 摘要列的「記一筆」: 資料載入成功才能記; 旅遊錢包還要是進行中 (結算中帳目鎖住)。 */
 export function canAddEntry(wallet: WalletInfo, ready: boolean) {
-  return ready && (wallet.kind === "general" || travelActions(wallet).addEntry)
+  return addEntryBlock(wallet, ready) === null
+}
+
+export type AddEntryBlock = "settling" | "settled" | "loadFailed"
+
+/**
+ * 底部導覽的「＋」為什麼不能記帳; 可以記時是 null。
+ * 錢包狀態優先: 結算中的錢包就算重新整理也不能記, 說「沒載入」會讓人白試一次。
+ */
+export function addEntryBlock(wallet: WalletInfo, ready: boolean): AddEntryBlock | null {
+  if (wallet.kind === "travel" && !travelActions(wallet).addEntry) {
+    return wallet.status === "settled" ? "settled" : "settling"
+  }
+  return ready ? null : "loadFailed"
+}
+
+export type AddEntryPickerItem = { wallet: WalletInfo; block: AddEntryBlock | null }
+
+/**
+ * 「＋」在錢包頁以外打開的選錢包面板。順序沿用列表 (後端已把最愛排前面)。
+ * 已結帳的旅遊錢包不列: 一趟趟旅程會越積越多, 而且永遠不能再記。
+ */
+export function addEntryPickerGroups(wallets: readonly WalletInfo[]) {
+  const items = wallets
+    .filter((wallet) => wallet.status !== "settled")
+    .map((wallet): AddEntryPickerItem => ({ wallet, block: addEntryBlock(wallet, true) }))
+  return {
+    general: items.filter((item) => item.wallet.kind === "general"),
+    travel: items.filter((item) => item.wallet.kind === "travel"),
+  }
 }
 
 /** 旅遊錢包摘要列的「我的淨額」。沒加入 (超級管理者) 或淨額載入失敗時沒有。 */

@@ -5,3 +5,6 @@
  */
 
 export { invitePath, parseInviteToken, withInvite } from "./invite-link"
+
+/** 外殼的底部導覽: 中間的「＋」記一筆, 錢包頁透過 provider 把記帳動作交給它。 */
+export { AddEntryNavButton, AddEntryProvider } from "./ui/AddEntryNav"

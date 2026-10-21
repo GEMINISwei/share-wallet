@@ -186,6 +186,11 @@ export async function loadMoreEntries(id: string, cursor: string) {
   return apiGet({ url: "/wallets/{id}/entries", params: { id }, query: { cursor } })
 }
 
+/** 底部導覽「＋」的選錢包面板: 點了才取, 不讓每一頁都多打一次列表。 */
+export async function loadMyWallets() {
+  return apiGet({ url: "/wallets/" })
+}
+
 export async function loadEntryLogs(id: string, entryId: string) {
   return apiGet({
     url: "/wallets/{id}/entries/{entry_id}/logs", params: { id, entry_id: entryId },
