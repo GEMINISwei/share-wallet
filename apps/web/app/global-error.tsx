@@ -25,7 +25,8 @@ export default function GlobalError({ reset }: GlobalErrorProps) {
         style={{
           margin: 0,
           minHeight: "100vh",
-          background: "var(--color-bg-app)",
+          backgroundColor: "var(--color-bg-app)",
+          backgroundImage: "var(--bg-app-image)",
           color: "var(--color-text-body)",
           fontFamily: "var(--font-sans)",
         }}
@@ -50,7 +51,7 @@ export default function GlobalError({ reset }: GlobalErrorProps) {
               style={{
                 margin: 0,
                 color: "var(--color-text-heading)",
-                fontFamily: "var(--font-serif)",
+                fontFamily: "var(--font-heading)",
                 fontSize: "var(--fs-h1)",
                 fontWeight: "var(--fw-medium)",
                 lineHeight: "var(--lh-tight)",

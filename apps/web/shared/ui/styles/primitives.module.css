@@ -280,7 +280,7 @@
 
 .modalTitle {
   margin: 0;
-  font-family: var(--font-serif);
+  font-family: var(--font-heading);
   font-size: var(--fs-h3);
   font-weight: var(--fw-bold);
   color: var(--color-text-heading);

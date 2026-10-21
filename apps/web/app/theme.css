@@ -12,8 +12,65 @@
 
 @import "../shared/ui/styles/tokens.css";
 
+/* 淺色: 以手機為主, 淡色漸層底、白卡片、近黑的主要操作, 色彩只留給金額與狀態。 */
 :root {
-  /* 例: --color-primary: #818CF8; */
+  color-scheme: light;
+
+  /* ---- 表面 ---- */
+  /* 卡片與對話框維持不透明: 疊在遮罩或漸層上時, 半透明會讓文字的對比忽高忽低。 */
+  --color-bg-app: #F3F1F6;
+  --bg-app-image: linear-gradient(165deg, #ECE8F8 0%, #F6F2F4 45%, #E5EEF6 100%);
+  --color-surface-card: #FFFFFF;
+  --color-surface-sunken: #ECEAF1;
+  --color-surface-input: #FFFFFF;
+  --color-surface-hover: #F1EFF5;
+
+  /* ---- 文字 ---- */
+  --color-text-display: #17171A;
+  --color-text-heading: #1F1F22;
+  --color-text-body: #33333A;
+  --color-text-secondary: #6B6B73;
+  --color-text-muted: #8E8C97;
+
+  /* ---- 品牌與行動 ---- */
+  --color-primary: #2A2A2E;
+  --color-primary-hover: #4A4A52;
+  --color-primary-container: #E6E4EC;
+  --color-on-primary-container: #1F1F22;
+  --color-action-primary: #2A2A2E;
+  --color-action-primary-hover: #44444B;
+  --color-text-on-primary: #FFFFFF;
+  --color-focus-ring: color-mix(in srgb, #6B6B73 45%, transparent);
+  --color-scrim: color-mix(in srgb, #1E1C24 40%, transparent);
+
+  /* ---- 狀態 ---- */
+  --color-success-fg: #2E7D50;
+  --color-success-bg: #E2F1E7;
+  --color-warning-fg: #93600F;
+  --color-warning-bg: #FAEFD9;
+  --color-danger-fg: #C0392F;
+  --color-danger-bg: #FBE6E3;
+  --color-info-fg: #3E6A8F;
+  --color-info-bg: #E3EDF6;
+  /* 帶一點紫的陰影, 在淡紫的底上比純黑自然。 */
+  --color-shadow: #2B2540;
+
+  /* ---- 邊框 ---- */
+  --color-border-subtle: #ECEAF1;
+  --color-border-default: #DCD9E3;
+  --color-border-control: #C9C6D2;
+  --color-border-brand: #2A2A2E;
+
+  /* ---- 字體 ---- */
+  /* 標題改用無襯線, 字距收回; 襯線字的寬字距放在無襯線上會顯得鬆散。 */
+  --font-heading: var(--font-sans);
+  --ls-heading: 0;
+
+  /* ---- 圓角: 整體放大一階, 卡片與按鈕看起來比較柔和 ---- */
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
 
   /* 內容區撐滿外殼給的寬度, 不在寬螢幕上置中留白。列表頁、表單頁 (含設定頁) 都吃這一個。 */
   --container-wide: 100%;
