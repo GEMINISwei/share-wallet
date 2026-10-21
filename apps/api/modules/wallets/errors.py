@@ -104,6 +104,9 @@ class WalletError(BaseError):
     SETTLEMENT_STARTED = LangText(
         zh="這個錢包已經開始結算", en="Settlement has already started for this wallet"
     )
+    NO_EXPENSES_TO_SETTLE = LangText(
+        zh="還沒有任何帳目，不能開始結算", en="There are no entries to settle yet"
+    )
     NOT_SETTLING = LangText(zh="這個錢包不在結算中", en="This wallet is not being settled")
     SETTLEMENT_TRANSFER_NOT_FOUND = LangText(zh="這筆轉帳不存在", en="Transfer Not Found")
     NOT_SETTLEMENT_PAYER = LangText(

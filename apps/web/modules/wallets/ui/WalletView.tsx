@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { Button, ErrorState, ICON_SIZE, Notify, useNotify } from "@/shared/ui"
 import { useT } from "@/shared/i18n/context"
-import { canAddEntry } from "../capabilities"
+import { canAddEntry, owingTargets } from "../capabilities"
 import { walletsMessages } from "../i18n"
 import { type WalletArea, walletsListPath } from "../paths"
 import type {
@@ -46,6 +46,16 @@ export default function WalletView({ wallet, area, ledger, travel }: WalletViewP
   return <GeneralWalletView wallet={wallet} area={area} ledger={ledger} />
 }
 
+/** 選單與記一筆要知道的頁面狀態。一般錢包沒有結算, 用不到有沒有帳目。 */
+function ledgerState(ledger: WalletLedger | null) {
+  if (!ledger) return { ready: false, hasOwing: false, hasExpenses: false }
+  return {
+    ready: !ledger.errorMessage,
+    hasOwing: owingTargets(ledger.advanceTargets).length > 0,
+    hasExpenses: false,
+  }
+}
+
 function GeneralWalletView(
   { wallet, area, ledger }: { wallet: WalletInfo; area: WalletArea; ledger: WalletLedger | null },
 ) {
@@ -67,9 +77,9 @@ function GeneralWalletView(
   const openAdd = () => setDialog({ kind: "add" })
   const openAdjust = () => setDialog({ kind: "adjust" })
   const favorite = useFavoriteAction(wallet, { success: notifySuccess, error: notifyError })
-  const ledgerReady = Boolean(ledger) && !ledger?.errorMessage
+  const state = ledgerState(ledger)
   const menu = useWalletMenu(wallet, area, {
-    ready: Boolean(ledger), favorite,
+    state, favorite,
     handlers: ledger ? { adjust: openAdjust, owing: () => setOwingOpen(true) } : {},
   })
 
@@ -92,7 +102,7 @@ function GeneralWalletView(
       {wallet.balance !== null && (
         <WalletSummary
           label={t("balance")} value={wallet.balance}
-          onAdd={canAddEntry(wallet, ledgerReady) ? openAdd : undefined}
+          onAdd={canAddEntry(wallet, state.ready) ? openAdd : undefined}
         />
       )}
       {ledger && <OwingList targets={ledger.advanceTargets} />}

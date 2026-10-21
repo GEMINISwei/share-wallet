@@ -37,13 +37,12 @@ export default function OwingList({ targets }: { targets: AdvanceTargetInfo[] })
 
 type OwingDialogProps = { targets: AdvanceTargetInfo[]; open: boolean; onClose: () => void }
 
-/** 手機從 ⋮ 選單打開的代墊未還; 選單一律有這一項, 都還清時說明沒有。 */
+/** 手機從 ⋮ 選單打開的代墊未還。都還清時選單沒有這一項 (`walletMenuItems`)。 */
 export function OwingDialog({ targets, open, onClose }: OwingDialogProps) {
   const t = useT(walletsMessages)
-  const owing = owingTargets(targets)
   return (
     <Modal title={t("owingList")} open={open} onOpenChange={(next) => { if (!next) onClose() }}>
-      {owing.length === 0 ? <p className={styles.hint}>{t("noOwing")}</p> : <OwingRows owing={owing} />}
+      <OwingRows owing={owingTargets(targets)} />
       <div className={styles.dialogActions}>
         <Button variant="outlined" onClick={onClose}>{t("close")}</Button>
       </div>

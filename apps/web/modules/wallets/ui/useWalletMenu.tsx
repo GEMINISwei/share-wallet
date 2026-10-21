@@ -26,8 +26,8 @@ const icon = (Icon: typeof Scale) => <Icon size={ICON_SIZE.sm} />
 export function useWalletMenu(
   wallet: WalletInfo,
   area: WalletArea,
-  { ready, handlers, favorite }: {
-    ready: boolean; handlers: MenuHandlers; favorite: MenuItem | null
+  { state, handlers, favorite }: {
+    state: Parameters<typeof walletMenuItems>[1]; handlers: MenuHandlers; favorite: MenuItem | null
   },
 ): MenuItem[] {
   const t = useT(walletsMessages)
@@ -51,7 +51,7 @@ export function useWalletMenu(
     }),
     favorite: () => favorite,
   }
-  return walletMenuItems(wallet, ready)
+  return walletMenuItems(wallet, state)
     .map((key) => build[key]())
     .filter((item): item is MenuItem => item !== null)
 }

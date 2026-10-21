@@ -16,6 +16,7 @@ from .expenses import net_amounts, open_travel_wallet
 from .model import (
     PlannedTransfer,
     SettlementTransferDetail,
+    TravelExpenseTable,
     TravelSettlementTransferTable,
     WalletStatus,
     WalletTable,
@@ -109,13 +110,17 @@ async def get_settlement(wallet_id: str, current_user: CurrentUser) -> Settlemen
 
 
 async def start_settlement(wallet_id: str, current_user: CurrentUser) -> SettlementOperate:
-    """大家的淨額都是 0 時方案是空的, 直接已結帳。"""
+    """大家的淨額都是 0 時方案是空的, 直接已結帳。一筆帳都沒有時不能結算。"""
     _ensure_manage(await open_travel_wallet(wallet_id, current_user))
     status = await _lock(wallet_id)
     if status is WalletStatus.SETTLED:
         raise LangException(409, WalletError.WALLET_ARCHIVED)
     if status is not WalletStatus.ACTIVE:
         raise LangException(409, WalletError.SETTLEMENT_STARTED)
+    # 在鎖住之後才查, 才不會跟刪掉最後一筆帳的請求交錯。沒有帳的錢包結算只會直接封存,
+    # 不會是任何人想要的結果 (見 docs/features.md〈結算流程〉)。
+    if not await TravelExpenseTable.totals(wallet_id):
+        raise LangException(409, WalletError.NO_EXPENSES_TO_SETTLE)
 
     transfers = plan_transfers(await net_amounts(wallet_id))
     await TravelSettlementTransferTable.create_plan(wallet_id, transfers)

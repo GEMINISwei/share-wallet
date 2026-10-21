@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { Button, ErrorState, ICON_SIZE, type MenuItem, Notify, useNotify } from "@/shared/ui"
 import { useT } from "@/shared/i18n/context"
-import { canAddEntry, myNetBalance, travelActions } from "../capabilities"
+import { canAddEntry, canStartSettlement, myNetBalance, travelActions } from "../capabilities"
 import { walletsMessages } from "../i18n"
 import { type WalletArea, walletsListPath } from "../paths"
 import type {
@@ -42,14 +42,14 @@ export type TravelLedger = {
 type TravelWalletViewProps = { wallet: WalletInfo; area: WalletArea; travel: TravelLedger }
 
 /** 桌機標題列的按鈕: 進行中記帳、管理者開始結算; 結算中管理者可以取消。手機改用 ⋮ 選單。 */
-function useHeaderActions(wallet: WalletInfo, ready: boolean, open: {
+function useHeaderActions(wallet: WalletInfo, ready: boolean, canStart: boolean, open: {
   add: () => void; settlement: (step: SettlementStep) => void
 }, favorite: MenuItem | null) {
   const t = useT(walletsMessages)
   const can = travelActions(wallet)
   const items = ([
     ready && can.addEntry && { icon: <Plus size={ICON_SIZE.sm} />, label: t("addEntry"), onClick: open.add },
-    ready && can.startSettlement && {
+    canStart && {
       icon: <Flag size={ICON_SIZE.sm} />, label: t("startSettlement"),
       onClick: () => open.settlement("start"),
     },
@@ -86,11 +86,13 @@ export default function TravelWalletView({ wallet, area, travel }: TravelWalletV
   const ready = !travel.errorMessage
   const favorite = useFavoriteAction(wallet, { success: notifySuccess, error: notifyError })
   const openAdd = () => setDialog({ kind: "add" })
+  const hasExpenses = travel.expenses.list_data.length > 0
   const actions = useHeaderActions(
-    wallet, ready, { add: openAdd, settlement: setSettlementStep }, favorite,
+    wallet, ready, canStartSettlement(wallet, ready, hasExpenses),
+    { add: openAdd, settlement: setSettlementStep }, favorite,
   )
   const menu = useWalletMenu(wallet, area, {
-    ready, favorite,
+    state: { ready, hasOwing: false, hasExpenses }, favorite,
     handlers: {
       startSettlement: () => setSettlementStep("start"),
       cancelSettlement: () => setSettlementStep("cancel"),

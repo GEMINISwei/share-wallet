@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest"
 import {
-  adminsSummary, canAddEntry, canInvite, canRepay, canTransfer, changedFields, entryActions,
-  entryCategoryOptions, entryKindOptions, expenseActions, expenseChangedFields, groupCategories,
-  initialExpenseValues, isLastAdmin, memberActions, myNetBalance, owingTargets,
+  adminsSummary, canAddEntry, canInvite, canRepay, canStartSettlement, canTransfer, changedFields,
+  entryActions, entryCategoryOptions, entryKindOptions, expenseActions, expenseChangedFields,
+  groupCategories, initialExpenseValues, isLastAdmin, memberActions, myNetBalance, owingTargets,
   settlementTransferActions, shareUserOptions, splitEqually, transferTargets, transfersForViewer,
   travelActions, walletListTab, walletMenuItems, walletSections, walletStatusBadge, walletsOfTab,
 } from "@/modules/wallets/capabilities"
@@ -593,39 +593,63 @@ describe("walletsOfTab", () => {
 describe("walletMenuItems", () => {
   const trip = (overrides: Partial<WalletInfo>) => wallet({ kind: "travel", ...overrides })
   const admin = { my_role: "admin", can_manage: true } as const
+  const state = { ready: true, hasOwing: true, hasExpenses: true }
 
   it("一般錢包依序是調整餘額、代墊未還、成員、分類、異動紀錄、設定、最愛", () => {
-    expect(walletMenuItems(wallet(admin), true)).toEqual([
+    expect(walletMenuItems(wallet(admin), state)).toEqual([
       "adjust", "owing", "members", "categories", "history", "settings", "favorite",
     ])
   })
 
+  it("代墊都還清時沒有代墊未還", () => {
+    expect(walletMenuItems(wallet({}), { ...state, hasOwing: false })).not.toContain("owing")
+  })
+
   it("成員看不到設定", () => {
-    expect(walletMenuItems(wallet({}), true)).not.toContain("settings")
-    expect(walletMenuItems(trip({}), true)).not.toContain("settings")
+    expect(walletMenuItems(wallet({}), state)).not.toContain("settings")
+    expect(walletMenuItems(trip({}), state)).not.toContain("settings")
   })
 
   it("沒加入的超級管理者沒有最愛", () => {
-    expect(walletMenuItems(wallet({ my_role: null, can_manage: true }), true)).not.toContain("favorite")
+    expect(walletMenuItems(wallet({ my_role: null, can_manage: true }), state))
+      .not.toContain("favorite")
   })
 
   it("旅遊錢包進行中，管理者依序是開始結算、每人淨額、成員、異動紀錄、設定、最愛", () => {
-    expect(walletMenuItems(trip(admin), true)).toEqual([
+    expect(walletMenuItems(trip(admin), state)).toEqual([
       "startSettlement", "netBalances", "members", "history", "settings", "favorite",
     ])
-    expect(walletMenuItems(trip({}), true)).not.toContain("startSettlement")
+    expect(walletMenuItems(trip({}), state)).not.toContain("startSettlement")
   })
 
-  it("旅遊錢包資料載入失敗時不能開始結算", () => {
-    expect(walletMenuItems(trip(admin), false)).not.toContain("startSettlement")
+  it("旅遊錢包資料載入失敗或沒有帳目時不能開始結算", () => {
+    expect(walletMenuItems(trip(admin), { ...state, ready: false }))
+      .not.toContain("startSettlement")
+    expect(walletMenuItems(trip(admin), { ...state, hasExpenses: false }))
+      .not.toContain("startSettlement")
   })
 
   it("旅遊錢包結算中，管理者可以取消結算；已結帳沒有結算項目", () => {
-    expect(walletMenuItems(trip({ ...admin, status: "settling" }), true)[0]).toBe("cancelSettlement")
-    expect(walletMenuItems(trip({ status: "settling" }), true)).not.toContain("cancelSettlement")
-    expect(walletMenuItems(trip({ ...admin, status: "settled" }), true)).toEqual([
+    expect(walletMenuItems(trip({ ...admin, status: "settling" }), state)[0])
+      .toBe("cancelSettlement")
+    expect(walletMenuItems(trip({ status: "settling" }), state)).not.toContain("cancelSettlement")
+    expect(walletMenuItems(trip({ ...admin, status: "settled" }), state)).toEqual([
       "netBalances", "members", "history", "settings", "favorite",
     ])
+  })
+})
+
+describe("canStartSettlement", () => {
+  const trip = wallet({ kind: "travel", my_role: "admin", can_manage: true })
+
+  it("管理者在進行中、資料載入成功、有帳目時才能開始結算", () => {
+    expect(canStartSettlement(trip, true, true)).toBe(true)
+    expect(canStartSettlement(trip, false, true)).toBe(false)
+    expect(canStartSettlement(wallet({ kind: "travel" }), true, true)).toBe(false)
+  })
+
+  it("沒有任何帳目時不能開始結算", () => {
+    expect(canStartSettlement(trip, true, false)).toBe(false)
   })
 })
 

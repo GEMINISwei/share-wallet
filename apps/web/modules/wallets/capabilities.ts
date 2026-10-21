@@ -33,17 +33,23 @@ export type WalletMenuItem =
   | "adjust" | "owing" | "startSettlement" | "cancelSettlement" | "netBalances"
   | "members" | "categories" | "history" | "settings" | "favorite"
 
-/**
- * 手機錢包頁 ⋮ 選單的項目, 依顯示順序 (見 docs/features.md〈錢包頁的版面〉)。
- * `ready` 是帳目與成員都載入成功: 失敗時不能開始結算, 因為管理者看不到要結算的帳。
- */
-export function walletMenuItems(wallet: WalletInfo, ready: boolean): WalletMenuItem[] {
+type WalletPageState = {
+  /** 帳目與成員都載入成功。 */
+  ready: boolean
+  /** 一般錢包有沒有還沒還清的代墊; 都還清時選單不放代墊未還。 */
+  hasOwing: boolean
+  /** 旅遊錢包有沒有任何帳目。 */
+  hasExpenses: boolean
+}
+
+/** 手機錢包頁 ⋮ 選單的項目, 依顯示順序 (見 docs/features.md〈錢包頁的版面〉)。 */
+export function walletMenuItems(wallet: WalletInfo, state: WalletPageState): WalletMenuItem[] {
   const sections = walletSections(wallet)
   const travel = travelActions(wallet)
   const head: (WalletMenuItem | false)[] = wallet.kind === "general"
-    ? ["adjust", "owing"]
+    ? ["adjust", state.hasOwing && "owing"]
     : [
-      ready && travel.startSettlement && "startSettlement",
+      canStartSettlement(wallet, state.ready, state.hasExpenses) && "startSettlement",
       travel.cancelSettlement && "cancelSettlement",
       "netBalances",
     ]
@@ -57,6 +63,14 @@ export function walletMenuItems(wallet: WalletInfo, ready: boolean): WalletMenuI
     wallet.my_role !== null && "favorite",
   ]
   return items.filter((item): item is WalletMenuItem => item !== false)
+}
+
+/**
+ * 開始結算: 管理者、進行中, 還要有帳目 (後端也擋, 見 docs/features.md〈結算流程〉)。
+ * 載入失敗時管理者看不到要結算的帳, 也不給按。
+ */
+export function canStartSettlement(wallet: WalletInfo, ready: boolean, hasExpenses: boolean) {
+  return ready && hasExpenses && travelActions(wallet).startSettlement
 }
 
 /** 摘要列的「記一筆」: 資料載入成功才能記; 旅遊錢包還要是進行中 (結算中帳目鎖住)。 */
