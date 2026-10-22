@@ -78,7 +78,8 @@ export default function LedgerDialogs({
     <>
       {(dialog?.kind === "add" || editing) && (
         <EntryDialog
-          key={editing?.id ?? "new"} walletId={wallet.id} entry={editing} categories={categories}
+          key={editing?.id ?? "new"} walletId={wallet.id} walletName={wallet.name} entry={editing}
+          categories={categories}
           targetNames={targetNames} transferTargets={transferTargets}
           transferable={canTransfer(wallet, transferTargets)}
           open onClose={close} onSuccess={onSaved} onError={onError}

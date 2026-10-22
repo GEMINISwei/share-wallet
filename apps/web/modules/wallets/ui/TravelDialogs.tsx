@@ -60,7 +60,8 @@ export default function TravelDialogs({
     <>
       {(dialog?.kind === "add" || editing) && (
         <ExpenseDialog
-          key={editing?.id ?? "new"} walletId={wallet.id} expense={editing} members={members}
+          key={editing?.id ?? "new"} walletId={wallet.id} walletName={wallet.name} expense={editing}
+          members={members}
           currentUserId={currentUserId} onClose={close} onSuccess={onSaved} onError={onError}
         />
       )}

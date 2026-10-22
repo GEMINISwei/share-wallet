@@ -10,7 +10,7 @@
  */
 
 // ---- 基本元件 ----
-export { Form, SelectInput, TextInput, useActiveStatusOptions } from "./forms"
+export { ChoiceGroup, Form, SelectInput, TextInput, useActiveStatusOptions } from "./forms"
 export { Button, Container, Flex, Surface } from "./primitives"
 export { ICON_SIZE } from "./internals"
 export { FormDialog, Modal } from "./dialogs"

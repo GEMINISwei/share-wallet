@@ -2,7 +2,7 @@
 "use client"
 
 import type * as React from "react"
-import type { HTMLInputTypeAttribute, ReactNode } from "react"
+import type { HTMLAttributes, HTMLInputTypeAttribute, ReactNode } from "react"
 import { useId } from "react"
 import { ChevronDown } from "lucide-react"
 import { useT } from "@/shared/i18n/context"
@@ -31,9 +31,11 @@ type TextInputProps = {
   /** 輸入框右側的附加控制項 (例如密碼顯示切換)。給了之後右內距會讓出空間。 */
   trailing?: ReactNode
   /** lg 給登入這類刻意放大的表單; 預設 md。 */
-  size?: "md" | "lg"
+  size?: "md" | "lg" | "display"
   /** 輸入時提示的值 (瀏覽器原生的 datalist), 仍然可以輸入清單以外的值。 */
   suggestions?: readonly string[]
+  /** 手機跳出哪一種鍵盤, 例如整數金額用 `numeric` (只有數字鍵)。 */
+  inputMode?: HTMLAttributes<HTMLInputElement>["inputMode"]
   onChange?: (value: string) => void
 }
 
@@ -106,6 +108,7 @@ export function TextInput({
           className={cls(
             styles.input,
             size === "lg" && styles.inputLg,
+            size === "display" && styles.inputDisplay,
             icon ? styles.inputWithIcon : undefined,
             trailing ? styles.inputWithTrailing : undefined,
             error && styles.inputError,
@@ -123,6 +126,57 @@ export function TextInput({
       )}
       <FieldError id={errorId} error={error} />
     </label>
+  )
+}
+
+type ChoiceGroupProps = {
+  label: string
+  value: string
+  options: ReadonlyArray<{ value: string; label: string }>
+  /** `segmented`: 一列平分, 給選項少、字短的 (例如類型); `chips`: 換行排列, 給選項多的 (例如分類)。 */
+  variant?: "segmented" | "chips"
+  required?: boolean
+  disabled?: boolean
+  error?: string
+  onChange?: (value: string) => void
+}
+
+/**
+ * 單選, 每個選項都攤開成一顆膠囊。比下拉選單少點一次, 也看得到全部的選項;
+ * 選項多到一個畫面放不下時還是用 `SelectInput`。
+ */
+export function ChoiceGroup({
+  label, value, options, variant = "segmented", required, disabled, error, onChange,
+}: ChoiceGroupProps) {
+  const errorId = `${useId()}-error`
+  return (
+    <div className={styles.field}>
+      {/* 群組的名稱由 aria-label 提供, 這裡只是看得到的標籤, 不重複唸。 */}
+      <span aria-hidden="true"><FieldLabel label={label} required={required} /></span>
+      <div
+        role="radiogroup"
+        aria-label={label}
+        aria-required={required || undefined}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? errorId : undefined}
+        className={cls(styles.choiceGroup, variant === "chips" && styles.choiceChips)}
+      >
+        {options.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            role="radio"
+            aria-checked={option.value === value}
+            disabled={disabled}
+            className={cls(styles.choice, option.value === value && styles.choiceSelected)}
+            onClick={() => onChange?.(option.value)}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+      <FieldError id={errorId} error={error} />
+    </div>
   )
 }
 

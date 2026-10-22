@@ -1,7 +1,7 @@
 "use client"
 
 import { type FormEvent, useState } from "react"
-import { FormDialog, SelectInput, TextInput, useActionSubmit } from "@/shared/ui"
+import { ChoiceGroup, FormDialog, SelectInput, TextInput, useActionSubmit } from "@/shared/ui"
 import { useLocale, useT } from "@/shared/i18n/context"
 import {
   createAdvance, createEntry, createTransfer, updateAdvance, updateEntry, updateTransfer,
@@ -19,6 +19,8 @@ import {
 
 type EntryDialogProps = {
   walletId: string
+  /** 標題下方顯示記在哪個錢包: 從別頁按「＋」選了錢包進來時, 再確認一次。 */
+  walletName: string
   /** 有值是修改 (收支、轉帳或代墊; 調整與還款不從這裡改), 沒有是記一筆。 */
   entry: EntryInfo | null
   categories: CategoryInfo[]
@@ -67,8 +69,8 @@ function saveAction(walletId: string, entry: EntryInfo | null, values: EntryForm
 }
 
 export default function EntryDialog({
-  walletId, entry, categories, targetNames, transferTargets, transferable, open, onClose, onSuccess,
-  onError,
+  walletId, walletName, entry, categories, targetNames, transferTargets, transferable, open,
+  onClose, onSuccess, onError,
 }: EntryDialogProps) {
   const t = useT(walletsMessages)
   const locale = useLocale()
@@ -101,16 +103,18 @@ export default function EntryDialog({
 
   return (
     <FormDialog
-      title={entry ? t("editEntry") : t("addEntry")} open={open} isPending={isPending}
-      submitText={t("save")} pendingText={t("saving")} onClose={onClose} onSubmit={handleSubmit}
+      title={entry ? t("editEntry") : t("addEntry")} subtitle={walletName} fullScreen open={open}
+      isPending={isPending} submitText={t("save")} pendingText={t("saving")} onClose={onClose}
+      onSubmit={handleSubmit}
     >
-      <SelectInput
+      <ChoiceGroup
         label={t("entryKind")} value={values.kind} disabled={isPending || kinds.length < 2}
         options={kinds.map((kind) => ({ value: kind, label: t(kind) }))}
         onChange={(value) => changeKind(value as EntryFormValues["kind"])}
       />
       <TextInput
         label={t("amount")} value={values.amount} required disabled={isPending} autoFocus
+        size="display" inputMode="numeric" placeholder="0"
         error={errors.amount ?? fieldError("amount")} onChange={(value) => change("amount", value)}
       />
       {values.kind === "advance" ? (
@@ -136,14 +140,11 @@ export default function EntryDialog({
           onChange={(value) => change("counterpart_wallet_id", value)}
         />
       ) : (
-        <SelectInput
+        <ChoiceGroup
           label={t("category")} value={values.category_id} required disabled={isPending}
-          error={errors.category_id ?? fieldError("category_id")}
-          options={[
-            { value: "", label: t("categoryPlaceholder") },
-            ...entryCategoryOptions(categories, values.kind, entry)
-              .map((option) => ({ value: option.id, label: option.name })),
-          ]}
+          variant="chips" error={errors.category_id ?? fieldError("category_id")}
+          options={entryCategoryOptions(categories, values.kind, entry)
+            .map((option) => ({ value: option.id, label: option.name }))}
           onChange={(value) => change("category_id", value)}
         />
       )}
