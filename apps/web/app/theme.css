@@ -47,6 +47,8 @@
   --color-scrim: color-mix(in srgb, #23261C 40%, transparent);
   --color-accent-container: #FFE2C2;
   --color-on-accent-container: #A85A1C;
+  --color-highlight-bg: #A8D08D;
+  --color-on-highlight: #1F2E14;
 
   /* ---- 狀態 ---- */
   --color-success-fg: #3E7038;

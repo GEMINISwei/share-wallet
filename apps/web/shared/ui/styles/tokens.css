@@ -39,6 +39,9 @@
   /* 第二個點綴色: 跟主色並列、需要分出兩種東西時用 (例如兩種類型的圖示底), 不用在主要操作上。 */
   --color-accent-container: #3B2A1A;
   --color-on-accent-container: #F2B880;
+  /* 一頁裡唯一的重點區塊 (例如總額卡) 的整塊底色, 比 primary-container 飽和。 */
+  --color-highlight-bg: #2E3A5C;
+  --color-on-highlight: #E0E7FF;
 
   /* ---- 狀態 ---- */
   --color-success-fg: color-mix(in srgb, #5C7A52 55%, #FFFFFF);

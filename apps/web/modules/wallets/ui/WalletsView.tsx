@@ -47,9 +47,9 @@ export default function WalletsView(
       <div className={styles.content}>
         <LinkTabs tabs={tabs} label={t("listTabs")} />
         {tab === "general" && (
-          <section className={styles.summary}>
-            <span className={styles.summaryLabel}>{t("totalBalance")}</span>
-            <Amount value={totalBalance} className={styles.summaryValue} />
+          <section className={styles.totalCard}>
+            <span className={styles.totalLabel}>{t("totalBalance")}</span>
+            <Amount value={totalBalance} className={styles.totalValue} />
           </section>
         )}
 
