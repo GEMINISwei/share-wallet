@@ -36,6 +36,9 @@
   --color-text-on-primary: #F9FAFB;
   --color-focus-ring: color-mix(in srgb, #818CF8 65%, transparent);
   --color-scrim: color-mix(in srgb, #0B0D11 72%, transparent);
+  /* 第二個點綴色: 跟主色並列、需要分出兩種東西時用 (例如兩種類型的圖示底), 不用在主要操作上。 */
+  --color-accent-container: #3B2A1A;
+  --color-on-accent-container: #F2B880;
 
   /* ---- 狀態 ---- */
   --color-success-fg: color-mix(in srgb, #5C7A52 55%, #FFFFFF);

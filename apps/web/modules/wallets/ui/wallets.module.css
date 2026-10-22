@@ -109,6 +109,28 @@ a.row:hover {
   min-width: 0;
 }
 
+/* 名稱靠圖示, 金額與箭頭推到最右。 */
+.rowGrow {
+  flex: 1;
+}
+
+.kindIcon {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: var(--size-avatar-md);
+  height: var(--size-avatar-md);
+  border-radius: var(--radius-md);
+  background: var(--color-primary-container);
+  color: var(--color-on-primary-container);
+}
+
+.kindIconTravel {
+  background: var(--color-accent-container);
+  color: var(--color-on-accent-container);
+}
+
 .favoriteStar {
   flex-shrink: 0;
   color: var(--color-warning-fg);
