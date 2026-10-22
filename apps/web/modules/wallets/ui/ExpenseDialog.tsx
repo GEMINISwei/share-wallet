@@ -1,7 +1,7 @@
 "use client"
 
 import { type FormEvent, useState } from "react"
-import { FormDialog, SelectInput, TextInput, useActionSubmit } from "@/shared/ui"
+import { ChoiceGroup, FormDialog, TextInput, useActionSubmit } from "@/shared/ui"
 import { useLocale, useT } from "@/shared/i18n/context"
 import { createExpense, updateExpense } from "../actions"
 import { initialExpenseValues } from "../capabilities"
@@ -15,6 +15,8 @@ import { CustomShares, EqualShares } from "./ExpenseShares"
 
 type ExpenseDialogProps = {
   walletId: string
+  /** 標題下方顯示記在哪個錢包, 理由同 `EntryDialog`。 */
+  walletName: string
   /** 有值是修改, 沒有是記一筆。 */
   expense: ExpenseInfo | null
   /** 加入錢包的順序; 付款人與分攤對象只能從這裡選。 */
@@ -29,7 +31,7 @@ const SPLIT_MODES: SplitMode[] = ["equal", "custom"]
 
 /** 旅遊錢包記一筆與修改: 金額、付款人、分攤 (均分或指定金額)、日期、備註。 */
 export default function ExpenseDialog({
-  walletId, expense, members, currentUserId, onClose, onSuccess, onError,
+  walletId, walletName, expense, members, currentUserId, onClose, onSuccess, onError,
 }: ExpenseDialogProps) {
   const t = useT(walletsMessages)
   const locale = useLocale()
@@ -62,23 +64,22 @@ export default function ExpenseDialog({
 
   return (
     <FormDialog
-      title={expense ? t("editEntry") : t("addEntry")} open isPending={isPending}
-      submitText={t("save")} pendingText={t("saving")} onClose={onClose} onSubmit={handleSubmit}
+      title={expense ? t("editEntry") : t("addEntry")} subtitle={walletName} fullScreen open
+      isPending={isPending} submitText={t("save")} pendingText={t("saving")} onClose={onClose}
+      onSubmit={handleSubmit}
     >
       <TextInput
         label={t("amount")} value={values.amount} required disabled={isPending} autoFocus
+        size="display" inputMode="numeric" placeholder="0"
         error={errors.amount ?? fieldError("amount")} onChange={(value) => change("amount", value)}
       />
-      <SelectInput
-        label={t("payer")} value={values.payer_id} required disabled={isPending}
+      <ChoiceGroup
+        label={t("payer")} value={values.payer_id} required disabled={isPending} variant="chips"
         error={errors.payer_id ?? fieldError("payer_id")}
-        options={[
-          { value: "", label: t("payerPlaceholder") },
-          ...members.map((member) => ({ value: member.user_id, label: member.nickname })),
-        ]}
+        options={members.map((member) => ({ value: member.user_id, label: member.nickname }))}
         onChange={(value) => change("payer_id", value)}
       />
-      <SelectInput
+      <ChoiceGroup
         label={t("splitMode")} value={values.split_mode} disabled={isPending}
         options={SPLIT_MODES.map((mode) => ({ value: mode, label: t(mode) }))}
         onChange={(value) => change("split_mode", value as SplitMode)}
