@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { ChevronRight, Plus, Star } from "lucide-react"
+import { ChevronRight, Plane, Plus, Star, Wallet } from "lucide-react"
 import { useState } from "react"
 import {
   Button, Container, ErrorState, ICON_SIZE, LinkTabs, Notify, PageHeader, useNotify,
@@ -47,9 +47,9 @@ export default function WalletsView(
       <div className={styles.content}>
         <LinkTabs tabs={tabs} label={t("listTabs")} />
         {tab === "general" && (
-          <section className={styles.summary}>
-            <span className={styles.summaryLabel}>{t("totalBalance")}</span>
-            <Amount value={totalBalance} className={styles.summaryValue} />
+          <section className={styles.totalCard}>
+            <span className={styles.totalLabel}>{t("totalBalance")}</span>
+            <Amount value={totalBalance} className={styles.totalValue} />
           </section>
         )}
 
@@ -85,7 +85,8 @@ function WalletRow({ wallet }: { wallet: WalletInfo }) {
     : null
   return (
     <Link href={walletPath(wallet.id)} className={styles.row}>
-      <span className={styles.rowMain}>
+      <WalletKindIcon kind={wallet.kind} />
+      <span className={`${styles.rowMain} ${styles.rowGrow}`}>
         <span className={styles.rowTitleLine}>
           {wallet.is_favorite && (
             <Star
@@ -103,5 +104,15 @@ function WalletRow({ wallet }: { wallet: WalletInfo }) {
         <ChevronRight size={ICON_SIZE.sm} aria-hidden="true" />
       </span>
     </Link>
+  )
+}
+
+// 一眼分出類型; 名稱旁邊已經有文字資訊, 圖示只是裝飾, 不另外念給螢幕閱讀器。
+function WalletKindIcon({ kind }: { kind: WalletKind }) {
+  const Icon = kind === "travel" ? Plane : Wallet
+  return (
+    <span className={`${styles.kindIcon} ${kind === "travel" ? styles.kindIconTravel : ""}`} aria-hidden="true">
+      <Icon size={ICON_SIZE.md} />
+    </span>
   )
 }

@@ -31,6 +31,65 @@
   color: var(--color-on-primary-container);
 }
 
+/* 錢包列表的總額: 整塊彩色的卡片, 是這一頁唯一的重點。手機、桌機同一個樣子。 */
+.totalCard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  overflow: hidden;
+  padding: var(--space-6);
+  border-radius: var(--radius-xl);
+  background: var(--color-highlight-bg);
+  color: var(--color-on-highlight);
+}
+
+/* 兩個圓形點綴, 純裝飾, 壓在文字後面。 */
+.totalCard::before,
+.totalCard::after {
+  content: "";
+  position: absolute;
+  border-radius: var(--radius-round);
+}
+
+.totalCard::before {
+  right: calc(var(--space-8) * -1);
+  bottom: calc(var(--space-12) * -1);
+  width: calc(var(--size-avatar-md) * 3.5);
+  height: calc(var(--size-avatar-md) * 3.5);
+  background: var(--color-primary-container);
+  opacity: var(--opacity-muted);
+}
+
+.totalCard::after {
+  top: calc(var(--space-5) * -1);
+  right: calc(var(--space-12) + var(--space-6));
+  width: calc(var(--size-avatar-md) * 1.4);
+  height: calc(var(--size-avatar-md) * 1.4);
+  background: var(--color-accent-container);
+}
+
+.totalCard > * {
+  position: relative;
+  z-index: var(--z-raised);
+}
+
+.totalLabel {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+}
+
+.totalValue {
+  font-size: var(--fs-display);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-tight);
+}
+
+/* 警示色壓在彩色底上對比不夠; 負號本身就看得出來, 這裡維持卡片的文字色。 */
+.totalCard .negative {
+  color: inherit;
+}
+
 .summaryMain {
   display: flex;
   flex-direction: column;
@@ -107,6 +166,28 @@ a.row:hover {
   align-items: center;
   gap: var(--space-1);
   min-width: 0;
+}
+
+/* 名稱靠圖示, 金額與箭頭推到最右。 */
+.rowGrow {
+  flex: 1;
+}
+
+.kindIcon {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: var(--size-avatar-md);
+  height: var(--size-avatar-md);
+  border-radius: var(--radius-md);
+  background: var(--color-primary-container);
+  color: var(--color-on-primary-container);
+}
+
+.kindIconTravel {
+  background: var(--color-accent-container);
+  color: var(--color-on-accent-container);
 }
 
 .favoriteStar {
