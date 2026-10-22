@@ -61,9 +61,11 @@ function useAddEntryNav(onAdd: () => void, blocked: boolean) {
 /**
  * 從選錢包面板進來 (`?add=1`) 時, 進頁面後馬上開記一筆。
  * 等掛上之後才開: 對話框要掛到 `document.body`, 伺服器端 render 時沒有。
- * 參數用 history API 拿掉: 重新整理或返回時不會再開一次, 也不會重新向伺服器取這一頁。
+ * 參數要用 Next 的 router 拿掉: 直接改 history 會在 router 初始化時被蓋回原本的網址,
+ * 之後重新整理就會再開一次。
  */
 export function useAddEntryFromUrl(openAdd: () => void, allowed: boolean) {
+  const router = useRouter()
   const openAddRef = useRef(openAdd)
   const allowedRef = useRef(allowed)
   useEffect(() => {
@@ -72,9 +74,9 @@ export function useAddEntryFromUrl(openAdd: () => void, allowed: boolean) {
   }, [openAdd, allowed])
   useEffect(() => {
     if (!wantsAddEntry(new URLSearchParams(window.location.search).get("add"))) return
-    window.history.replaceState(null, "", window.location.pathname)
+    router.replace(window.location.pathname, { scroll: false })
     if (allowedRef.current) openAddRef.current()
-  }, [])
+  }, [router])
 }
 
 type PickerState =

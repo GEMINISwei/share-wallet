@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest"
 import {
-  counterpartName, entryTitle, expenseSnapshotField, expenseSummaryFields, expenseTitle,
-  formatAmount, formatEntryDate, localToday, netStatus, signedAmount, snapshotField,
-  snapshotSummaryFields,
+  counterpartName, dayLabel, entryRowText, entryTitle, expenseSnapshotField, expenseSummaryFields,
+  expenseTitle, formatAmount, formatEntryDate, groupByDay, localToday, netStatus, signedAmount,
+  snapshotField, snapshotSummaryFields,
 } from "@/modules/wallets/format"
 import type { ExpenseSnapshot } from "@/modules/wallets/types"
 
@@ -165,5 +165,56 @@ describe("旅遊錢包的顯示", () => {
       .toEqual(["payer_name", "shares", "amount", "entry_date"])
     expect(expenseSummaryFields({ ...snapshot, note: "晚餐" }))
       .toEqual(["payer_name", "shares", "amount", "entry_date", "note"])
+  })
+})
+
+describe("entryRowText", () => {
+  const food = { id: "food", name: "餐飲" }
+  const savings = { id: "w-2", name: "存款" }
+  const base = { category: null, counterpart_wallet: null, advance_target_name: null, note: "" }
+
+  it("收支有備註時標題是備註、膠囊是分類", () => {
+    expect(entryRowText({ ...base, kind: "expense", category: food, note: "全聯採買" }, "zh"))
+      .toEqual({ title: "全聯採買", tag: "餐飲", detail: null })
+  })
+
+  it("收支沒有備註時標題是分類, 不重複放膠囊", () => {
+    expect(entryRowText({ ...base, kind: "income", category: food }, "zh"))
+      .toEqual({ title: "餐飲", tag: null, detail: null })
+  })
+
+  it("轉帳有備註時膠囊是轉帳, 對方錢包移到說明", () => {
+    expect(entryRowText({ ...base, kind: "transfer_out", counterpart_wallet: savings, note: "存起來" }, "zh"))
+      .toEqual({ title: "存起來", tag: "轉帳", detail: "轉出至 存款" })
+  })
+
+  it("轉帳沒有備註時標題是對方錢包、膠囊是轉帳", () => {
+    expect(entryRowText({ ...base, kind: "transfer_in", counterpart_wallet: savings }, "zh"))
+      .toEqual({ title: "轉入自 存款", tag: "轉帳", detail: null })
+  })
+
+  it("調整沒有備註時不放膠囊", () => {
+    expect(entryRowText({ ...base, kind: "adjustment" }, "zh"))
+      .toEqual({ title: "調整餘額", tag: null, detail: null })
+  })
+})
+
+describe("groupByDay", () => {
+  it("依日期分組, 保留列表的順序", () => {
+    const items = [
+      { id: "a", entry_date: "2026-10-21" }, { id: "b", entry_date: "2026-10-21" },
+      { id: "c", entry_date: "2026-10-19" },
+    ]
+    expect(groupByDay(items).map((group) => [group.day, group.items.map((item) => item.id)]))
+      .toEqual([["2026-10-21", ["a", "b"]], ["2026-10-19", ["c"]]])
+  })
+})
+
+describe("dayLabel", () => {
+  it("今天、昨天用相對的說法, 其他顯示日期", () => {
+    expect(dayLabel("2026-10-21", "2026-10-21", "zh")).toBe("今天")
+    expect(dayLabel("2026-10-20", "2026-10-21", "zh")).toBe("昨天")
+    expect(dayLabel("2026-09-30", "2026-10-01", "en")).toBe("Yesterday")
+    expect(dayLabel("2026-10-19", "2026-10-21", "zh")).toBe(formatEntryDate("2026-10-19", "zh"))
   })
 })

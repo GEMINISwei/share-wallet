@@ -71,6 +71,8 @@
   --font-sans: "PingFang TC", "Microsoft JhengHei", "Noto Sans CJK TC", system-ui, sans-serif;
   /* 標題用的字型; 元件只認這一個, 換成無襯線時不必把 --font-serif 改成名不副實的值。 */
   --font-heading: var(--font-serif);
+  /* 頁面上唯一的重點數字 (例如餘額), 比標題還大。 */
+  --fs-display: 2.25rem;
   --fs-h1: 1.875rem;
   --fs-h2: 1.4375rem;
   --fs-h3: 1.125rem;

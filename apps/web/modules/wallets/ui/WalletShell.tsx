@@ -11,19 +11,21 @@ type WalletShellProps = {
   backHref: string
   backLabel: string
   children: React.ReactNode
-} & Pick<ComponentProps<typeof PageHeader>, "actions" | "mobileActions">
+} & Pick<ComponentProps<typeof PageHeader>, "actions" | "actionsDesktopOnly" | "mobileActions">
 
-/** 錢包底下各頁的共同外框: 標題、回上一層的連結、單欄內容。 */
+/** 錢包底下各頁的共同外框: 標題、回上一層 (手機在標題列, 桌機在內容上方)、單欄內容。 */
 export default function WalletShell({
-  title, subtitle, backHref, backLabel, children, actions, mobileActions,
+  title, subtitle, backHref, backLabel, children, actions, actionsDesktopOnly, mobileActions,
 }: WalletShellProps) {
   return (
     <Container size="lg" padded>
       <PageHeader
-        title={title} subtitle={subtitle} actions={actions} mobileActions={mobileActions}
+        title={title} subtitle={subtitle} back={{ href: backHref, label: backLabel }}
+        actions={actions} actionsDesktopOnly={actionsDesktopOnly} mobileActions={mobileActions}
       />
       <div className={styles.content}>
-        <BackLink href={backHref} label={backLabel} />
+        {/* 手機的返回是標題列左邊的圓鈕。 */}
+        <div className={styles.desktopOnly}><BackLink href={backHref} label={backLabel} /></div>
         {children}
       </div>
     </Container>

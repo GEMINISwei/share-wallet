@@ -4,7 +4,7 @@ import { Coins, Flag, HandCoins, History, Scale, Settings, Tags, Undo2, Users } 
 import { useRouter } from "next/navigation"
 import { ICON_SIZE, type MenuItem } from "@/shared/ui"
 import { useT } from "@/shared/i18n/context"
-import { type WalletMenuItem, walletMenuItems } from "../capabilities"
+import { type WalletMenuItem, splitWalletActions, walletMenuItems } from "../capabilities"
 import { walletsMessages } from "../i18n"
 import {
   type WalletArea, walletCategoriesPath, walletHistoryPath, walletMembersPath, walletSettingsPath,
@@ -17,10 +17,20 @@ type DialogItem = Extract<
 >
 type MenuHandlers = Partial<Record<DialogItem, () => void>>
 
-const icon = (Icon: typeof Scale) => <Icon size={ICON_SIZE.sm} />
+const ICONS: Record<Exclude<WalletMenuItem, "favorite">, typeof Scale> = {
+  adjust: Scale, owing: HandCoins, startSettlement: Flag, cancelSettlement: Undo2,
+  netBalances: Coins, members: Users, categories: Tags, history: History, settings: Settings,
+}
+
+const LABELS = {
+  adjust: "adjustBalance", owing: "owingList", startSettlement: "startSettlement",
+  cancelSettlement: "cancelSettlement", netBalances: "netBalances", members: "members",
+  categories: "categories", history: "history", settings: "settings",
+} as const satisfies Record<Exclude<WalletMenuItem, "favorite">, string>
 
 /**
- * 手機錢包頁 ⋮ 選單。項目與順序由 `walletMenuItems` 決定, 這裡只接上圖示、文字與動作;
+ * 手機錢包頁的操作: 常用的放成一排按鈕 (`quick`), 其餘收進「更多」(`more`)。
+ * 項目與順序由 `walletMenuItems`／`splitWalletActions` 決定, 這裡只接上圖示、文字與動作;
  * 頁面沒給動作的項目 (例如資料載入失敗時) 不顯示。
  */
 export function useWalletMenu(
@@ -29,29 +39,29 @@ export function useWalletMenu(
   { state, handlers, favorite }: {
     state: Parameters<typeof walletMenuItems>[1]; handlers: MenuHandlers; favorite: MenuItem | null
   },
-): MenuItem[] {
+): { quick: MenuItem[]; more: MenuItem[] } {
   const t = useT(walletsMessages)
   const router = useRouter()
-  const go = (href: string) => () => router.push(href)
-  const dialog = (key: DialogItem, Icon: typeof Scale, label: string) =>
-    handlers[key] ? { icon: icon(Icon), label, onClick: handlers[key] } : null
-  const build: Record<WalletMenuItem, () => MenuItem | null> = {
-    adjust: () => dialog("adjust", Scale, t("adjustBalance")),
-    owing: () => dialog("owing", HandCoins, t("owingList")),
-    startSettlement: () => dialog("startSettlement", Flag, t("startSettlement")),
-    cancelSettlement: () => dialog("cancelSettlement", Undo2, t("cancelSettlement")),
-    netBalances: () => dialog("netBalances", Coins, t("netBalances")),
-    members: () => ({ icon: icon(Users), label: t("members"), onClick: go(walletMembersPath(wallet.id, area)) }),
-    categories: () => ({
-      icon: icon(Tags), label: t("categories"), onClick: go(walletCategoriesPath(wallet.id, area)),
-    }),
-    history: () => ({ icon: icon(History), label: t("history"), onClick: go(walletHistoryPath(wallet.id, area)) }),
-    settings: () => ({
-      icon: icon(Settings), label: t("settings"), onClick: go(walletSettingsPath(wallet.id, area)),
-    }),
-    favorite: () => favorite,
+  const links: Record<Extract<WalletMenuItem, "members" | "categories" | "history" | "settings">, string> = {
+    members: walletMembersPath(wallet.id, area),
+    categories: walletCategoriesPath(wallet.id, area),
+    history: walletHistoryPath(wallet.id, area),
+    settings: walletSettingsPath(wallet.id, area),
   }
-  return walletMenuItems(wallet, state)
-    .map((key) => build[key]())
-    .filter((item): item is MenuItem => item !== null)
+
+  function toItem(key: WalletMenuItem, iconSize: number): MenuItem | null {
+    if (key === "favorite") return favorite
+    const Icon = ICONS[key]
+    const onClick = key in links
+      ? () => router.push(links[key as keyof typeof links])
+      : handlers[key as DialogItem]
+    if (!onClick) return null
+    return { icon: <Icon size={iconSize} />, label: t(LABELS[key]), onClick }
+  }
+
+  // 常用操作是大按鈕, 圖示大一階。
+  const toItems = (keys: WalletMenuItem[], iconSize: number) =>
+    keys.map((key) => toItem(key, iconSize)).filter((item): item is MenuItem => item !== null)
+  const split = splitWalletActions(wallet.kind, walletMenuItems(wallet, state))
+  return { quick: toItems(split.quick, ICON_SIZE.md), more: toItems(split.more, ICON_SIZE.sm) }
 }

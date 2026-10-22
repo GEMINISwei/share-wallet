@@ -20,6 +20,7 @@ import SettlementConfirm, { type SettlementStep } from "./SettlementConfirm"
 import SettlementPanel from "./SettlementPanel"
 import TravelDialogs, { type TravelDialog } from "./TravelDialogs"
 import WalletLinks from "./WalletLinks"
+import WalletQuickActions from "./WalletQuickActions"
 import WalletShell from "./WalletShell"
 import WalletStatusBadge from "./WalletStatusBadge"
 import WalletSummary from "./WalletSummary"
@@ -116,14 +117,15 @@ export default function TravelWalletView({ wallet, area, travel }: TravelWalletV
   return (
     <WalletShell
       title={wallet.name} subtitle={`${wallet.destination} · ${dates}`}
-      backHref={walletsListPath(area, wallet.kind)} backLabel={t("backToList")}
-      actions={actions} mobileActions={menu}
+      backHref={walletsListPath(area, wallet.kind)} backLabel={t("backToList")} actionsDesktopOnly
+      actions={actions}
     >
       <WalletSummary
         mobileOnly label={t("myNetBalance")}
         value={myNetBalance(travel.balances, travel.currentUserId, travel.balancesFailed)}
         onAdd={area === "admin" && canAddEntry(wallet, ready) ? openAdd : undefined}
       />
+      <WalletQuickActions title={wallet.name} {...menu} />
       {wallet.status !== "active" && (
         <>
           <p className={`${styles.hint} ${styles.statusLine}`}>
@@ -138,7 +140,7 @@ export default function TravelWalletView({ wallet, area, travel }: TravelWalletV
       )}
       <NetBalanceList balances={travel.balances} failed={travel.balancesFailed} />
       <section>
-        <h2 className={styles.sectionTitle}>{t("entries")}</h2>
+        <h2 className={`${styles.sectionTitle} ${styles.ledgerTitle}`}>{t("entries")}</h2>
         {ready
           ? (
             <ExpenseList

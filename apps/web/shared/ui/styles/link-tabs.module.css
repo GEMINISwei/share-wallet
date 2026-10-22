@@ -1,8 +1,9 @@
+/* 膠囊形的分段切換: 選中的那段用主要操作的實心色, 跟其他段的對比一眼看得出來。 */
 .tabs {
   display: flex;
   gap: var(--space-1);
   padding: var(--space-1);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-pill);
   background: var(--color-surface-sunken);
 }
 
@@ -12,7 +13,7 @@
   align-items: center;
   justify-content: center;
   min-height: var(--control-height-sm);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-pill);
   color: var(--color-text-secondary);
   font-family: var(--font-sans);
   font-size: var(--fs-sm);
@@ -29,6 +30,6 @@
 
 .tabActive,
 .tabActive:hover {
-  background: var(--color-surface-card);
-  color: var(--color-text-heading);
+  background: var(--color-action-primary);
+  color: var(--color-text-on-primary);
 }
