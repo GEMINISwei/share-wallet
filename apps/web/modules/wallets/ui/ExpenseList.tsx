@@ -2,10 +2,11 @@
 
 import { useLocale, useT } from "@/shared/i18n/context"
 import { loadMoreExpenses } from "../actions"
-import { expenseTitle, formatEntryDate } from "../format"
+import { expenseTitle } from "../format"
 import { walletsMessages } from "../i18n"
 import type { ExpenseInfo, ExpensePage } from "../types"
 import Amount from "./Amount"
+import DayGroups from "./DayGroups"
 import LoadMoreButton from "./LoadMoreButton"
 import { useLoadMore } from "./useLoadMore"
 import styles from "./wallets.module.css"
@@ -26,13 +27,10 @@ export default function ExpenseList({ walletId, firstPage, onOpen }: ExpenseList
   if (items.length === 0) return <p className={styles.hint}>{t("noEntries")}</p>
   return (
     <>
-      <ul className={styles.list}>
-        {items.map((expense) => (
-          <li key={expense.id}>
-            <ExpenseRow expense={expense} onOpen={() => onOpen(expense)} />
-          </li>
-        ))}
-      </ul>
+      <DayGroups
+        items={items} getKey={(expense) => expense.id}
+        renderItem={(expense) => <ExpenseRow expense={expense} onOpen={() => onOpen(expense)} />}
+      />
       {hasMore && <LoadMoreButton isPending={isPending} failed={failed} onClick={loadMore} />}
     </>
   )
@@ -41,8 +39,8 @@ export default function ExpenseList({ walletId, firstPage, onOpen }: ExpenseList
 function ExpenseRow({ expense, onOpen }: { expense: ExpenseInfo; onOpen: () => void }) {
   const t = useT(walletsMessages)
   const locale = useLocale()
+  // 日期在分組的標題上, 這裡不再重複。
   const meta = [
-    formatEntryDate(expense.entry_date, locale),
     // 標題是備註時, 付款人移到這一行。
     expense.note ? t("paidBy", { name: expense.payer.nickname }) : "",
     t("sharesSummary", { count: String(expense.shares.length) }),

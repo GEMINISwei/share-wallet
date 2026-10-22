@@ -58,7 +58,7 @@ export default function WalletsView(
           <p className={styles.hint}>{tab === "travel" ? t("emptyTravel") : t("empty")}</p>
         )}
         {shown.length > 0 && (
-          <ul className={styles.list}>
+          <ul className={`${styles.list} ${styles.walletCards}`}>
             {shown.map((wallet) => (
               <li key={wallet.id}>
                 <WalletRow wallet={wallet} />

@@ -56,6 +56,54 @@ export function entryTitle(
   return entry.category?.name ?? ""
 }
 
+const KIND_TAG = {
+  transfer_out: "transferTag", transfer_in: "transferTag", advance: "advance",
+  repayment: "repayment", adjustment: "adjustment",
+} as const satisfies Partial<Record<EntryKind, keyof (typeof walletsMessages)["zh"]>>
+
+type EntryRowSource = Pick<EntryInfo, "kind" | "category" | "counterpart_wallet" | "note">
+  & Partial<Pick<EntryInfo, "advance_target_name">>
+
+/**
+ * 帳目列的三段文字。標題優先用備註 (記帳的人自己寫的最好認); 膠囊是分類, 沒有分類的是類型。
+ * 標題被備註佔走時, 轉帳、代墊這類原本的標題 (對方錢包、對象) 移到說明, 不會看不到。
+ * 膠囊跟標題一樣時不放, 免得同一個字出現兩次。
+ */
+export function entryRowText(entry: EntryRowSource, locale: Locale) {
+  const base = entryTitle(entry, locale)
+  const tag = entryTag(entry, locale)
+  if (!entry.note) return { title: base, tag: tag && tag !== base ? tag : null, detail: null }
+  // 收支的原本標題就是分類, 已經在膠囊裡了。
+  const hasCategory = entry.kind === "income" || entry.kind === "expense"
+  return { title: entry.note, tag: tag || null, detail: hasCategory ? null : base }
+}
+
+function entryTag({ kind, category }: EntryRowSource, locale: Locale) {
+  if (kind === "income" || kind === "expense") return category?.name ?? ""
+  return translate(walletsMessages, locale)(KIND_TAG[kind])
+}
+
+/** 依日期 (`entry_date`) 分組, 組的順序與組內順序都照列表原本的順序。 */
+export function groupByDay<T extends { entry_date: string }>(items: readonly T[]) {
+  const groups = new Map<string, T[]>()
+  for (const item of items) {
+    const group = groups.get(item.entry_date)
+    if (group) group.push(item)
+    else groups.set(item.entry_date, [item])
+  }
+  return [...groups].map(([day, grouped]) => ({ day, items: grouped }))
+}
+
+/** 分組的標題: 今天、昨天用相對的說法 (最常看的就是這兩天), 其他顯示日期。 */
+export function dayLabel(day: string, today: string, locale: Locale) {
+  const t = translate(walletsMessages, locale)
+  if (day === today) return t("today")
+  const yesterday = new Date(`${today}T00:00:00Z`)
+  yesterday.setUTCDate(yesterday.getUTCDate() - 1)
+  if (day === yesterday.toISOString().slice(0, 10)) return t("yesterday")
+  return formatEntryDate(day, locale)
+}
+
 /** 轉帳的對方錢包名稱; 已刪除時是「已刪除的錢包」。不是轉帳時是 null。 */
 export function counterpartName(kind: EntryKind, name: string | null | undefined, locale: Locale) {
   if (!isTransfer(kind)) return null

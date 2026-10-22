@@ -65,6 +65,23 @@ export function walletMenuItems(wallet: WalletInfo, state: WalletPageState): Wal
   return items.filter((item): item is WalletMenuItem => item !== false)
 }
 
+const QUICK_ACTIONS: Record<WalletKind, readonly WalletMenuItem[]> = {
+  general: ["adjust", "owing", "members"],
+  travel: ["startSettlement", "cancelSettlement", "netBalances", "members"],
+}
+
+/**
+ * 手機錢包頁: 常用的幾項放成一排按鈕, 其餘收進「更多」。從 `walletMenuItems` 的結果拆,
+ * 沒有權限或不適用 (代墊都還清) 的項目本來就不在裡面, 不會補別的上來。
+ */
+export function splitWalletActions(kind: WalletKind, items: readonly WalletMenuItem[]) {
+  const quick = QUICK_ACTIONS[kind]
+  return {
+    quick: items.filter((item) => quick.includes(item)),
+    more: items.filter((item) => !quick.includes(item)),
+  }
+}
+
 /**
  * 開始結算: 管理者、進行中, 還要有帳目 (後端也擋, 見 docs/features.md〈結算流程〉)。
  * 載入失敗時管理者看不到要結算的帳, 也不給按。

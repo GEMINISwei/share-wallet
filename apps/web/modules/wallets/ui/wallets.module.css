@@ -135,6 +135,98 @@ a.row:hover {
   color: var(--color-danger-fg);
 }
 
+.positive {
+  color: var(--color-success-fg);
+}
+
+/* 帳目的分類 (或類型): 只有外框的膠囊, 不搶金額的視線。 */
+.tag {
+  flex-shrink: 0;
+  padding: 0 var(--space-2);
+  border: var(--border-width-hairline) solid var(--color-border-default);
+  border-radius: var(--radius-pill);
+  color: var(--color-text-secondary);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-regular);
+  line-height: var(--lh-normal);
+  white-space: nowrap;
+}
+
+.dayGroups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.dayHeading {
+  margin: 0 0 var(--space-2) var(--space-1);
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  letter-spacing: var(--ls-body);
+}
+
+/* 錢包列表: 每個錢包一張卡片, 不是一張卡片裡的多列。 */
+.list.walletCards {
+  gap: var(--space-2);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  overflow: visible;
+}
+
+.list.walletCards > li {
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-card);
+  box-shadow: var(--shadow-xs);
+}
+
+.list.walletCards > li + li {
+  border-top: 0;
+}
+
+/* 手機錢包頁餘額下方的一排操作。 */
+/* 項目數會變 (代墊還清、不是管理者時少一兩格), 平分整列, 不留空位。 */
+.quickActions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.quickAction {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  min-width: 0;
+  min-height: calc(var(--control-height-lg) + var(--space-5));
+  padding: var(--space-3) var(--space-1);
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-card);
+  box-shadow: var(--shadow-xs);
+  color: var(--color-text-body);
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  cursor: pointer;
+  transition: transform var(--dur-fast) var(--ease-standard);
+}
+
+.quickAction:active {
+  transform: scale(0.96);
+}
+
+.quickAction > span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .sectionTitle {
   margin: 0 0 var(--space-2);
   font-size: var(--fs-xs);
@@ -459,16 +551,38 @@ a.row:hover {
     display: none;
   }
 
+  /* 手機的摘要是整頁的焦點: 不用底色卡片, 數字放大置中。 */
   .summary {
-    padding: var(--space-4);
+    flex-direction: column;
+    gap: var(--space-3);
+    padding: var(--space-3) 0 var(--space-2);
+    background: transparent;
+    color: var(--color-text-display);
+  }
+
+  .summaryMain {
+    align-items: center;
+  }
+
+  .summaryLabel {
+    color: var(--color-text-secondary);
   }
 
   .summaryValue {
-    font-size: var(--fs-h2);
+    font-size: var(--fs-display);
   }
 
   .summaryAdd {
     display: flex;
+  }
+
+  /* 帳目底下還有日期分組的小標, 這一層要明顯大一階, 才分得出層次。 */
+  .ledgerTitle {
+    margin-top: var(--space-2);
+    color: var(--color-text-heading);
+    font-size: var(--fs-lg);
+    letter-spacing: var(--ls-body);
+    text-transform: none;
   }
 }
 

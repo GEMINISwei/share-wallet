@@ -4,7 +4,8 @@ import {
   canStartSettlement, canTransfer, changedFields,
   entryActions, entryCategoryOptions, entryKindOptions, expenseActions, expenseChangedFields,
   groupCategories, initialExpenseValues, isLastAdmin, memberActions, myNetBalance, owingTargets,
-  settlementTransferActions, shareUserOptions, splitEqually, transferTargets, transfersForViewer,
+  settlementTransferActions, shareUserOptions, splitEqually, splitWalletActions, transferTargets,
+  transfersForViewer,
   travelActions, walletListTab, walletMenuItems, walletSections, walletStatusBadge, walletsOfTab,
 } from "@/modules/wallets/capabilities"
 import type {
@@ -726,5 +727,30 @@ describe("addEntryPickerGroups", () => {
     ])
     expect(groups.travel.map((item) => item.block)).toEqual(["settling"])
     expect(groups.general.map((item) => item.block)).toEqual([null])
+  })
+})
+
+describe("splitWalletActions", () => {
+  it("一般錢包的常用操作是調整餘額、代墊未還、成員, 其餘放更多", () => {
+    const items = ["adjust", "owing", "members", "categories", "history", "settings", "favorite"] as const
+    expect(splitWalletActions("general", items)).toEqual({
+      quick: ["adjust", "owing", "members"],
+      more: ["categories", "history", "settings", "favorite"],
+    })
+  })
+
+  it("旅遊錢包的常用操作是結算、每人淨額、成員", () => {
+    const items = ["cancelSettlement", "netBalances", "members", "history", "settings"] as const
+    expect(splitWalletActions("travel", items)).toEqual({
+      quick: ["cancelSettlement", "netBalances", "members"],
+      more: ["history", "settings"],
+    })
+  })
+
+  it("選單裡沒有的常用操作不補位, 更多維持原本的順序", () => {
+    const items = ["adjust", "members", "categories", "history"] as const
+    expect(splitWalletActions("general", items)).toEqual({
+      quick: ["adjust", "members"], more: ["categories", "history"],
+    })
   })
 })
