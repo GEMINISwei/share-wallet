@@ -125,9 +125,7 @@ class Sandbox:
         lines = [
             f"COMPOSE_PROJECT_NAME={PROJECT}",
             "SYSTEM_PORT=3000",
-            "POSTGRES_USER=admin",
             "POSTGRES_PASSWORD=secret",
-            f"POSTGRES_DB={PROJECT}",
         ]
         if mode is not None:
             lines.append(f"MODE={mode}")
@@ -230,10 +228,33 @@ def test_init_writes_mode(box: Sandbox, command: str, mode: str) -> None:
     for name in ("uv", "npm"):
         box.tool(name, PASSING_TOOL)
     box.tool("node", FAKE_NODE)
-    # 專案名稱, 其餘用預設值, 最後是必填的資料庫密碼。
-    result = box.run("init", command, answer="my-app\n\n\n\nsecret\n")
+    # 專案名稱, 其餘用預設值。
+    result = box.run("init", command, answer="my-app\n\n\n")
     assert result.returncode == 0, result.stderr
     assert f"MODE={mode}" in (box.repo / ".env").read_text().splitlines()
+
+
+def init_env_values(box: Sandbox) -> dict[str, str]:
+    """跑一次 `make init dev` (全用預設值), 回傳 `.env` 裡的 KEY=VALUE。"""
+    for name in ("uv", "npm"):
+        box.tool(name, PASSING_TOOL)
+    box.tool("node", FAKE_NODE)
+    result = box.run("init", "dev", answer="my-app\n\n\n")
+    assert result.returncode == 0, result.stderr
+    lines = (box.repo / ".env").read_text().splitlines()
+    return dict(line.split("=", 1) for line in lines if "=" in line and not line.startswith("#"))
+
+
+def test_init_does_not_write_postgres_user_or_db(box: Sandbox) -> None:
+    """兩者是寫死在 compose 的固定值, `.env` 再放一份只會跟它對不上。"""
+    values = init_env_values(box)
+    assert "POSTGRES_USER" not in values
+    assert "POSTGRES_DB" not in values
+
+
+def test_init_generates_postgres_password(box: Sandbox) -> None:
+    # 只有 api 的連線 URL 用得到, 沒有人需要記住它; 十六進位插進 URL 不必跳脫。
+    assert re.fullmatch(r"[0-9a-f]{64}", init_env_values(box)["POSTGRES_PASSWORD"])
 
 
 # ── MODE ─────────────────────────────────────────────────────────────────────
@@ -512,6 +533,47 @@ def test_backup_leaves_stopped_nginx_alone(box: Sandbox) -> None:
     assert not box.called(f"start {NGINX}")
 
 
+# 帳號與資料庫名稱只寫在 compose, 腳本在容器裡讀它們, 走本機 socket 不需要密碼。
+CONTAINER_CREDENTIALS = ('-U "$POSTGRES_USER"', '-d "$POSTGRES_DB"')
+
+
+def test_psql_reads_credentials_inside_container(box: Sandbox) -> None:
+    box.write_env("development")
+    box.containers(*ALL_RUNNING)
+    result = box.run("db", "psql")
+    assert result.returncode == 0, result.stderr
+    call = next(call for call in box.calls() if " psql " in call)
+    assert all(part in call for part in CONTAINER_CREDENTIALS)
+    assert "PGPASSWORD" not in call
+
+
+def test_psql_prompt_shows_project_name(box: Sandbox) -> None:
+    """每套系統的資料庫都叫 app, 同時連好幾套時要從提示字元分得出是哪一套。"""
+    box.write_env("development")
+    box.containers(*ALL_RUNNING)
+    result = box.run("db", "psql")
+    assert result.returncode == 0, result.stderr
+    call = next(call for call in box.calls() if " psql " in call)
+    assert f"PROMPT1={PROJECT}%R" in call
+    assert f"PROMPT2={PROJECT}%R" in call
+
+
+@pytest.mark.parametrize(
+    ("command", "tool"), [(("backup",), "pg_dump"), (("db", "restore"), "pg_restore")]
+)
+def test_backup_and_restore_read_credentials_inside_container(
+    box: Sandbox, command: tuple[str, ...], tool: str
+) -> None:
+    running_production(box)
+    file = existing_backup(box, "dump")
+    args = (*command, file) if tool == "pg_restore" else command
+    result = box.run(*args, answer="y\n")
+    assert result.returncode == 0, result.stderr
+    call = next(call for call in box.calls() if tool in call)
+    assert all(part in call for part in CONTAINER_CREDENTIALS)
+    assert "PGPASSWORD" not in call
+
+
 # ── restore ──────────────────────────────────────────────────────────────────
 
 RESTORES = [
@@ -555,6 +617,19 @@ def test_restore_aborts_when_backup_fails(
     assert result.returncode != 0
     assert not box.called(restore)
     assert box.first(f"stop {NGINX}") < box.last(f"start {NGINX}")
+
+
+@pytest.mark.parametrize("mode", ["development", "production"])
+@pytest.mark.parametrize(("answer", "revoked"), [("n\n", False), ("", False), ("y\n", True)])
+def test_revoke_sessions_requires_confirmation(
+    box: Sandbox, mode: str, answer: str, revoked: bool
+) -> None:
+    """所有人都會被登出, 開發機與正式環境都要先確認。"""
+    box.write_env(mode)
+    box.containers(*ALL_RUNNING)
+    result = box.run("db", "revoke-sessions", answer=answer)
+    assert (result.returncode == 0) == revoked
+    assert box.called("revoke-sessions") == revoked
 
 
 # ── help ─────────────────────────────────────────────────────────────────────
