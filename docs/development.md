@@ -48,6 +48,7 @@ make start lan  # 同 make start，但對區網開放，結束時印出手機要
 | `port is already allocated` | 改 `.env` 的 `SYSTEM_PORT`，`make services down && make start` |
 | api 一直重啟、`relation "users" does not exist` | migration 失敗了，`make services logs migrate` 看原因 |
 | 容器裡 `ModuleNotFoundError` | 改了相依但 image 沒重建，重建後再 `make start` |
+| api 一直重啟、`password authentication failed` 或 `role "app" does not exist` | 資料庫的帳號密碼只在第一次建立 volume 時寫入：改過 `.env` 的 `POSTGRES_PASSWORD`，或 volume 是舊版（帳號不是 `app`）建的。開發機可以清掉重建（**資料會消失**）：`make services down`，`docker volume rm <專案>_development_postgres_data`，再 `make start` 與 `make db superuser` |
 | `make init dev` 抱怨 Node 版本 | `nvm use` |
 | `make init dev` 說專案名稱已有 docker 服務在使用 | 換一個名稱；確定是不要的舊專案，就用 `docker rm`／`docker volume rm` 清掉列出的資源 |
 
@@ -225,6 +226,33 @@ CI（`.github/workflows/ci.yml`）跑的就是本機指令：`check`（`make che
 `integration`（`make check integration`）、`images`（兩份 production image
 建得起來，且 web image 裡沒有真的 Server Action 金鑰）。**本機綠，CI 就綠。** 部署另由
 `deploy.yml` 在 Publish release 時執行，見 [`operations.md`](operations.md#自動部署)。
+
+### AI 協作的共同作者
+
+AI 參與產生的 commit 一律在訊息最後加上 `Co-authored-by`，之後看 history 才知道哪些改動是哪家的
+AI、哪個模型做的：
+
+```text
+feat: add product list page
+
+列表改用游標分頁, 資料量成長後 offset 會越來越慢。
+
+Co-authored-by: Claude Opus 5.5 <noreply@anthropic.com>
+```
+
+- **名稱寫到模型與版本**（`Claude Opus 5.5`），不要只寫廠商或工具名：同一家的不同模型能力差很多，
+  回頭追問題時要分得出來。
+- **email 用工具官方設定的值**，工具沒有提供時用 `noreply@<廠商網域>`。這類位址沒有對應的 GitHub 帳號，
+  GitHub 上只顯示成文字、不會連到頭像，紀錄的作用一樣在。
+- trailer 放在訊息最後，前面空一行，一位共同作者一行；同一個 commit 有多個 AI 參與就各寫一行。
+- Git 與 GitHub 都不強制這行，漏了不會報錯，所以靠每個 commit 自己帶。squash 時 GitHub 會把分支上的
+  trailer 帶進 `main` 的內文，合併時不要把它們刪掉。
+
+查某段期間各 commit 的共同作者：
+
+```bash
+git log --format='%h %s%n  %(trailers:key=Co-authored-by,valueonly,separator=%x2C )'
+```
 
 ### 相依升級
 

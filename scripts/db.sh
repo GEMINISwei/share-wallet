@@ -8,6 +8,7 @@
 #   make db migrate              對運行中的環境套用未執行的 migration (development only)
 #   make db migration "說明"     依 model 的變更產生一支 migration, 不需要啟動環境 (development only)
 #   make db superuser            建立擁有全部權限的超級管理者
+#   make db revoke-sessions      讓所有使用者都要重新登入 (帳號被盜、懷疑 token 外流時)
 #
 # 除了 migration, 都是對 `make start` 起來的那套容器操作。備份用 make backup (資料庫與上傳檔案一起)。
 set -euo pipefail
@@ -28,17 +29,22 @@ usage() {
 
 # 碰運行中容器的子指令都要先確認環境起著, 否則 docker 的錯誤訊息看不出原因。
 require_running() {
-    require_env COMPOSE_PROJECT_NAME POSTGRES_USER POSTGRES_DB
+    require_env COMPOSE_PROJECT_NAME
     if ! container_running "${COMPOSE_PROJECT_NAME}-postgres"; then
         echo "資料庫沒有在執行，請先 make start" >&2
         exit 1
     fi
 }
 
+# 帳號與資料庫名稱在容器裡讀, 理由同 postgres_tool。psql 要 TTY, 而 postgres_tool 只給 -i。
+# 每套系統的資料庫都叫 app, 預設提示字元 (%/ = 資料庫名稱) 分不出是哪一套, 所以換成專案名稱。
 cmd_psql() {
+    local prompt="${COMPOSE_PROJECT_NAME}%R%x%# "
     require_running
-    docker exec -it -e PGPASSWORD="${POSTGRES_PASSWORD:-}" "${COMPOSE_PROJECT_NAME}-postgres" \
-        psql -U "${POSTGRES_USER}" -d "${POSTGRES_DB}"
+    # shellcheck disable=SC2016 # 刻意不在主機展開
+    docker exec -it "${COMPOSE_PROJECT_NAME}-postgres" \
+        sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" "$@"' sh \
+        -v "PROMPT1=${prompt}" -v "PROMPT2=${prompt}"
 }
 
 # 從清單選一份這個版本的備份, 選中的路徑寫到 stdout (清單與提示走 stderr, 才能被 $() 接住)。
@@ -70,9 +76,7 @@ choose_backup() {
 restore_database() {
     local file="$1"
     "${REPO_ROOT}/scripts/backup.sh"
-    docker exec -i -e PGPASSWORD="${POSTGRES_PASSWORD:-}" "${COMPOSE_PROJECT_NAME}-postgres" \
-        pg_restore -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" --clean --if-exists --no-owner --no-acl \
-        < "${file}"
+    postgres_tool -i pg_restore --clean --if-exists --no-owner --no-acl < "${file}"
 }
 
 # 只接受目前版本的備份: 回滾後的舊程式讀不了新版 migration 改過的結構,
@@ -94,7 +98,7 @@ cmd_restore() {
         exit 1
     fi
 
-    confirm "將先完整備份一次，再以 $(backup_label "${file}") 的備份取代 ${POSTGRES_DB} 目前的資料，確定？"
+    confirm "將先完整備份一次，再以 $(backup_label "${file}") 的備份取代目前資料庫的資料，確定？"
     without_traffic restore_database "${file}"
     echo "還原完成：$(backup_label "${file}")"
 }
@@ -102,7 +106,7 @@ cmd_restore() {
 cmd_reset() {
     deny_on_production "make db reset"
     require_running
-    confirm "${POSTGRES_DB} 的資料將被清空並重建初始資料，確定？"
+    confirm "資料庫的資料將被清空並重建初始資料，確定？"
     db_cli reset
     db_cli migrate
     db_cli seed
@@ -147,6 +151,13 @@ cmd_superuser() {
     db_cli_tty create-superuser
 }
 
+# 開發機也要確認: 執行的人自己也會被登出, 而且沒有辦法復原。
+cmd_revoke_sessions() {
+    require_running
+    confirm "所有使用者都會被登出、必須重新登入，確定？"
+    db_cli revoke-sessions
+}
+
 action="${1:-}"
 shift || true
 case "${action}" in
@@ -156,5 +167,6 @@ case "${action}" in
     migrate)   cmd_migrate ;;
     migration) cmd_migration "$@" ;;
     superuser) cmd_superuser ;;
+    revoke-sessions) cmd_revoke_sessions ;;
     *)         usage ;;
 esac
