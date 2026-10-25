@@ -3,7 +3,7 @@ import { getCurrentUser } from "@/modules/auth/public.server"
 import AreaLayout from "@/config/shell/AreaLayout"
 
 /**
- * 管理區 (使用者、角色) 只開放給超級管理者。角色上的權限是給一般帳號的業務功能用的,
+ * 管理區 (使用者、角色、錢包) 只開放給超級管理者。角色上的權限是給一般帳號的業務功能用的,
  * 沒有任何一個權限能打開這一區。
  *
  * 真正的授權在後端 (這些端點都要求 `Permission.ALL`)。

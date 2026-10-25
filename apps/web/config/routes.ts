@@ -6,6 +6,7 @@ import { AUTH_MODULE } from "@/modules/auth/manifest"
 import { ROLES_MODULE } from "@/modules/roles/manifest"
 import { SETTINGS_MODULE } from "@/modules/settings/manifest"
 import { USERS_MODULE } from "@/modules/users/manifest"
+import { WALLETS_MODULE } from "@/modules/wallets/manifest"
 
 /**
  * 前端唯一的模組啟用清單。底下的執行期陣列與型別聯集**全部**從這一份推導 —— 新增模組只要在
@@ -17,6 +18,7 @@ import { USERS_MODULE } from "@/modules/users/manifest"
  */
 const ENABLED_MODULES = [
   AUTH_MODULE,
+  WALLETS_MODULE,
   USERS_MODULE,
   ROLES_MODULE,
   SETTINGS_MODULE,

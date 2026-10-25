@@ -14,6 +14,13 @@ const nextConfig: NextConfig = {
     ...Array.from({ length: 16 }, (_, index) => `172.${16 + index}.*.*`),
     "*.local",
   ],
+  // 首頁就是錢包列表。在這裡導向, 而不是在 page.tsx 呼叫 redirect(): 後者要先進 React 渲染,
+  // Next 16 開發版會因此在 Safari 跳出 performance.measure 的 TypeError (vercel/next.js#86060)。
+  // next.config 載入時不能引用模組 (public entry 帶著 server-only), 路徑與 WALLETS_PATH 的
+  // 一致由 tests/next.config.test.ts 守。
+  async redirects() {
+    return [{ source: "/", destination: "/wallets", permanent: false }]
+  },
   // Server Action 參數可能含密碼; 開發日誌只保留請求結果, 不展開參數。
   logging: { serverFunctions: false },
   // Next 16.3 起 `next dev` 會自動在 app 根產生 AGENTS.md 與 CLAUDE.md。這個 repo 的 agent
