@@ -223,6 +223,26 @@ export interface paths {
         patch: operations["change_own_password_route_api_users_me_password_patch"];
         trace?: never;
     };
+    "/api/users/signup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Signup User Route
+         * @description 公開註冊一般帳號, 不需認證。回傳的 token 讓註冊完直接是登入狀態。
+         */
+        post: operations["signup_user_route_api_users_signup_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/users/{id}": {
         parameters: {
             query?: never;
@@ -399,6 +419,15 @@ export interface components {
             name: string;
             /** Permissions */
             permissions: components["schemas"]["Permission"][];
+        };
+        /** SignupRequest */
+        SignupRequest: {
+            /** Nickname */
+            nickname: string;
+            /** Password */
+            password: string;
+            /** Username */
+            username: string;
         };
         /** UserCreate */
         UserCreate: {
@@ -948,6 +977,39 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["PasswordChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserToken"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    signup_user_route_api_users_signup_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SignupRequest"];
             };
         };
         responses: {

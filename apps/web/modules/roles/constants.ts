@@ -15,6 +15,7 @@ import type { RoleInfo } from "./types"
  */
 const SYSTEM_ROLE_NAME_KEYS = {
   super_admin: "roleSuperAdmin",
+  user: "roleUser",
 } as const satisfies Record<string, keyof (typeof rolesMessages)["zh"]>
 
 /**

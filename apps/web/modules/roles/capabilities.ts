@@ -1,13 +1,19 @@
+import { hasAllPermission } from "@/shared/access/permissions"
 import type { PermissionOption, RoleInfo } from "./types"
 
+// 這個模組的畫面只有超級管理者進得來 (`admin/layout.tsx`), 所以不必再看操作者的權限。
+// 兩條規則與後端 `modules/roles/service.py` 的 `update_role` 同一組。
+
 /**
- * 這個角色能不能編輯 (改名、停用、改權限)。
- *
- * 系統角色 (有 `code`) 整個由模板擁有, 後端一律拒絕修改。這個模組的畫面只有超級管理者
- * 進得來 (`admin/layout.tsx`), 所以不必再看操作者的權限。
+ * 能不能改名稱與狀態。系統角色 (有 `code`) 不行: 名稱由模板同步, 停用則會讓註冊或超管失效。
  */
-export function canManageRole(role: RoleInfo) {
+export function canEditRoleDetails(role: RoleInfo) {
   return role.code === null
+}
+
+/** 能不能改權限。只有超級管理者角色不行 (`*` 就是它存在的意義); 一般用戶這個系統角色可以。 */
+export function canEditRolePermissions(role: RoleInfo) {
+  return !hasAllPermission(role.permissions)
 }
 
 export type PermissionGroup = {

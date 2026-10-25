@@ -9,7 +9,7 @@ import { LOGIN_PATH, LOGIN_REDIRECT_REASONS } from "@/shared/session/login-contr
 import { useNotify } from "@/shared/ui"
 import { loginUser } from "../actions"
 import { authMessages } from "../i18n"
-import { LOGIN_REDIRECT_MESSAGE_KEYS } from "../constants"
+import { LOGIN_REDIRECT_MESSAGE_KEYS, SIGNUP_PATH } from "../constants"
 import { validateLoginValues } from "../validation"
 import type { LoginFormErrors, LoginFormValues, LoginRedirectReason } from "../types"
 
@@ -65,6 +65,7 @@ export function useLoginForm({ reason }: UseLoginFormParams) {
       }
     },
     togglePassword: () => setShowPassword((prev) => !prev),
+    goSignup: () => router.push(SIGNUP_PATH),
     submit: () => {
       const nextErrors = validateLoginValues(values, locale)
       setErrors(nextErrors)

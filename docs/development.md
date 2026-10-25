@@ -13,7 +13,7 @@ make init dev   # 產生 .env（MODE=development，金鑰自動產生）、安�
 make start      # 啟動 postgres → migrate → api → web → nginx（首次建置約 2–5 分鐘）
 ```
 
-環境起來之後用 `make db superuser` 建立第一個帳號（網頁上沒有註冊入口），再打開
+環境起來之後用 `make db superuser` 建立第一個帳號（網頁上沒有建立超管的入口），再打開
 `http://localhost:{SYSTEM_PORT}`（預設 3000）登入。`migrate` 停在 `Exited (0)`、`nginx` 沒有 `(healthy)`
 都是正常的。
 

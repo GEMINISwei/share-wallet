@@ -336,6 +336,32 @@
         "title": "RoleUpdate",
         "type": "object"
       },
+      "SignupRequest": {
+        "properties": {
+          "nickname": {
+            "minLength": 1,
+            "title": "Nickname",
+            "type": "string"
+          },
+          "password": {
+            "minLength": 8,
+            "title": "Password",
+            "type": "string"
+          },
+          "username": {
+            "minLength": 1,
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "password",
+          "nickname"
+        ],
+        "title": "SignupRequest",
+        "type": "object"
+      },
       "UserCreate": {
         "properties": {
           "nickname": {
@@ -1369,6 +1395,48 @@
           }
         },
         "summary": "Change Own Password Route",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/users/signup": {
+      "post": {
+        "description": "公開註冊一般帳號, 不需認證。回傳的 token 讓註冊完直接是登入狀態。",
+        "operationId": "signup_user_route_api_users_signup_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserToken"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Signup User Route",
         "tags": [
           "users"
         ]
