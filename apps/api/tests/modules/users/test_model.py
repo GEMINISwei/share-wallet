@@ -110,3 +110,47 @@ async def test_update_with_empty_role_ids_clears_roles(db):
     result = await UserTable.find_detail_by_id(created["id"])
     assert result is not None
     assert result["role_ids"] == []
+
+
+async def test_find_nicknames_by_ids_skips_unknown_ids(db):
+    created = await UserTable.create(
+        data={"username": "nick-user", "password": "hashed", "nickname": "小明"}
+    )
+
+    result = await UserTable.find_nicknames_by_ids(
+        [created["id"], "0123abcd-4567-89ab-cdef-0123456789ab", "not-a-uuid"]
+    )
+
+    assert result == {created["id"]: "小明"}
+
+
+async def test_get_user_options_returns_only_active_users(db):
+    active = await UserTable.create(
+        data={"username": "option-active", "password": "hashed", "nickname": "小明"}
+    )
+    await UserTable.create(
+        data={
+            "username": "option-disabled",
+            "password": "hashed",
+            "nickname": "小華",
+            "is_disabled": True,
+        }
+    )
+
+    result = await UserTable.find_active_options()
+
+    assert result == [{"id": active["id"], "username": "option-active", "nickname": "小明"}]
+
+
+async def test_is_active_rejects_disabled_and_unknown_users(db):
+    active = await UserTable.create(
+        data={"username": "check-active", "password": "hashed", "nickname": "A"}
+    )
+    disabled = await UserTable.create(
+        data={"username": "check-off", "password": "hashed", "nickname": "B", "is_disabled": True}
+    )
+
+    assert await UserTable.is_active(active["id"]) is True
+    assert await UserTable.is_active(disabled["id"]) is False
+    assert await UserTable.is_active("0123abcd-4567-89ab-cdef-0123456789ab") is False
+    assert await UserTable.is_active("not-a-uuid") is False
