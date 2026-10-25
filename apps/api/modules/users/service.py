@@ -27,6 +27,7 @@ from .schema import (
     UserInfo,
     UserList,
     UserOperate,
+    UserOptionList,
     UserResetPassword,
     UserUpdate,
 )
@@ -105,6 +106,11 @@ async def get_user_list(
             is_disabled=is_disabled,
         )
     )
+
+
+async def get_user_options() -> UserOptionList:
+    options = await UserTable.find_active_options()
+    return UserOptionList.model_validate({"list_data": options, "count": len(options)})
 
 
 async def update_user(

@@ -76,6 +76,7 @@ ADMIN_ROUTES = [
     ("PATCH", f"/api/users/{MISSING_ID}", {"nickname": "Whoever", "is_disabled": False}),
     ("PATCH", f"/api/users/{MISSING_ID}/reset-password", {"password": "new-password-123"}),
     ("DELETE", f"/api/users/{MISSING_ID}", None),
+    ("GET", "/api/users/options", None),
 ]
 
 
