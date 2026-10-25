@@ -95,6 +95,25 @@ async def test_upsert_keeps_the_original_created_at(seed_row):
     assert (await rows())[0].created_at == first
 
 
+async def test_upsert_leaves_insert_only_keys_untouched(seed_row, monkeypatch):
+    """`seed_insert_only_keys` 只在第一次寫入, 之後的 upsert 不再覆蓋。
+
+    給「初始值由模板給、之後交給使用者調整」的欄位用: 每次部署都蓋掉的話,
+    使用者改過的值會在下一次部署時悄悄消失。
+    """
+    model, rows = seed_row
+    model.seed_match_key = "code"
+    monkeypatch.setattr(model, "seed_insert_only_keys", frozenset({"label"}))
+    model.seed_data = [{"code": "a", "label": "模板給的"}]
+    await model.ensure_seed()
+    assert (await rows())[0].label == "模板給的"
+
+    model.seed_data = [{"code": "a", "label": "模板改了"}]
+    await model.ensure_seed()
+
+    assert (await rows())[0].label == "模板給的"
+
+
 async def test_missing_match_key_fails_loudly(seed_row):
     """少了 match key 的那一筆無從判斷衝突 —— 必須當場失敗, 而不是多插一筆。"""
     model, _ = seed_row

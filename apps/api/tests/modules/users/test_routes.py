@@ -546,3 +546,56 @@ async def test_change_own_password_is_rate_limited_per_user(
 
     assert response.status_code == 429
     assert int(response.headers["retry-after"]) >= 1
+
+
+# --- 公開註冊 (路由層) ----------------------------------------------------
+
+
+@pytest.fixture
+def _clean_signup_limiter():
+    from modules.users.router import signup_limiter
+
+    signup_limiter.clear()
+    yield signup_limiter
+    signup_limiter.clear()
+
+
+@pytest.fixture
+def _signup_always_succeeds(monkeypatch: pytest.MonkeyPatch):
+    """讓註冊固定成功, 不碰資料庫與 bcrypt。"""
+    from modules.users.schema import UserToken
+
+    async def succeeds(form_data, env):
+        return UserToken(access_token="token", token_type="bearer")
+
+    monkeypatch.setattr(account, "signup_user", succeeds)
+
+
+SIGNUP_PAYLOAD = {"username": "newbie", "password": "new-password", "nickname": "Newbie"}
+
+
+@pytest.mark.asyncio
+async def test_signup_needs_no_authentication(
+    client: AsyncClient, _clean_signup_limiter, _signup_always_succeeds
+):
+    client.cookies.clear()
+
+    response = await client.post("/api/users/signup", json=SIGNUP_PAYLOAD)
+
+    assert response.status_code == 200
+    assert response.json()["access_token"] == "token"
+
+
+@pytest.mark.asyncio
+async def test_signup_rate_limit_is_not_reset_by_success(
+    client: AsyncClient, _clean_signup_limiter, _signup_always_succeeds
+):
+    """擋的是大量建立帳號, 所以成功的註冊也要計數。"""
+    limiter = _clean_signup_limiter
+    for _ in range(limiter.max_attempts):
+        response = await client.post("/api/users/signup", json=SIGNUP_PAYLOAD)
+        assert response.status_code == 200
+
+    response = await client.post("/api/users/signup", json=SIGNUP_PAYLOAD)
+
+    assert response.status_code == 429

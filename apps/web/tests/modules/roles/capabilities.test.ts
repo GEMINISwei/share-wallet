@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest"
-import { canManageRole, groupPermissionOptions } from "@/modules/roles/capabilities"
+import {
+  canEditRoleDetails,
+  canEditRolePermissions,
+  groupPermissionOptions,
+} from "@/modules/roles/capabilities"
 import type { PermissionOption, RoleInfo } from "@/modules/roles/types"
 
 describe("groupPermissionOptions", () => {
@@ -24,15 +28,30 @@ describe("groupPermissionOptions", () => {
   })
 })
 
-describe("canManageRole", () => {
-  const role = (code: string | null) =>
-    ({ id: "r", name: "r", code, permissions: [], is_disabled: false }) as RoleInfo
+const role = (code: string | null, permissions: string[] = []) =>
+  ({ id: "r", name: "r", code, permissions, is_disabled: false }) as RoleInfo
 
-  it("一般角色可以編輯", () => {
-    expect(canManageRole(role(null))).toBe(true)
+describe("canEditRoleDetails", () => {
+  it("一般角色可以改名稱與狀態", () => {
+    expect(canEditRoleDetails(role(null))).toBe(true)
   })
 
-  it("系統角色不能編輯（由模板擁有）", () => {
-    expect(canManageRole(role("super_admin"))).toBe(false)
+  it("系統角色（超管、一般用戶）不能改名稱與狀態", () => {
+    expect(canEditRoleDetails(role("super_admin", ["*"]))).toBe(false)
+    expect(canEditRoleDetails(role("user"))).toBe(false)
+  })
+})
+
+describe("canEditRolePermissions", () => {
+  it("一般用戶這個系統角色可以改權限", () => {
+    expect(canEditRolePermissions(role("user"))).toBe(true)
+  })
+
+  it("超級管理者角色不能改權限", () => {
+    expect(canEditRolePermissions(role("super_admin", ["*"]))).toBe(false)
+  })
+
+  it("一般角色可以改權限", () => {
+    expect(canEditRolePermissions(role(null))).toBe(true)
   })
 })
