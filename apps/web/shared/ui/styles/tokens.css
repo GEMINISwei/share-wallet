@@ -16,6 +16,8 @@
   --color-surface-sunken: #0B0D11;
   --color-surface-input: #171A21;
   --color-surface-hover: #232833;
+  /* 疊在底色上的背景圖 (例如漸層); 底色仍要給, 圖還沒畫出來與 PWA 的啟動畫面看的是底色。 */
+  --bg-app-image: none;
 
   /* ---- 文字 ---- */
   --color-text-display: #F9FAFB;
@@ -34,6 +36,12 @@
   --color-text-on-primary: #F9FAFB;
   --color-focus-ring: color-mix(in srgb, #818CF8 65%, transparent);
   --color-scrim: color-mix(in srgb, #0B0D11 72%, transparent);
+  /* 第二個點綴色: 跟主色並列、需要分出兩種東西時用 (例如兩種類型的圖示底), 不用在主要操作上。 */
+  --color-accent-container: #3B2A1A;
+  --color-on-accent-container: #F2B880;
+  /* 一頁裡唯一的重點區塊 (例如總額卡) 的整塊底色, 比 primary-container 飽和。 */
+  --color-highlight-bg: #2E3A5C;
+  --color-on-highlight: #E0E7FF;
 
   /* ---- 狀態 ---- */
   --color-success-fg: color-mix(in srgb, #5C7A52 55%, #FFFFFF);
@@ -67,6 +75,10 @@
   /* 系統字型, 不載入網路字型 (build 不必連網, 使用者也不必下載)。導入 DS 時在這裡換掉。 */
   --font-serif: "Songti TC", "STSong", "Noto Serif CJK TC", serif;
   --font-sans: "PingFang TC", "Microsoft JhengHei", "Noto Sans CJK TC", system-ui, sans-serif;
+  /* 標題用的字型; 元件只認這一個, 換成無襯線時不必把 --font-serif 改成名不副實的值。 */
+  --font-heading: var(--font-serif);
+  /* 頁面上唯一的重點數字 (例如餘額), 比標題還大。 */
+  --fs-display: 2.25rem;
   --fs-h1: 1.875rem;
   --fs-h2: 1.4375rem;
   --fs-h3: 1.125rem;
@@ -118,6 +130,8 @@
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --dur-fast: 120ms;
   --dur-base: 180ms;
+  /* 走的距離長的動畫 (例如從底部滑出的面板): 太快會像閃一下, 看不出是從哪裡來的。 */
+  --dur-slow: 280ms;
 
   /* ---- 控制項、不透明度、圖示 ---- */
   --control-height-sm: 36px;

@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { createPortal } from "react-dom"
 import { Modal } from "../dialogs"
 import { cls } from "../internals"
 import styles from "../styles/action-menu.module.css"
@@ -135,14 +134,12 @@ export default function Menu({
           {renderItems(styles.item)}
         </div>
       )}
-      {/* 觸發點可能在有 backdrop-filter 的外層 (底部導覽) 裡, 它會變成 fixed 的定位基準, 遮罩就蓋不滿畫面。 */}
-      {open && sheetTitle !== undefined && createPortal(
+      {open && sheetTitle !== undefined && (
         <Modal title={sheetTitle} open onOpenChange={setOpen}>
           <div className={styles.sheetList} role="menu">
             {renderItems(cls(styles.item, styles.sheetItem))}
           </div>
-        </Modal>,
-        document.body,
+        </Modal>
       )}
     </div>
   )

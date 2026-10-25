@@ -10,10 +10,12 @@ export type ActionMenuItem = MenuItem
 
 type ActionMenuProps = {
   items: (ActionMenuItem | null | false | undefined)[]
+  /** 觸發按鈕的外觀; 沒給時是表格列尾的小按鈕。 */
+  triggerClassName?: string
 }
 
 /** 表格列尾的「⋮」操作選單。 */
-export default function ActionMenu({ items }: ActionMenuProps) {
+export default function ActionMenu({ items, triggerClassName }: ActionMenuProps) {
   const t = useT(uiMessages)
 
   return (
@@ -21,6 +23,7 @@ export default function ActionMenu({ items }: ActionMenuProps) {
       items={items}
       trigger={<MoreVertical size={ICON_SIZE.sm} />}
       triggerLabel={t("actionMenu")}
+      triggerClassName={triggerClassName}
     />
   )
 }

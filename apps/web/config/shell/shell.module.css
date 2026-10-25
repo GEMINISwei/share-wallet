@@ -221,7 +221,9 @@
   height: 100%;
   overflow-y: auto;
   overflow-x: hidden;
-  background: var(--color-bg-app);
+  /* 預設的 `background-attachment: scroll` 讓背景圖固定在捲動容器上, 不跟著內容捲走。 */
+  background-color: var(--color-bg-app);
+  background-image: var(--bg-app-image);
 }
 
 @media (max-width: 1024px) {
