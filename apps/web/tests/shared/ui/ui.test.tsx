@@ -14,7 +14,7 @@ import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
 import {
-  Button, Container, Flex, Form, FormDialog, Modal, SelectInput, TextInput,
+  Button, ChoiceGroup, Container, Flex, Form, FormDialog, Modal, SelectInput, TextInput,
 } from "@/shared/ui"
 
 describe("Button", () => {
@@ -177,6 +177,45 @@ describe("TextInput 的鍵盤", () => {
     render(<TextInput label="金額" inputMode="numeric" />)
 
     expect(screen.getByLabelText("金額")).toHaveAttribute("inputmode", "numeric")
+  })
+})
+
+describe("ChoiceGroup", () => {
+  const options = [{ value: "expense", label: "支出" }, { value: "income", label: "收入" }]
+
+  it("以單選群組呈現, 目前的值標成已選", () => {
+    render(<ChoiceGroup label="類型" value="expense" options={options} />)
+
+    expect(screen.getByRole("radiogroup", { name: "類型" })).toBeInTheDocument()
+    expect(screen.getByRole("radio", { name: "支出" })).toHaveAttribute("aria-checked", "true")
+    expect(screen.getByRole("radio", { name: "收入" })).toHaveAttribute("aria-checked", "false")
+  })
+
+  it("點選項時把它的值傳給 onChange", async () => {
+    const onChange = vi.fn()
+    render(<ChoiceGroup label="類型" value="expense" options={options} onChange={onChange} />)
+
+    await userEvent.click(screen.getByRole("radio", { name: "收入" }))
+
+    expect(onChange).toHaveBeenCalledWith("income")
+  })
+
+  it("停用時點了不會變更", async () => {
+    const onChange = vi.fn()
+    render(<ChoiceGroup label="類型" value="expense" options={options} disabled onChange={onChange} />)
+
+    await userEvent.click(screen.getByRole("radio", { name: "收入" }))
+
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  it("欄位錯誤會顯示並接到群組上", () => {
+    render(<ChoiceGroup label="分類" value="" options={options} error="請選擇分類" />)
+
+    const group = screen.getByRole("radiogroup", { name: "分類" })
+    expect(screen.getByText("請選擇分類")).toBeInTheDocument()
+    expect(group).toHaveAttribute("aria-invalid", "true")
+    expect(group.getAttribute("aria-describedby")).toBeTruthy()
   })
 })
 

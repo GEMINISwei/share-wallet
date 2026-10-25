@@ -45,15 +45,6 @@ const NEXT_PAGE_EXPORTS = [
   "experimental_ppr",
 ]
 
-/**
- * 就地宣告頁面、不走模組的 route 檔。
- *
- * 首頁沒有對應的模組 (它只有一段歡迎訊息), 為它開一個模組要付的維護成本高過收益。
- * 這是刻意的例外, 所以必須列在這裡 —— 清單之外的每個 route 檔都得是能被認出來的
- * 薄 adapter, 認不出來就是測試失敗。少了這條, 改寫法會讓整組檢查靜靜變成空轉。
- */
-const IN_PLACE_PAGES = new Set(["app/(protected)/(user)/page.tsx"])
-
 function filesIn(directory: string): string[] {
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const full = path.join(directory, entry.name)
@@ -205,7 +196,7 @@ describe("route adapter", () => {
     expect(routeFiles.length).toBeGreaterThan(5)
   })
 
-  it.each(routeFiles.filter(([relative]) => !IN_PLACE_PAGES.has(relative)))(
+  it.each(routeFiles)(
     "%s 是薄 adapter，且把頁面模組的 Next 特有 export 都轉出",
     (relative, file) => {
       const adapter = parse(file)
@@ -217,7 +208,7 @@ describe("route adapter", () => {
       expect(
         componentName,
         `${relative} 的預設輸出不是「回傳單一 JSX 元素」的薄 wrapper。`
-        + `就地宣告頁面的 route 檔要列進 IN_PLACE_PAGES 才算數`,
+        + "頁面放進模組; 只是轉址的話寫在 next.config.ts 的 redirects",
       ).not.toBeNull()
 
       const imported = imports(adapter).find((entry) => entry.names.has(componentName!))

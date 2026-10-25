@@ -12,6 +12,7 @@
 import { readFileSync, readdirSync } from "node:fs"
 import path from "node:path"
 import { afterEach, describe, expect, it, vi } from "vitest"
+import { WALLETS_PATH } from "@/modules/wallets/public.server"
 
 const NGINX_DIR = path.resolve(import.meta.dirname, "../../../infra/nginx")
 const UNITS: Record<string, number> = { k: 1024, m: 1024 ** 2, g: 1024 ** 3 }
@@ -80,5 +81,19 @@ describe("開發時允許的來源", () => {
 
     expect(origins).not.toContain("172.*.*.*")
     expect(origins).not.toContain("172.32.*.*")
+  })
+})
+
+describe("首頁導向", () => {
+  // 寫在 page.tsx 的 redirect() 會先進 React 渲染再丟出 NEXT_REDIRECT; Next 16 開發版記錄這次
+  // 「出錯」時帶了負的時間戳給 performance.measure, Safari 會跳出 TypeError (vercel/next.js#86060)。
+  // config 的導向在渲染之前就完成, 不經過 React。
+  it("暫時導向錢包列表", async () => {
+    vi.resetModules()
+    const { default: config } = await import("../next.config")
+    const redirects = (await config.redirects?.()) ?? []
+
+    // permanent 會讓瀏覽器快取 308, 之後首頁改導別處時, 來過的人仍被舊的導向帶走。
+    expect(redirects).toContainEqual({ source: "/", destination: WALLETS_PATH, permanent: false })
   })
 })

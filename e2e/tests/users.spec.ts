@@ -20,12 +20,12 @@ test("超級管理者新增使用者後，列表看得到該使用者", async ({
   await expect(page.getByRole("cell", { name: member.nickname, exact: true })).toBeVisible()
 })
 
-test("一般帳號進入管理區會被導回首頁", async ({ page }) => {
+test("一般帳號進入管理區會被導回錢包列表", async ({ page }) => {
   await login(page, member)
 
   await page.goto("/admin/users")
 
-  await expect(page).toHaveURL("/")
+  await expect(page).toHaveURL("/wallets")
 })
 
 test("登出後其他已登入的裝置也會被登出", async ({ browser }) => {
