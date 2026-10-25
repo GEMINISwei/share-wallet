@@ -20,6 +20,7 @@ from .schema import (
     UserLogin,
     UserMe,
     UserOperate,
+    UserOptionList,
     UserResetPassword,
     UserToken,
     UserUpdate,
@@ -126,6 +127,15 @@ async def logout_route(
 ) -> UserOperate:
     """登出。這個帳號在所有裝置上的登入都會失效, 其他使用者不受影響。"""
     return await account.logout_user(current_user)
+
+
+# 要放在 `/{id}` 之前: 否則 "options" 會先被當成 id 吃掉。
+@router.get("/options")
+async def get_user_options_route(
+    _: CurrentUser = Depends(check_user_permission(Permission.ALL)),
+) -> UserOptionList:
+    """啟用中的使用者, 給指定錢包管理者這類下拉選單用。"""
+    return await service.get_user_options()
 
 
 @router.get("/{id}")

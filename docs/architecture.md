@@ -20,7 +20,7 @@ app（組裝層） → modules（垂直功能） → shared（平台能力）
 │   ├── api/                  # FastAPI
 │   │   ├── main.py           # 進入點（uvicorn）
 │   │   ├── app/              # 組裝層：config、server、registry、Permission enum（只放專案自己的）
-│   │   ├── modules/          # users、roles、languages
+│   │   ├── modules/          # users、roles、languages、wallets
 │   │   ├── shared/           # auth、db、http、time + module.py（manifest 契約）、platform.py（接線）
 │   │   ├── tests/            # 與原始碼同構
 │   │   ├── scripts/          # db.py（資料庫 CLI）、export_openapi.py
