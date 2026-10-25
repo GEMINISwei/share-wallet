@@ -213,6 +213,16 @@
   font-size: var(--fs-base);
 }
 
+/* 頁面上的重點數字 (例如記帳的金額): 大到不必瞄準就看得清楚。 */
+.inputDisplay {
+  height: auto;
+  padding: var(--space-2) var(--space-4);
+  color: var(--color-text-display);
+  font-size: var(--fs-display);
+  font-weight: var(--fw-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
 .inputWithIcon {
   padding-left: var(--space-12);
 }
@@ -253,6 +263,7 @@
   padding: var(--space-6);
   background: var(--color-scrim);
   backdrop-filter: blur(3px);
+  animation: overlayIn var(--dur-base) var(--ease-standard);
 }
 
 .modal {
@@ -263,6 +274,20 @@
   border-radius: var(--radius-xl);
   background: var(--color-surface-card);
   box-shadow: var(--shadow-lg);
+  /* 沒有進場動畫時對話框是瞬間跳出來, 看起來像卡了一下才出現。 */
+  animation: modalIn var(--dur-base) var(--ease-out);
+}
+
+@keyframes overlayIn {
+  from { opacity: 0; }
+}
+
+@keyframes modalIn {
+  from { opacity: 0; transform: translateY(var(--space-2)) scale(0.98); }
+}
+
+@keyframes sheetIn {
+  from { transform: translateY(100%); }
 }
 
 .modalHeader {
@@ -278,9 +303,25 @@
   background: var(--color-surface-card);
 }
 
+.modalHeading {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.modalSubtitle {
+  margin: 0;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--fs-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .modalTitle {
   margin: 0;
-  font-family: var(--font-serif);
+  font-family: var(--font-heading);
   font-size: var(--fs-h3);
   font-weight: var(--fw-bold);
   color: var(--color-text-heading);
@@ -527,10 +568,85 @@
     border-left: 0;
     border-radius: var(--radius-xl) var(--radius-xl) 0 0;
     padding-bottom: env(safe-area-inset-bottom);
+    /* 手機是底部面板: 從下方滑上來, 讓人看得出它跟點的位置 (底部導覽、按鈕) 是同一件事。 */
+    animation: sheetIn var(--dur-slow) var(--ease-out);
   }
 
   .modalHeader {
     padding: var(--space-3) var(--space-4) var(--space-3);
+  }
+
+  /* ---- 全螢幕的表單 (Modal fullScreen) ---- */
+  .overlayFull {
+    padding: 0;
+  }
+
+  /* 底部的安全區由送出那一條自己留, 這裡不再留一次。 */
+  .modalFull {
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: 0;
+  }
+
+  /* 關閉在左、標題置中: 右邊用一塊跟關閉一樣寬的空白平衡, 標題才在正中間。 */
+  .modalFull .modalHeader {
+    border-bottom-color: transparent;
+  }
+
+  .modalFull .modalClose {
+    order: -1;
+    flex-shrink: 0;
+  }
+
+  .modalFull .modalHeader::after {
+    content: "";
+    flex-shrink: 0;
+    width: var(--control-height-md);
+  }
+
+  .modalFull .modalHeading {
+    flex: 1;
+    align-items: center;
+    text-align: center;
+  }
+
+  /* 內容短時表單也撐滿高度, 送出那一條才會在畫面底部, 不是緊跟在最後一個欄位後面。 */
+  .modalFull {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .modalFull .modalBody {
+    display: flex;
+    flex: 1 0 auto;
+    flex-direction: column;
+    padding-bottom: 0;
+  }
+
+  .modalFull .dialogForm {
+    flex: 1 0 auto;
+  }
+
+  /* 取消交給左上角的關閉; 送出是貼在底部的一整條, 鍵盤收起來時拇指就在旁邊。 */
+  .modalFull .dialogFormCancel {
+    display: none;
+  }
+
+  .modalFull .dialogFormActions {
+    position: sticky;
+    bottom: 0;
+    /* margin-top: auto 把它推到底部。 */
+    margin: auto calc(var(--space-4) * -1) 0;
+    padding: var(--space-3) var(--space-4) max(var(--space-3), env(safe-area-inset-bottom));
+    background: var(--color-surface-card);
+  }
+
+  .modalFull .dialogFormActions > button {
+    flex: 1;
+    height: var(--control-height-lg);
+    border-radius: var(--radius-pill);
   }
 
   .modalBody {
@@ -571,5 +687,12 @@
   .container {
     padding-left: var(--space-5);
     padding-right: var(--space-5);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay,
+  .modal {
+    animation: none;
   }
 }

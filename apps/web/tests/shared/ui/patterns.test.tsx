@@ -186,3 +186,17 @@ describe("shared list patterns", () => {
     expect(screen.getByText("讀取資料")).toBeInTheDocument()
   })
 })
+
+describe("PageHeader 的返回", () => {
+  it("給了 back 時標題旁有回上一層的連結", () => {
+    render(<PageHeader title="家用" back={{ href: "/wallets", label: "返回錢包列表" }} />)
+
+    expect(screen.getByRole("link", { name: "返回錢包列表" })).toHaveAttribute("href", "/wallets")
+  })
+
+  it("沒給 back 時不出現返回連結", () => {
+    render(<PageHeader title="家用" />)
+
+    expect(screen.queryByRole("link")).not.toBeInTheDocument()
+  })
+})

@@ -1,4 +1,4 @@
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import { NotifyViewport } from "@/shared/ui"
 import { HTML_LANG } from "@/shared/i18n/locale"
 import { getLocale } from "@/shared/i18n/locale.server"
@@ -10,6 +10,15 @@ import { PublicConfigProvider } from "@/shared/runtime/context"
 import "./theme.css"
 import "@/shared/ui/styles/base.css"
 import "@/shared/ui/styles/message-page.css"
+
+// 鎖住縮放: 輸入框字級小於 16px 時 iOS Safari 一聚焦就放大畫面, 使用者得自己縮回來,
+// 跟 App 的手感不符。maximumScale 擋得住這個自動放大, userScalable 讓 Android 也不能雙指縮放。
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+}
 
 // 用 `generateMetadata` 而不是靜態的 `metadata`: 標題來自執行期的環境變數, 而靜態 metadata 會
 // 在預先渲染的頁面上於 build 期定案 (同 `shared/runtime/config.ts` 要解決的問題)。

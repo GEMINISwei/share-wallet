@@ -14,10 +14,13 @@
 }
 
 .pageHeaderText { min-width: 0; }
+/* 桌機沒有返回圓鈕 (頁面自己放返回連結), 這一格不佔位。 */
+.pageHeaderStart { display: none; }
+.pageHeaderEnd { display: flex; flex-shrink: 0; align-items: center; }
 .pageTitle {
   margin: 0;
   color: var(--color-text-display);
-  font-family: var(--font-serif);
+  font-family: var(--font-heading);
   font-size: var(--fs-h2);
   font-weight: var(--fw-bold);
   line-height: var(--lh-tight);
@@ -38,7 +41,26 @@
 }
 .pageHeaderMobileActions { display: none; flex-shrink: 0; }
 
+.circleButton {
+  width: var(--control-height-md);
+  height: var(--control-height-md);
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-round);
+  background: var(--color-surface-card);
+  box-shadow: var(--shadow-xs);
+  color: var(--color-text-body);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-standard);
+}
+.circleButton:hover { background: var(--color-surface-hover); }
+
 @media (max-width: 720px) {
+  /* 底色半透明疊在漸層上, 捲動時內容從底下經過看得出層次, 不像一條白色的橫條。 */
   .pageHeader {
     position: sticky;
     top: 0;
@@ -49,16 +71,29 @@
     flex-direction: row;
     gap: var(--space-3);
     margin: calc(var(--space-8) * -1) calc(var(--space-4) * -1) var(--space-5);
-    padding: env(safe-area-inset-top) max(var(--space-3), env(safe-area-inset-right)) 0 max(var(--space-4), env(safe-area-inset-left));
-    background: color-mix(in srgb, var(--color-surface-card) 96%, transparent);
+    padding: env(safe-area-inset-top) max(var(--space-4), env(safe-area-inset-right)) 0 max(var(--space-4), env(safe-area-inset-left));
+    border-bottom-color: transparent;
+    background: color-mix(in srgb, var(--color-bg-app) 85%, transparent);
     backdrop-filter: blur(12px);
   }
-  .pageHeaderText { flex: 1; }
-  .pageSubtitle { display: none; }
-  .pageTitle { overflow: hidden; font-size: var(--fs-h3); white-space: nowrap; text-overflow: ellipsis; }
+  /* 兩側一樣寬 (flex: 1), 中間的標題才會在正中間; 標題太長時縮的是標題。 */
+  .pageHeaderStart,
+  .pageHeaderEnd { display: flex; flex: 1 1 0; min-width: var(--control-height-md); }
+  .pageHeaderEnd { justify-content: flex-end; }
+  .pageHeaderText { flex: 0 1 auto; text-align: center; }
+  .pageTitle { overflow: hidden; font-size: var(--fs-lg); white-space: nowrap; text-overflow: ellipsis; }
+  .pageSubtitle {
+    overflow: hidden;
+    margin-top: 2px;
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-regular);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
   .pageHeaderActions { width: auto; flex-shrink: 0; flex-wrap: nowrap; gap: var(--space-2); }
   .pageHeaderActions > * { flex: 0 0 auto; }
-  .pageHeaderActions:has(+ .pageHeaderMobileActions) { display: none; }
+  .pageHeaderActions:has(+ .pageHeaderMobileActions),
+  .desktopOnlyActions { display: none; }
   .pageHeaderMobileActions { display: flex; }
 }
 

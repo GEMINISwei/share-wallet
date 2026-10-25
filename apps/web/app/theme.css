@@ -12,8 +12,72 @@
 
 @import "../shared/ui/styles/tokens.css";
 
+/* 抹茶拿鐵: 暖米白的底、白卡片, 主要操作用抹茶綠, 杏橘當第二個點綴色。
+ * 黑白灰太冷硬, 記帳又是天天打開的東西, 用溫和的暖色讓畫面輕鬆一點。 */
 :root {
-  /* 例: --color-primary: #818CF8; */
+  color-scheme: light;
+
+  /* ---- 表面 ---- */
+  /* 卡片與對話框維持不透明: 疊在遮罩或漸層上時, 半透明會讓文字的對比忽高忽低。 */
+  --color-bg-app: #F7F4EA;
+  --bg-app-image: linear-gradient(165deg, #EEF3E2 0%, #F7F4EA 45%, #FBF0E2 100%);
+  --color-surface-card: #FFFFFF;
+  --color-surface-sunken: #EFEBDD;
+  --color-surface-input: #FFFFFF;
+  --color-surface-hover: #F3F0E4;
+
+  /* ---- 文字 ---- */
+  /* 帶一點綠的深灰, 比純黑柔和, 對比仍在 4.5:1 以上。 */
+  --color-text-display: #24281D;
+  --color-text-heading: #2E3226;
+  --color-text-body: #3A3E31;
+  --color-text-secondary: #636652;
+  --color-text-muted: #85877A;
+
+  /* ---- 品牌與行動 ---- */
+  /* 主色要夠深, 白字壓在上面才讀得清楚。 */
+  --color-primary: #477F41;
+  --color-primary-hover: #3A6B35;
+  --color-primary-container: #DDEBC9;
+  --color-on-primary-container: #2C4A27;
+  --color-action-primary: #477F41;
+  --color-action-primary-hover: #3A6B35;
+  --color-text-on-primary: #FFFFFF;
+  --color-focus-ring: color-mix(in srgb, #477F41 40%, transparent);
+  --color-scrim: color-mix(in srgb, #23261C 40%, transparent);
+  --color-accent-container: #FFE2C2;
+  --color-on-accent-container: #A85A1C;
+  --color-highlight-bg: #A8D08D;
+  --color-on-highlight: #1F2E14;
+
+  /* ---- 狀態 ---- */
+  --color-success-fg: #3E7038;
+  --color-success-bg: #E3EED6;
+  --color-warning-fg: #93600F;
+  --color-warning-bg: #FAEFD9;
+  --color-danger-fg: #B8462E;
+  --color-danger-bg: #FBE6E0;
+  --color-info-fg: #3E6A8F;
+  --color-info-bg: #E3EDF6;
+  /* 帶一點綠的陰影, 在米白的底上比純黑自然。 */
+  --color-shadow: #3A4A2A;
+
+  /* ---- 邊框 ---- */
+  --color-border-subtle: #EDE8D8;
+  --color-border-default: #DFD9C6;
+  --color-border-control: #CCC5AF;
+  --color-border-brand: #477F41;
+
+  /* ---- 字體 ---- */
+  /* 標題改用無襯線, 字距收回; 襯線字的寬字距放在無襯線上會顯得鬆散。 */
+  --font-heading: var(--font-sans);
+  --ls-heading: 0;
+
+  /* ---- 圓角: 整體放大一階, 卡片與按鈕看起來比較柔和 ---- */
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
 
   /* 內容區撐滿外殼給的寬度, 不在寬螢幕上置中留白。列表頁、表單頁 (含設定頁) 都吃這一個。 */
   --container-wide: 100%;
