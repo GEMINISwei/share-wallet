@@ -5,6 +5,7 @@ import { MessagePage, MessagePageButton, MessagePageLink } from "@/shared/ui/fee
 import RouteLoading from "@/shared/ui/feedback/RouteLoading"
 import ActionMenu from "@/shared/ui/patterns/ActionMenu"
 import FilterDialog, { useStatusFilterOptions } from "@/shared/ui/patterns/FilterDialog"
+import LinkTabs from "@/shared/ui/patterns/LinkTabs"
 import ListTableCard from "@/shared/ui/patterns/ListTableCard"
 import Menu from "@/shared/ui/patterns/Menu"
 import PageHeader from "@/shared/ui/patterns/PageHeader"
@@ -184,5 +185,37 @@ describe("shared list patterns", () => {
 
     rerender(<RouteLoading text="讀取資料" />)
     expect(screen.getByText("讀取資料")).toBeInTheDocument()
+  })
+})
+
+describe("PageHeader 的返回", () => {
+  it("給了 back 時標題旁有回上一層的連結", () => {
+    render(<PageHeader title="家用" back={{ href: "/wallets", label: "返回錢包列表" }} />)
+
+    expect(screen.getByRole("link", { name: "返回錢包列表" })).toHaveAttribute("href", "/wallets")
+  })
+
+  it("沒給 back 時不出現返回連結", () => {
+    render(<PageHeader title="家用" />)
+
+    expect(screen.queryByRole("link")).not.toBeInTheDocument()
+  })
+})
+
+describe("LinkTabs", () => {
+  it("每個分頁都是連結, 目前的分頁標成 aria-current", () => {
+    render(
+      <LinkTabs
+        label="檢視"
+        tabs={[
+          { href: "/wallets?tab=all", label: "全部", active: true },
+          { href: "/wallets?tab=favorite", label: "最愛", active: false },
+        ]}
+      />,
+    )
+
+    const nav = screen.getByRole("navigation", { name: "檢視" })
+    expect(within(nav).getByRole("link", { name: "全部" })).toHaveAttribute("aria-current", "page")
+    expect(within(nav).getByRole("link", { name: "最愛" })).not.toHaveAttribute("aria-current")
   })
 })

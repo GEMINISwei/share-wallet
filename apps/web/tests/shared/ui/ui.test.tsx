@@ -14,7 +14,7 @@ import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
 import {
-  Button, Container, Flex, Form, Modal, SelectInput, TextInput,
+  Button, ChoiceGroup, Container, Flex, Form, FormDialog, Modal, SelectInput, TextInput,
 } from "@/shared/ui"
 
 describe("Button", () => {
@@ -136,6 +136,18 @@ describe("Modal", () => {
     const dialog = screen.getByRole("dialog")
     expect(dialog.contains(document.activeElement)).toBe(true)
   })
+
+  it("Modal 掛在 body 底下，遮罩不會被外層的 filter 或 transform 限制在外層範圍", () => {
+    render(
+      <nav data-testid="outer">
+        <Modal title="測試" open onOpenChange={() => {}}>內容</Modal>
+      </nav>,
+    )
+
+    const overlay = screen.getByRole("dialog").parentElement!
+    expect(overlay.parentElement).toBe(document.body)
+    expect(screen.getByTestId("outer")).not.toContainElement(overlay)
+  })
 })
 
 describe("Form", () => {
@@ -157,5 +169,79 @@ describe("Form", () => {
     render(<Form id="edit-form"><TextInput label="名稱" /></Form>)
 
     expect(document.getElementById("edit-form")?.tagName).toBe("FORM")
+  })
+})
+
+describe("TextInput 的鍵盤", () => {
+  it("inputMode 傳到輸入框, 手機才會跳出對應的鍵盤", () => {
+    render(<TextInput label="金額" inputMode="numeric" />)
+
+    expect(screen.getByLabelText("金額")).toHaveAttribute("inputmode", "numeric")
+  })
+})
+
+describe("ChoiceGroup", () => {
+  const options = [{ value: "expense", label: "支出" }, { value: "income", label: "收入" }]
+
+  it("以單選群組呈現, 目前的值標成已選", () => {
+    render(<ChoiceGroup label="類型" value="expense" options={options} />)
+
+    expect(screen.getByRole("radiogroup", { name: "類型" })).toBeInTheDocument()
+    expect(screen.getByRole("radio", { name: "支出" })).toHaveAttribute("aria-checked", "true")
+    expect(screen.getByRole("radio", { name: "收入" })).toHaveAttribute("aria-checked", "false")
+  })
+
+  it("點選項時把它的值傳給 onChange", async () => {
+    const onChange = vi.fn()
+    render(<ChoiceGroup label="類型" value="expense" options={options} onChange={onChange} />)
+
+    await userEvent.click(screen.getByRole("radio", { name: "收入" }))
+
+    expect(onChange).toHaveBeenCalledWith("income")
+  })
+
+  it("停用時點了不會變更", async () => {
+    const onChange = vi.fn()
+    render(<ChoiceGroup label="類型" value="expense" options={options} disabled onChange={onChange} />)
+
+    await userEvent.click(screen.getByRole("radio", { name: "收入" }))
+
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  it("欄位錯誤會顯示並接到群組上", () => {
+    render(<ChoiceGroup label="分類" value="" options={options} error="請選擇分類" />)
+
+    const group = screen.getByRole("radiogroup", { name: "分類" })
+    expect(screen.getByText("請選擇分類")).toBeInTheDocument()
+    expect(group).toHaveAttribute("aria-invalid", "true")
+    expect(group.getAttribute("aria-describedby")).toBeTruthy()
+  })
+})
+
+describe("FormDialog 的副標題", () => {
+  it("副標題顯示在標題旁, 說明這張表單作用在哪裡", () => {
+    render(
+      <FormDialog
+        title="記一筆" subtitle="家用" open fullScreen isPending={false} submitText="儲存"
+        onClose={() => {}} onSubmit={(event) => event.preventDefault()}
+      >
+        <TextInput label="金額" />
+      </FormDialog>,
+    )
+
+    const dialog = screen.getByRole("dialog", { name: "記一筆" })
+    expect(dialog).toHaveTextContent("家用")
+  })
+})
+
+describe("TextInput 的建議值", () => {
+  it("suggestions 以 datalist 提供, 輸入框接上那份清單", () => {
+    render(<TextInput label="店家" suggestions={["全聯", "家樂福"]} />)
+
+    const input = screen.getByLabelText("店家")
+    const list = document.getElementById(input.getAttribute("list") ?? "")
+    expect(list?.tagName).toBe("DATALIST")
+    expect([...list!.querySelectorAll("option")].map((option) => option.value)).toEqual(["全聯", "家樂福"])
   })
 })
