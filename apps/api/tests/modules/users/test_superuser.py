@@ -3,7 +3,7 @@
 唯一入口是 CLI `scripts/db.py create-superuser`。
 
 測試分成兩部分:
-- 不需要資料庫的: 網頁上沒有任何建立超管的入口
+- 不需要資料庫的: 網頁上沒有任何建立超管的入口 (公開註冊只建一般用戶, 規則在 `test_account.py`)
 - 標 `integration` 的: 建立出來的帳號真的掛上超管角色、可以建第二個、帳號重複時拒絕
 """
 
@@ -51,15 +51,16 @@ def test_create_super_admin_is_not_exposed_over_http():
         assert not any("create_super_admin" in operation_id for operation_id in operation_ids)
 
 
-def test_signup_routes_are_not_registered():
-    """以註冊代碼建立第一個超管的網頁路徑已經移除, 不能被重新接回來。
+def test_signup_is_the_only_web_route_that_creates_accounts_without_login():
+    """網頁上不需登入就能建帳號的只有公開註冊 `/signup`, 它固定建一般用戶 (見 `test_account.py`);
+    以註冊代碼建立第一個超管的初始化路徑不存在, 不能被接回來。
 
     比對路徑而不是打一次請求: `GET /users/bootstrap-status` 會落進 `/users/{user_id}`
     而回 401, 看起來像「有擋住」, 其實什麼都沒驗證到。
     """
     paths = _openapi_operations()
 
-    assert "/api/users/signup" not in paths
+    assert "/api/users/signup" in paths
     assert "/api/users/bootstrap-status" not in paths
 
 

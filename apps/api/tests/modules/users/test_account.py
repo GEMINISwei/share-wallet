@@ -15,6 +15,7 @@ from modules.users.model import UserTable
 from modules.users.schema import SignupRequest, UserLogin
 from shared.auth import passwords
 from shared.auth.tokens import parse_token
+from shared.db.session import session_scope
 from shared.http.errors import LangException
 from tests.shared.minimal_app import MinimalEnv
 
@@ -194,16 +195,23 @@ async def test_signup_racing_on_username_returns_409(signup_writes, monkeypatch)
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_signed_up_user_has_user_role_and_can_log_in(db):
-    """接上真的 seed 與資料庫: 綁到的是 seed 出來的一般用戶, 而且拿註冊的密碼登得進去。"""
-    token = await _signup()
+    """接上真的 seed 與資料庫: 綁到的是 seed 出來的一般用戶, 而且拿註冊的密碼登得進去。
 
-    current = await UserTable.find_detail_by_username("newbie")
-    assert current is not None
-    detail = await UserTable.find_detail_by_id(current["id"])
-    assert detail is not None
-    assert detail["role_ids"] == [await RoleTable.get_user_role_id()]
-    assert detail["permissions"] == []
-    assert parse_token(token.access_token, ENV)["auth_version"] == current["auth_version"]
+    註冊與登入是兩個請求, 各自包一個 `session_scope` (同 middleware): 登入會在 bcrypt 前
+    歸還連線, 而同一個交易裡寫過資料就不能歸還。
+    """
+    async with session_scope():
+        token = await _signup()
 
-    login = await account.login_user(UserLogin(username="newbie", password="new-password"), ENV)
+    async with session_scope():
+        current = await UserTable.find_detail_by_username("newbie")
+        assert current is not None
+        detail = await UserTable.find_detail_by_id(current["id"])
+        assert detail is not None
+        assert detail["role_ids"] == [await RoleTable.get_user_role_id()]
+        assert detail["permissions"] == []
+        assert parse_token(token.access_token, ENV)["auth_version"] == current["auth_version"]
+
+    async with session_scope():
+        login = await account.login_user(UserLogin(username="newbie", password="new-password"), ENV)
     assert parse_token(login.access_token, ENV)["username"] == "newbie"
