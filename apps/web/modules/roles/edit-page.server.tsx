@@ -4,7 +4,7 @@ import { apiGet } from "@/shared/api/request.server"
 import { getApiItemData, getApiListData } from "@/shared/api/response"
 import { getT } from "@/shared/i18n/locale.server"
 import { rolesMessages } from "./i18n"
-import { canManageRole } from "./capabilities"
+import { canEditRolePermissions } from "./capabilities"
 import { ROLES_PATH } from "./manifest"
 import RoleEditView from "./ui/RoleEditView"
 
@@ -26,7 +26,7 @@ export default async function RoleEditPage({ params }: RoleEditPageProps) {
   const role = getApiItemData(roleRes)
   if (!role) redirect(ROLES_PATH)
 
-  if (!canManageRole(role)) redirect(ROLES_PATH)
+  if (!canEditRolePermissions(role)) redirect(ROLES_PATH)
 
   const permissionOptions = getApiListData(permissionsRes)
 

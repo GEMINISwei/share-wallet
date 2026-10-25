@@ -26,12 +26,13 @@ export default function LoginForm({ reason }: LoginFormProps) {
     closeNotify,
     changeValue,
     togglePassword,
+    goSignup,
     submit,
   } = useLoginForm({ reason })
 
   const fieldState = { disabled: isPending, showError: isSubmit }
 
-  // 寫值 + 關掉錯誤提示。
+  // 寫值 + 關掉錯誤提示。同 SignupForm。
   function handleChange(field: keyof typeof values) {
     return (value: string) => {
       changeValue(field, value)
@@ -87,6 +88,10 @@ export default function LoginForm({ reason }: LoginFormProps) {
 
           <Button type="submit" size="large" fullWidth disabled={isPending}>
             {isPending ? t("loggingIn") : t("login")}
+          </Button>
+
+          <Button variant="outlined" fullWidth disabled={isPending} onClick={goSignup}>
+            {t("goSignup")}
           </Button>
         </div>
 

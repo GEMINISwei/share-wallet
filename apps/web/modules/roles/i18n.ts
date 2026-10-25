@@ -36,6 +36,7 @@ export const rolesMessages = defineMessages({
     updateFailed: "更新角色失敗",
     permissionsLabel: "權限",
     roleSuperAdmin: "超級管理者",
+    roleUser: "一般用戶",
   },
   en: {
     pageTitle: "Role management",
@@ -72,5 +73,6 @@ export const rolesMessages = defineMessages({
     updateFailed: "Failed to update role",
     permissionsLabel: "Permissions",
     roleSuperAdmin: "Super admin",
+    roleUser: "User",
   },
 })

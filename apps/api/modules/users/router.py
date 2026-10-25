@@ -13,6 +13,7 @@ from . import account, service
 from .schema import (
     PasswordChange,
     ProfileUpdate,
+    SignupRequest,
     UserCreate,
     UserInfo,
     UserList,
@@ -33,6 +34,9 @@ login_limiter = RateLimiter(max_attempts=10, window_seconds=300)
 # 這一層只看 IP, 上限訂寬 (同一個 NAT 後面的整間辦公室要能正常登入),
 # 而且成功**不 reset**: 否則攻擊者用自己的帳號登入一次就能把額度洗回來。
 login_ip_limiter = RateLimiter(max_attempts=50, window_seconds=300)
+# 公開註冊以 IP 為 key, 成功**不 reset**: 擋的是大量建立帳號, 成功的那一次正是要計數的。
+# 上限要容得下同一個 NAT 後面的一家人或一群朋友一起註冊。
+signup_limiter = RateLimiter(max_attempts=10, window_seconds=3600)
 # 以使用者 id 為 key。擋的主要是 bcrypt 的 CPU 消耗 (一個被盜的 session 不該變成 CPU
 # 消耗器), 順帶讓偷到 cookie 的人無法慢慢試舊密碼。
 password_change_limiter = RateLimiter(max_attempts=10, window_seconds=300)
@@ -44,6 +48,16 @@ async def create_user_route(
     _: CurrentUser = Depends(check_user_permission(Permission.ALL)),
 ) -> UserOperate:
     return await service.create_user(form_data=form_data)
+
+
+@router.post("/signup")
+async def signup_user_route(
+    http_request: HttpRequest,
+    form_data: SignupRequest,
+) -> UserToken:
+    """公開註冊一般帳號, 不需認證。回傳的 token 讓註冊完直接是登入狀態。"""
+    signup_limiter.check(client_ip(http_request))
+    return await account.signup_user(form_data=form_data, env=http_request.app.state.env)
 
 
 @router.post("/login")

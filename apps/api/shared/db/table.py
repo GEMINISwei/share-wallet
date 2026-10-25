@@ -163,6 +163,9 @@ class BaseTable(DeclarativeBase):
 
     seed_match_key: ClassVar[str | None] = None
     seed_data: ClassVar[list[dict]] = []
+    # 只在第一次寫入的欄位: 模板給初始值, 之後交給使用者調整。每次 upsert 都蓋掉的話,
+    # 使用者改過的值會在下一次部署時悄悄消失。只對有 `seed_match_key` 的分岔有意義。
+    seed_insert_only_keys: ClassVar[frozenset[str]] = frozenset()
 
     @classmethod
     def detail_loaders(cls) -> Sequence[ExecutableOption]:
@@ -429,6 +432,7 @@ class BaseTable(DeclarativeBase):
 
         - 有設 `seed_match_key`: 每次都逐筆 upsert。**該欄位必須有唯一約束**, 否則
           PostgreSQL 會直接報錯 —— 這擋掉了「每次 migrate 都多插一筆」。
+          `seed_insert_only_keys` 裡的欄位只在第一次寫入, 之後不再覆蓋。
         - 沒設: 只在資料表完全空的時候整批 insert。
         """
         if not cls.seed_data:
@@ -443,7 +447,8 @@ class BaseTable(DeclarativeBase):
                 values = {"id": uuid.uuid4(), "created_at": utc_now(), **prepared}
                 # created_at 不進 set_: 它是「第一次寫進去的時間」, 每次 migrate 都蓋掉的話
                 # 預設排序 (依 created_at) 會在每次部署後洗牌。
-                updates = {key: value for key, value in prepared.items() if key != "created_at"}
+                skipped = {"created_at", *cls.seed_insert_only_keys}
+                updates = {key: value for key, value in prepared.items() if key not in skipped}
                 statement = pg_insert(cls).values(**values)
                 await db.execute(
                     statement.on_conflict_do_update(

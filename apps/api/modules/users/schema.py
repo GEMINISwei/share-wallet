@@ -46,6 +46,13 @@ class SuperAdminCreate(BaseModel):
     nickname: NonEmptyText
 
 
+# 不帶角色: 公開註冊的角色固定是一般用戶 (見 `account.signup_user`), 多送的欄位在驗證時就丟掉。
+class SignupRequest(BaseModel):
+    username: NonEmptyText
+    password: NewPassword
+    nickname: NonEmptyText
+
+
 class UserLogin(BaseModel):
     username: NonEmptyText
     password: Password

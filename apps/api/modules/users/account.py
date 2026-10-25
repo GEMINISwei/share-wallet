@@ -1,18 +1,64 @@
-"""使用者對**自己**帳號的操作: 登入、登出、更換自己的密碼、更新個人資料。
+"""使用者對**自己**帳號的操作: 註冊、登入、登出、更換自己的密碼、更新個人資料。
 
 與 `service.py` (管理者對任意使用者的操作) 分開: 這裡的授權模型是「你就是這個帳號」,
 不看 permission。
 """
 
+from sqlalchemy.exc import IntegrityError
+
+from modules.roles.public import RoleTable
 from shared.auth import passwords
 from shared.auth.contracts import AppEnvProtocol, CurrentUser
 from shared.auth.tokens import create_token
 from shared.db.session import release_connection
+from shared.db.table import is_unique_violation
 from shared.http.errors import LangException, ensure_found
 
 from .errors import UserError
 from .model import UserTable
-from .schema import PasswordChange, ProfileUpdate, UserLogin, UserOperate, UserToken
+from .schema import (
+    PasswordChange,
+    ProfileUpdate,
+    SignupRequest,
+    UserLogin,
+    UserOperate,
+    UserToken,
+)
+
+
+async def signup_user(form_data: SignupRequest, env: AppEnvProtocol) -> UserToken:
+    """公開註冊一般帳號, 註冊完直接登入 (回傳 token)。
+
+    角色**固定**是 seed 出來的一般用戶, 不從請求內容讀: 這條路徑不需要登入,
+    讓請求決定角色就等於讓任何人自己挑權限。
+    """
+    if await UserTable.find_detail_by_username(username=form_data.username):
+        raise LangException(409, UserError.USERNAME_EXISTS)
+
+    # bcrypt 期間不佔連線, 同登入。要在查角色之前: 系統角色不在時查詢會順手補 seed (寫入),
+    # 寫過就不能再歸還連線。
+    await release_connection()
+    password_hash = await passwords.hash_password_async(form_data.password)
+    role_id = await RoleTable.get_user_role_id()
+
+    try:
+        created = await UserTable.create(
+            data={
+                "username": form_data.username,
+                "nickname": form_data.nickname,
+                "password": password_hash,
+                "role_ids": [role_id],
+            },
+        )
+    except IntegrityError as exc:
+        if not is_unique_violation(exc):
+            raise
+        # 上面查過之後、寫入之前被別人搶先註冊了同一個帳號。
+        raise LangException(409, UserError.USERNAME_EXISTS) from exc
+
+    return UserToken.model_validate(
+        create_token({"username": form_data.username, "auth_version": created["auth_version"]}, env)
+    )
 
 
 async def login_user(form_data: UserLogin, env: AppEnvProtocol) -> UserToken:
