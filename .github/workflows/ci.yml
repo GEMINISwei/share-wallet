@@ -25,9 +25,12 @@ on:
 permissions:
   contents: read
 
+# 只取消 PR 上的舊 run: 舊 commit 的結果已經沒有意義。main 上連續合併時若取消, 前一個 commit
+# 就永遠沒有 CI 結果, 之後紅燈分不出是誰造成、也沒有綠燈可當部署依據, 所以讓它排隊跑完。
+# 同一群組最多一個在跑、一個在等, 三個以上連續合併時等待中的仍會被取代。
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   check:
