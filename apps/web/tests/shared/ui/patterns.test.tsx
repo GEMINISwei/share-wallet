@@ -202,6 +202,27 @@ describe("PageHeader 的返回", () => {
   })
 })
 
+describe("PageHeader 的手機選單", () => {
+  it("給了 mobileActionsTitle 時，標題列右邊的更多開成以它為標題的面板", async () => {
+    const action = vi.fn()
+    render(
+      <PageHeader title="家用" mobileActionsTitle="家用" mobileActions={[{ label: "成員", onClick: action }]} />,
+    )
+
+    await userEvent.click(screen.getByRole("button", { name: "更多" }))
+    const sheet = screen.getByRole("dialog", { name: "家用" })
+    await userEvent.click(within(sheet).getByRole("menuitem", { name: "成員" }))
+
+    expect(action).toHaveBeenCalledOnce()
+  })
+
+  it("沒有任何項目時不出現更多", () => {
+    render(<PageHeader title="家用" mobileActions={[null, false]} />)
+
+    expect(screen.queryByRole("button", { name: "更多" })).not.toBeInTheDocument()
+  })
+})
+
 describe("LinkTabs", () => {
   it("每個分頁都是連結, 目前的分頁標成 aria-current", () => {
     render(

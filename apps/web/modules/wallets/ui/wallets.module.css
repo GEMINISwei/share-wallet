@@ -268,50 +268,6 @@ a.row:hover {
   border-top: 0;
 }
 
-/* 手機錢包頁餘額下方的一排操作。 */
-/* 項目數會變 (代墊還清、不是管理者時少一兩格), 平分整列, 不留空位。 */
-/* 用等寬的欄而不是 flex: 「更多」是 kit 的 Menu, 按鈕外面多一層撐滿的 wrapper, 在 flex 裡
- * 它會吃掉整列 (其他格只剩幾 px), 就算壓成 flex: 1 1 0 也會因為按鈕的內距多寡而寬窄不一。 */
-.quickActions {
-  display: grid;
-  grid-auto-columns: minmax(0, 1fr);
-  grid-auto-flow: column;
-  gap: var(--space-2);
-}
-
-.quickAction {
-  display: flex;
-  flex: 1 1 0;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-1);
-  min-width: 0;
-  min-height: calc(var(--control-height-lg) + var(--space-5));
-  padding: var(--space-3) var(--space-1);
-  border: 0;
-  border-radius: var(--radius-lg);
-  background: var(--color-surface-card);
-  box-shadow: var(--shadow-xs);
-  color: var(--color-text-body);
-  font-family: var(--font-sans);
-  font-size: var(--fs-xs);
-  font-weight: var(--fw-medium);
-  cursor: pointer;
-  transition: transform var(--dur-fast) var(--ease-standard);
-}
-
-.quickAction:active {
-  transform: scale(0.96);
-}
-
-.quickAction > span {
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .sectionTitle {
   margin: 0 0 var(--space-2);
   font-size: var(--fs-xs);

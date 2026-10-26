@@ -4,7 +4,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useTransition } from "react"
 import {
-  ChevronsUpDown, Ellipsis, House, LayoutDashboard, LogOut, Settings, UserCog, type LucideIcon,
+  ChevronsUpDown, House, LayoutDashboard, LogOut, Settings, UserCog, type LucideIcon,
 } from "lucide-react"
 import { ICON_SIZE, Menu, type MenuItem } from "@/shared/ui"
 import { useLocale, useT } from "@/shared/i18n/context"
@@ -61,7 +61,7 @@ const ENTRY_ICONS: Record<AccountMenuLabel, LucideIcon> = {
   logout: LogOut,
 }
 
-/** 「更多」面板: 側欄底部的頭像與手機底部導覽共用同一份項目, 只差觸發按鈕長什麼樣子。 */
+/** 帳號選單: 側欄底部的頭像與手機底部導覽的「帳號」共用同一份項目, 只差觸發按鈕長什麼樣子。 */
 function useAccountMenuItems(area: RouteArea, permissions: readonly string[]): MenuItem[] {
   const t = useT(appMessages)
   const router = useRouter()
@@ -160,17 +160,18 @@ export default function AppShell({
           {renderNav("bottom")}
           {/* 記一筆是使用者區最常用的操作, 放在正中間; 後台沒有自己的帳, 不放。 */}
           {area === "user" && <AddEntryNavButton />}
-          {/* 手機沒有側欄: 切換區域、設定與登出都收在「更多」, 以底部面板呈現, 標題是使用者名稱。 */}
+          {/* 手機沒有側欄: 切換區域、設定與登出都在這一格, 以底部面板呈現, 標題是使用者名稱。
+              不叫「更多」: 錢包頁標題列的「⋯」也叫更多, 同一個畫面上會有兩個。 */}
           <Menu
             fullWidth
-            sheetTitle={nickname || t("more")}
-            triggerLabel={t("more")}
+            sheetTitle={nickname || t("account")}
+            triggerLabel={t("accountMenu")}
             triggerClassName={styles.bottomNavItem}
             items={accountItems}
             trigger={
               <>
-                <Ellipsis size={ICON_SIZE.md} aria-hidden />
-                <span>{t("more")}</span>
+                <span className={styles.bottomNavAvatar} aria-hidden>{avatarText}</span>
+                <span>{t("account")}</span>
               </>
             }
           />
