@@ -67,6 +67,7 @@ describe("isProtectedPathname", () => {
 
   it("公開路徑不受保護", () => {
     expect(isProtectedPathname("/login")).toBe(false)
+    expect(isProtectedPathname("/signup")).toBe(false)
     expect(isProtectedPathname("/")).toBe(false)
   })
 })

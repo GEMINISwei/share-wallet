@@ -7,10 +7,10 @@ test("未登入進受保護頁面會導向登入頁", async ({ page }) => {
   await expect(page).toHaveURL(/\/login/)
 })
 
-test("登入成功後進入首頁，session cookie 為 httpOnly", async ({ page, context }) => {
+test("登入成功後進入錢包列表，session cookie 為 httpOnly", async ({ page, context }) => {
   await login(page, admin)
 
-  await expect(page.getByText("請從左側選單選擇功能開始使用。")).toBeVisible()
+  await expect(page.getByRole("heading", { name: "我的錢包" })).toBeVisible()
   const cookies = await context.cookies()
   const session = cookies.find((cookie) => cookie.name === "access_token")
   expect(session?.httpOnly).toBe(true)

@@ -1,4 +1,4 @@
-import { Settings, ShieldCheck, Users, type LucideIcon } from "lucide-react"
+import { Settings, ShieldCheck, Users, Wallet, type LucideIcon } from "lucide-react"
 import type { NavIconKey } from "@/config/routes"
 
 /**
@@ -11,4 +11,5 @@ export const NAV_ICONS: Record<NavIconKey, LucideIcon> = {
   users: Users,
   roles: ShieldCheck,
   settings: Settings,
+  wallets: Wallet,
 }

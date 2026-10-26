@@ -12,9 +12,10 @@ import type { LoginRedirectReason } from "../types"
 
 type LoginFormProps = {
   reason?: LoginRedirectReason
+  invite?: string
 }
 
-export default function LoginForm({ reason }: LoginFormProps) {
+export default function LoginForm({ reason, invite }: LoginFormProps) {
   const t = useT(authMessages)
   const {
     values,
@@ -28,7 +29,7 @@ export default function LoginForm({ reason }: LoginFormProps) {
     togglePassword,
     goSignup,
     submit,
-  } = useLoginForm({ reason })
+  } = useLoginForm({ reason, invite })
 
   const fieldState = { disabled: isPending, showError: isSubmit }
 

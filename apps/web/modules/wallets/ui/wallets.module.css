@@ -1,0 +1,741 @@
+/* 錢包模組的畫面。以手機為主: 卡片與列一律單欄, 桌機是同一欄放寬到整個內容區,
+ * 跟其他頁一樣用滿可用的寬度 (只限寬不置中時整欄會靠左)。 */
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--color-text-secondary);
+  font-size: var(--fs-sm);
+  text-decoration: none;
+}
+
+.backLink:hover {
+  color: var(--color-text-body);
+}
+
+.summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  border-radius: var(--radius-lg);
+  background: var(--color-primary-container);
+  color: var(--color-on-primary-container);
+}
+
+/* 錢包列表的總額: 整塊彩色的卡片, 是這一頁唯一的重點。手機、桌機同一個樣子。 */
+.totalCard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  overflow: hidden;
+  padding: var(--space-6);
+  border-radius: var(--radius-xl);
+  background: var(--color-highlight-bg);
+  color: var(--color-on-highlight);
+}
+
+/* 兩個圓形點綴, 純裝飾, 壓在文字後面。 */
+.totalCard::before,
+.totalCard::after {
+  content: "";
+  position: absolute;
+  border-radius: var(--radius-round);
+}
+
+.totalCard::before {
+  right: calc(var(--space-8) * -1);
+  bottom: calc(var(--space-12) * -1);
+  width: calc(var(--size-avatar-md) * 3.5);
+  height: calc(var(--size-avatar-md) * 3.5);
+  background: var(--color-primary-container);
+  opacity: var(--opacity-muted);
+}
+
+.totalCard::after {
+  top: calc(var(--space-5) * -1);
+  right: calc(var(--space-12) + var(--space-6));
+  width: calc(var(--size-avatar-md) * 1.4);
+  height: calc(var(--size-avatar-md) * 1.4);
+  background: var(--color-accent-container);
+}
+
+.totalCard > * {
+  position: relative;
+  z-index: var(--z-raised);
+}
+
+.totalLabel {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+}
+
+.totalValue {
+  font-size: var(--fs-display);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-tight);
+}
+
+/* 警示色壓在彩色底上對比不夠; 負號本身就看得出來, 這裡維持卡片的文字色。 */
+.totalCard .negative {
+  color: inherit;
+}
+
+.summaryMain {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+/* 摘要列的「記一筆」只在手機出現; 桌機的在標題列。 */
+.summaryAdd {
+  display: none;
+  flex-shrink: 0;
+}
+
+.summaryLabel {
+  font-size: var(--fs-sm);
+}
+
+.summaryValue {
+  font-size: var(--fs-h1);
+  font-weight: var(--fw-bold);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--lh-tight);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: var(--border-width-hairline) solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-card);
+  overflow: hidden;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: var(--control-height-lg);
+  padding: var(--space-3) var(--space-4);
+  color: var(--color-text-body);
+  text-decoration: none;
+}
+
+.list > li + li {
+  border-top: var(--border-width-hairline) solid var(--color-border-subtle);
+}
+
+a.row:hover {
+  background: var(--color-surface-hover);
+}
+
+.rowMain {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.rowTitle {
+  overflow: hidden;
+  font-size: var(--fs-base);
+  font-weight: var(--fw-semibold);
+  color: var(--color-text-heading);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rowTitleLine {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+/* 名稱靠圖示, 金額與箭頭推到最右。 */
+.rowGrow {
+  flex: 1;
+}
+
+.kindIcon {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: var(--size-avatar-md);
+  height: var(--size-avatar-md);
+  border-radius: var(--radius-md);
+  background: var(--color-primary-container);
+  color: var(--color-on-primary-container);
+}
+
+.kindIconTravel {
+  background: var(--color-accent-container);
+  color: var(--color-on-accent-container);
+}
+
+.favoriteStar {
+  flex-shrink: 0;
+  color: var(--color-warning-fg);
+}
+
+.rowMeta {
+  font-size: var(--fs-xs);
+  color: var(--color-text-muted);
+}
+
+.rowEnd {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.amount {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-semibold);
+}
+
+.negative {
+  color: var(--color-danger-fg);
+}
+
+.positive {
+  color: var(--color-success-fg);
+}
+
+/* 帳目的分類 (或類型): 只有外框的膠囊, 不搶金額的視線。 */
+.tag {
+  flex-shrink: 0;
+  padding: 0 var(--space-2);
+  border: var(--border-width-hairline) solid var(--color-border-default);
+  border-radius: var(--radius-pill);
+  color: var(--color-text-secondary);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-regular);
+  line-height: var(--lh-normal);
+  white-space: nowrap;
+}
+
+.dayGroups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.dayHeading {
+  margin: 0 0 var(--space-2) var(--space-1);
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  letter-spacing: var(--ls-body);
+}
+
+/* 錢包列表: 每個錢包一張卡片, 不是一張卡片裡的多列。 */
+.list.walletCards {
+  gap: var(--space-2);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  overflow: visible;
+}
+
+.list.walletCards > li {
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-card);
+  box-shadow: var(--shadow-xs);
+}
+
+.list.walletCards > li + li {
+  border-top: 0;
+}
+
+/* 手機錢包頁餘額下方的一排操作。 */
+/* 項目數會變 (代墊還清、不是管理者時少一兩格), 平分整列, 不留空位。 */
+/* 用等寬的欄而不是 flex: 「更多」是 kit 的 Menu, 按鈕外面多一層撐滿的 wrapper, 在 flex 裡
+ * 它會吃掉整列 (其他格只剩幾 px), 就算壓成 flex: 1 1 0 也會因為按鈕的內距多寡而寬窄不一。 */
+.quickActions {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: var(--space-2);
+}
+
+.quickAction {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  min-width: 0;
+  min-height: calc(var(--control-height-lg) + var(--space-5));
+  padding: var(--space-3) var(--space-1);
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-card);
+  box-shadow: var(--shadow-xs);
+  color: var(--color-text-body);
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  cursor: pointer;
+  transition: transform var(--dur-fast) var(--ease-standard);
+}
+
+.quickAction:active {
+  transform: scale(0.96);
+}
+
+.quickAction > span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sectionTitle {
+  margin: 0 0 var(--space-2);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  color: var(--color-text-muted);
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.hint {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--color-text-secondary);
+  line-height: var(--lh-snug);
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border: var(--border-width-hairline) solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-card);
+}
+
+.dangerPanel {
+  border-color: var(--color-danger-fg);
+}
+
+.kindOptions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.kindOption {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border: var(--border-width-hairline) solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-input);
+  color: var(--color-text-body);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.kindOptionSelected {
+  border-color: var(--color-border-brand);
+  box-shadow: var(--focus-ring);
+}
+
+.kindOptionTitle {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+}
+
+.kindOptionDesc {
+  font-size: var(--fs-xs);
+  color: var(--color-text-muted);
+  line-height: var(--lh-snug);
+}
+
+.dateFields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.dialogBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.dialogActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+@media (max-width: 720px) {
+  .kindOptions,
+  .dateFields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* 後台列表: 名稱連到錢包頁, 管理者欄位點開看完整名單。兩者都是表格裡的文字連結。 */
+.tableLink {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-primary);
+  font: inherit;
+  text-align: start;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.tableLink:hover {
+  text-decoration: underline;
+}
+
+/* 帳目列表的一列是按鈕 (打開詳情), 外觀與連結列相同。 */
+.rowButton {
+  width: 100%;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.rowButton:hover {
+  background: var(--color-surface-hover);
+}
+
+.loadMore {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.detailAmount {
+  font-size: var(--fs-h2);
+  line-height: var(--lh-tight);
+}
+
+.fieldList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.fieldRow {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-size: var(--fs-sm);
+}
+
+.fieldRow dt {
+  color: var(--color-text-muted);
+}
+
+.fieldRow dd {
+  margin: 0;
+  color: var(--color-text-body);
+  text-align: end;
+  overflow-wrap: anywhere;
+}
+
+/* 錢包頁的代墊未還清單: 版面同 .fieldList, 但它是 ul。 */
+.owingList {
+  padding: 0;
+  list-style: none;
+}
+
+.logList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.list.logList {
+  gap: 0;
+}
+
+.list .logItem {
+  padding: var(--space-3) var(--space-4);
+}
+
+.logItem {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.logHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.logBody {
+  font-size: var(--fs-sm);
+  color: var(--color-text-body);
+  overflow-wrap: anywhere;
+}
+
+/* 旅遊錢包記一筆的分攤: 均分是勾選清單, 指定金額是「成員、金額、移除」一列一列的表。 */
+.shareField {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.shareLegend {
+  margin-bottom: var(--space-2);
+  padding: 0;
+  color: var(--color-text-muted);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-bold);
+}
+
+.shareList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.shareCheck {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-height-sm);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width-hairline) solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-body);
+  cursor: pointer;
+}
+
+.shareCheck input {
+  width: var(--size-icon-sm);
+  height: var(--size-icon-sm);
+}
+
+.shareName {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.shareRow {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr) auto;
+  align-items: start;
+  gap: var(--space-2);
+}
+
+.iconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-height-sm);
+  height: var(--control-height-sm);
+  margin-top: var(--space-1);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.iconButton:hover {
+  background: var(--color-surface-hover);
+}
+
+.fieldError {
+  color: var(--color-danger-fg);
+  font-size: var(--fs-xs);
+}
+
+/* 清償方案的一筆: 上面是誰付誰多少, 下面是自己能按的按鈕 (沒有時不佔高度)。 */
+.settlementRow {
+  display: flex;
+  flex-direction: column;
+}
+
+.settlementActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: 0 var(--space-4);
+}
+
+.settlementActions:not(:empty) {
+  padding-bottom: var(--space-3);
+}
+
+.statusLine {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* 錢包頁的手機版只留摘要列、清償方案與帳目, 其他收進標題列的 ⋮ 選單
+ * (見 docs/features.md〈錢包頁的版面〉)。放在檔尾, 才蓋得過同權重的 display。 */
+@media (min-width: 721px) {
+  .mobileOnly {
+    display: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .desktopOnly {
+    display: none;
+  }
+
+  /* 手機的摘要是整頁的焦點: 不用底色卡片, 數字放大置中。 */
+  .summary {
+    flex-direction: column;
+    gap: var(--space-3);
+    padding: var(--space-3) 0 var(--space-2);
+    background: transparent;
+    color: var(--color-text-display);
+  }
+
+  .summaryMain {
+    align-items: center;
+  }
+
+  .summaryLabel {
+    color: var(--color-text-secondary);
+  }
+
+  .summaryValue {
+    font-size: var(--fs-display);
+  }
+
+  .summaryAdd {
+    display: flex;
+  }
+
+  /* 帳目底下還有日期分組的小標, 這一層要明顯大一階, 才分得出層次。 */
+  .ledgerTitle {
+    margin-top: var(--space-2);
+    color: var(--color-text-heading);
+    font-size: var(--fs-lg);
+    letter-spacing: var(--ls-body);
+    text-transform: none;
+  }
+}
+
+/* ---- 底部導覽中間的「＋」(記一筆) ---- */
+/* 跟旁邊的導覽項目一樣高 (stretch), 圓鈕在裡面垂直置中。 */
+.navAdd {
+  display: flex;
+  align-self: stretch;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+/* 實心深色圓鈕: 最常用的操作要一眼找得到。 */
+.navAddCircle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-height-md);
+  height: var(--control-height-md);
+  border-radius: var(--radius-round);
+  background: var(--color-action-primary);
+  color: var(--color-text-on-primary);
+  box-shadow: var(--shadow-md);
+  transition: transform var(--dur-fast) var(--ease-standard);
+}
+
+.navAdd:active .navAddCircle {
+  transform: scale(0.94);
+}
+
+/* 不能記帳時變灰但照樣可以點: 點了由頁面說明原因, 不讓人以為按鈕壞了。 */
+.navAddBlocked .navAddCircle {
+  opacity: var(--opacity-disabled);
+  box-shadow: none;
+}
+
+/* ---- 選錢包面板 ---- */
+.picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.pickerItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: var(--control-height-lg);
+  padding: var(--space-3) var(--space-4);
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pickerItem:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+}
+
+.pickerItem:disabled {
+  cursor: default;
+  opacity: var(--opacity-disabled);
+}

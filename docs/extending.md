@@ -265,7 +265,7 @@ api 開機時**不寫任何資料**。所以 seed 失敗跟 migration 失敗一�
 |---|---|
 | 某個模組 | `modules/<name>/i18n.ts` |
 | UI kit | `shared/ui/i18n.ts` |
-| 外殼、首頁、錯誤頁 | `config/i18n.ts` |
+| 外殼、錯誤頁 | `config/i18n.ts` |
 
 ```typescript
 // modules/foo/i18n.ts —— 漏翻譯或多一個 key 都會編譯失敗

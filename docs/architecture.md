@@ -29,7 +29,7 @@ app（組裝層） → modules（垂直功能） → shared（平台能力）
 │   └── web/                  # Next.js
 │       ├── app/              # Next.js 路由檔（只做接線）+ theme.css（專案的外觀覆寫）
 │       ├── config/           # 組裝層：啟用模組、路由、導覽圖示、外殼字串
-│       ├── modules/          # auth、users、roles、settings
+│       ├── modules/          # auth、users、roles、settings、wallets
 │       ├── shared/           # api、session、access、pagination、i18n、runtime、ui
 │       │                     # + module.ts（manifest 契約）
 │       ├── proxy.ts          # 路由保護（Next 只認根目錄，不能搬）
@@ -137,10 +137,10 @@ modules/<name>/
 
 ```text
 app/
-├── (public)/              # login
+├── (public)/              # login、signup、invite
 └── (protected)/           # layout：登入檢查
-    ├── (user)/            # 使用者區：首頁、個人設定　layout：使用者外殼
-    └── admin/             # 管理區：使用者、角色管理　layout：權限檢查 + 管理外殼
+    ├── (user)/            # 使用者區：錢包、個人設定　layout：使用者外殼
+    └── admin/             # 管理區：使用者、角色、錢包管理　layout：權限檢查 + 管理外殼
 ```
 
 路由放哪一區由 manifest 的 `group: "user" | "admin"` 決定，頁面檔要放在對應的 route group
@@ -162,7 +162,7 @@ app/
 `metadata`、`generateMetadata`、`viewport`、`generateViewport`、`generateStaticParams`、`dynamic`、
 `dynamicParams`、`revalidate`、`fetchCache`、`runtime`、`preferredRegion`、`maxDuration`、
 `experimental_ppr`。
-`tests/app/route-adapters.test.ts` 會比對兩邊；就地宣告頁面的例外列在 `IN_PLACE_PAGES`（只有首頁）。
+`tests/app/route-adapters.test.ts` 會比對兩邊，沒有例外：頁面一律放進模組，只是轉址的（例如首頁導向錢包列表）寫在 `next.config.ts` 的 `redirects`。
 
 前端有**兩個組裝點**：`config/routes.ts` 的 `ENABLED_MODULES`（路由、導覽、proxy 保護都從它推導）
 與 `config/shell/nav-icons.ts` 的 `NAV_ICONS`（漏了會編譯失敗）。

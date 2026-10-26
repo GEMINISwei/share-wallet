@@ -10,6 +10,7 @@ import { usePublicConfig } from "@/shared/runtime/context"
 import { appMessages } from "@/config/i18n"
 import { logout } from "@/config/session-actions"
 import { navRoutes } from "@/config/routes"
+import { AddEntryNavButton, AddEntryProvider } from "@/modules/wallets/public.client"
 import type { RouteArea } from "@/shared/module"
 import { type AccountMenuEntry, type AccountMenuLabel, getAccountMenuEntries } from "./account-menu"
 import { NAV_ICONS } from "./nav-icons"
@@ -108,66 +109,72 @@ export default function AppShell({
   }
 
   return (
-    <div className={styles.shell}>
-      <aside className={styles.sidebar}>
-        <div className={styles.sidebarLogo}>
-          <span className={styles.sidebarWordmark}>{systemName}</span>
-          {/* 切換區域收進頭像選單之後, 這是唯一一眼看得出「現在在後台」的地方。 */}
-          {area === "admin" && <span className={styles.areaBadge}>{t("adminAreaBadge")}</span>}
-        </div>
+    <AddEntryProvider>
+      <div className={styles.shell}>
+        <aside className={styles.sidebar}>
+          <div className={styles.sidebarLogo}>
+            <span className={styles.sidebarWordmark}>{systemName}</span>
+            {/* 切換區域收進頭像選單之後, 這是唯一一眼看得出「現在在後台」的地方。 */}
+            {area === "admin" && <span className={styles.areaBadge}>{t("adminAreaBadge")}</span>}
+          </div>
 
-        <nav className={styles.sidebarNav} aria-label={t("mainNav")}>
-          {/* 一般帳號目前沒有任何導覽項目 (設定在頭像選單裡), 不要留一個底下空空的標題。 */}
-          {visibleRoutes.length > 0 && (
-            <span className={styles.navSectionLabel}>
-              {t(area === "admin" ? "navSectionAdmin" : "navSection")}
-            </span>
+          <nav className={styles.sidebarNav} aria-label={t("mainNav")}>
+            {/* 一般帳號目前沒有任何導覽項目 (設定在頭像選單裡), 不要留一個底下空空的標題。 */}
+            {visibleRoutes.length > 0 && (
+              <span className={styles.navSectionLabel}>
+                {t(area === "admin" ? "navSectionAdmin" : "navSection")}
+              </span>
+            )}
+            {renderNav("sidebar")}
+          </nav>
+
+          {nickname && (
+            <div className={styles.sidebarFooter}>
+              <Menu
+                placement="above"
+                fullWidth
+                triggerLabel={t("accountMenu")}
+                triggerClassName={styles.sidebarUser}
+                items={accountItems}
+                trigger={
+                  <>
+                    {avatar}
+                    <span className={styles.userDetails}>
+                      <span className={styles.userName}>{nickname}</span>
+                      <span className={styles.userRole}>{userRole}</span>
+                    </span>
+                    <ChevronsUpDown
+                      size={ICON_SIZE.sm} className={styles.userMenuIcon} aria-hidden
+                    />
+                  </>
+                }
+              />
+            </div>
           )}
-          {renderNav("sidebar")}
+        </aside>
+
+        <nav className={styles.bottomNavigation} aria-label={t("mobileNav")}>
+          {renderNav("bottom")}
+          {/* 記一筆是使用者區最常用的操作, 放在正中間; 後台沒有自己的帳, 不放。 */}
+          {area === "user" && <AddEntryNavButton />}
+          {/* 手機沒有側欄: 切換區域與登出都在這一格的選單裡, 以底部面板呈現。 */}
+          <Menu
+            fullWidth
+            sheetTitle={nickname || t("account")}
+            triggerLabel={t("accountMenu")}
+            triggerClassName={styles.bottomNavItem}
+            items={accountItems}
+            trigger={
+              <>
+                <span className={styles.bottomNavAvatar} aria-hidden>{avatarText}</span>
+                <span>{t("account")}</span>
+              </>
+            }
+          />
         </nav>
 
-        {nickname && (
-          <div className={styles.sidebarFooter}>
-            <Menu
-              placement="above"
-              fullWidth
-              triggerLabel={t("accountMenu")}
-              triggerClassName={styles.sidebarUser}
-              items={accountItems}
-              trigger={
-                <>
-                  {avatar}
-                  <span className={styles.userDetails}>
-                    <span className={styles.userName}>{nickname}</span>
-                    <span className={styles.userRole}>{userRole}</span>
-                  </span>
-                  <ChevronsUpDown size={ICON_SIZE.sm} className={styles.userMenuIcon} aria-hidden />
-                </>
-              }
-            />
-          </div>
-        )}
-      </aside>
-
-      <nav className={styles.bottomNavigation} aria-label={t("mobileNav")}>
-        {renderNav("bottom")}
-        {/* 手機沒有側欄: 切換區域與登出都在這一格的選單裡, 以底部面板呈現。 */}
-        <Menu
-          fullWidth
-          sheetTitle={nickname || t("account")}
-          triggerLabel={t("accountMenu")}
-          triggerClassName={styles.bottomNavItem}
-          items={accountItems}
-          trigger={
-            <>
-              <span className={styles.bottomNavAvatar} aria-hidden>{avatarText}</span>
-              <span>{t("account")}</span>
-            </>
-          }
-        />
-      </nav>
-
-      {children}
-    </div>
+        {children}
+      </div>
+    </AddEntryProvider>
   )
 }
