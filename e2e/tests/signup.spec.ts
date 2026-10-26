@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test"
-import { admin } from "./support"
+import { WALLET_HOME, admin } from "./support"
 
 // 資料庫每次都是新的, 名稱固定即可; 跟 users.spec.ts 的一般帳號分開, 兩支的順序才互不影響。
 const newcomer = {
@@ -24,7 +24,7 @@ test("從登入頁進入註冊，註冊完直接是登入狀態並進入錢包�
 
   await fillSignup(page, newcomer)
 
-  await expect(page).toHaveURL("/wallets")
+  await expect(page).toHaveURL(WALLET_HOME)
   const cookies = await context.cookies()
   expect(cookies.find((cookie) => cookie.name === "access_token")?.httpOnly).toBe(true)
 })
@@ -34,11 +34,11 @@ test("註冊的帳號進入管理區會被導回錢包列表", async ({ page }) 
   await page.getByRole("textbox", { name: "帳號" }).fill(newcomer.username)
   await page.getByLabel("密碼", { exact: true }).fill(newcomer.password)
   await page.getByRole("button", { name: "登入", exact: true }).click()
-  await expect(page).toHaveURL("/wallets")
+  await expect(page).toHaveURL(WALLET_HOME)
 
   await page.goto("/admin/users")
 
-  await expect(page).toHaveURL("/wallets")
+  await expect(page).toHaveURL(WALLET_HOME)
 })
 
 test("已存在的帳號不能註冊，留在註冊頁並顯示錯誤訊息", async ({ page }) => {

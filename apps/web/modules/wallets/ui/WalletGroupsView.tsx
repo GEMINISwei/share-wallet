@@ -16,6 +16,7 @@ import type { WalletGroupInfo, WalletInfo, WalletKind } from "../types"
 import ConfirmDialog from "./ConfirmDialog"
 import GroupDialog from "./GroupDialog"
 import MoveWalletDialog from "./MoveWalletDialog"
+import { useGroupLabel } from "./useGroupLabel"
 import styles from "./wallets.module.css"
 
 type WalletGroupsViewProps = {
@@ -123,13 +124,6 @@ type GroupActions = {
   moveWallet: (wallet: WalletInfo) => void
   toggleWallet: (wallet: WalletInfo) => void
   canMoveWallet: (wallet: WalletInfo) => boolean
-}
-
-/** 預設群組沒有名稱, 跟著語系顯示。 */
-function useGroupLabel() {
-  const t = useT(walletsMessages)
-  return (group: WalletGroupInfo) => group.name
-    ?? (group.kind === "travel" ? t("defaultTravelGroup") : t("defaultGeneralGroup"))
 }
 
 type KindSectionProps = {

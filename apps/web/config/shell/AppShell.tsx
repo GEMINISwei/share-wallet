@@ -13,7 +13,9 @@ import { usePublicConfig } from "@/shared/runtime/context"
 import { appMessages } from "@/config/i18n"
 import { logout } from "@/config/session-actions"
 import { navRoutes } from "@/config/routes"
-import { AddEntryNavButton, AddEntryProvider } from "@/modules/wallets/public.client"
+import {
+  AddEntryNavButton, AddEntryProvider, WalletKindNav, WalletNavProvider,
+} from "@/modules/wallets/public.client"
 import type { RouteArea } from "@/shared/module"
 import { type AccountMenuEntry, type AccountMenuLabel, getAccountMenuEntries } from "./account-menu"
 import { NAV_ICONS } from "./nav-icons"
@@ -42,6 +44,22 @@ function NavLink({ href, icon, label, variant }: NavLinkProps) {
       {icon}
       <span className={variant === "sidebar" ? styles.navLinkLabel : undefined}>{label}</span>
     </Link>
+  )
+}
+
+/** 使用者區導覽的「一般錢包」「旅遊錢包」: 元件在錢包模組, 樣式跟其他導覽項目一樣。 */
+function WalletNavItem(
+  { variant, kind }: { variant: "sidebar" | "bottom"; kind: "general" | "travel" },
+) {
+  const sidebar = variant === "sidebar"
+  return (
+    <WalletKindNav
+      kind={kind} variant={variant}
+      className={sidebar ? styles.navLink : styles.bottomNavItem}
+      activeClassName={sidebar ? styles.navLinkActive : styles.bottomNavItemActive}
+      labelClassName={sidebar ? styles.navLinkLabel : undefined}
+      iconSize={sidebar ? ICON_SIZE.sm : ICON_SIZE.md}
+    />
   )
 }
 
@@ -115,72 +133,78 @@ export default function AppShell({
 
   return (
     <AddEntryProvider>
-      <div className={styles.shell}>
-        <aside className={styles.sidebar}>
-          <div className={styles.sidebarLogo}>
-            <span className={styles.sidebarWordmark}>{systemName}</span>
-            {/* 切換區域收進頭像選單之後, 這是唯一一眼看得出「現在在後台」的地方。 */}
-            {area === "admin" && <span className={styles.areaBadge}>{t("adminAreaBadge")}</span>}
-          </div>
+      <WalletNavProvider>
+        <div className={styles.shell}>
+          <aside className={styles.sidebar}>
+            <div className={styles.sidebarLogo}>
+              <span className={styles.sidebarWordmark}>{systemName}</span>
+              {/* 切換區域收進頭像選單之後, 這是唯一一眼看得出「現在在後台」的地方。 */}
+              {area === "admin" && <span className={styles.areaBadge}>{t("adminAreaBadge")}</span>}
+            </div>
 
-          <nav className={styles.sidebarNav} aria-label={t("mainNav")}>
-            {/* 一般帳號目前沒有任何導覽項目 (設定在頭像選單裡), 不要留一個底下空空的標題。 */}
-            {visibleRoutes.length > 0 && (
-              <span className={styles.navSectionLabel}>
-                {t(area === "admin" ? "navSectionAdmin" : "navSection")}
-              </span>
+            <nav className={styles.sidebarNav} aria-label={t("mainNav")}>
+              {/* 管理區沒有進得去的頁面時, 不要留一個底下空空的標題。 */}
+              {(area === "user" || visibleRoutes.length > 0) && (
+                <span className={styles.navSectionLabel}>
+                  {t(area === "admin" ? "navSectionAdmin" : "navSection")}
+                </span>
+              )}
+              {area === "user" && <WalletNavItem variant="sidebar" kind="general" />}
+              {area === "user" && <WalletNavItem variant="sidebar" kind="travel" />}
+              {renderNav("sidebar")}
+            </nav>
+
+            {nickname && (
+              <div className={styles.sidebarFooter}>
+                <Menu
+                  placement="above"
+                  fullWidth
+                  triggerLabel={t("accountMenu")}
+                  triggerClassName={styles.sidebarUser}
+                  items={accountItems}
+                  trigger={
+                    <>
+                      {avatar}
+                      <span className={styles.userDetails}>
+                        <span className={styles.userName}>{nickname}</span>
+                        <span className={styles.userRole}>{userRole}</span>
+                      </span>
+                      <ChevronsUpDown
+                        size={ICON_SIZE.sm} className={styles.userMenuIcon} aria-hidden
+                      />
+                    </>
+                  }
+                />
+              </div>
             )}
-            {renderNav("sidebar")}
+          </aside>
+
+          <nav className={styles.bottomNavigation} aria-label={t("mobileNav")}>
+            {renderNav("bottom")}
+            {/* 記一筆是使用者區最常用的操作, 放在兩種錢包的正中間; 後台沒有自己的帳, 不放。 */}
+            {area === "user" && <WalletNavItem variant="bottom" kind="general" />}
+            {area === "user" && <AddEntryNavButton />}
+            {area === "user" && <WalletNavItem variant="bottom" kind="travel" />}
+            {/* 手機沒有側欄: 切換區域、設定與登出都在這一格, 以底部面板呈現, 標題是使用者名稱。
+                不叫「更多」: 錢包頁標題列的「⋯」也叫更多, 同一個畫面上會有兩個。 */}
+            <Menu
+              fullWidth
+              sheetTitle={nickname || t("account")}
+              triggerLabel={t("accountMenu")}
+              triggerClassName={styles.bottomNavItem}
+              items={accountItems}
+              trigger={
+                <>
+                  <span className={styles.bottomNavAvatar} aria-hidden>{avatarText}</span>
+                  <span>{t("account")}</span>
+                </>
+              }
+            />
           </nav>
 
-          {nickname && (
-            <div className={styles.sidebarFooter}>
-              <Menu
-                placement="above"
-                fullWidth
-                triggerLabel={t("accountMenu")}
-                triggerClassName={styles.sidebarUser}
-                items={accountItems}
-                trigger={
-                  <>
-                    {avatar}
-                    <span className={styles.userDetails}>
-                      <span className={styles.userName}>{nickname}</span>
-                      <span className={styles.userRole}>{userRole}</span>
-                    </span>
-                    <ChevronsUpDown
-                      size={ICON_SIZE.sm} className={styles.userMenuIcon} aria-hidden
-                    />
-                  </>
-                }
-              />
-            </div>
-          )}
-        </aside>
-
-        <nav className={styles.bottomNavigation} aria-label={t("mobileNav")}>
-          {renderNav("bottom")}
-          {/* 記一筆是使用者區最常用的操作, 放在正中間; 後台沒有自己的帳, 不放。 */}
-          {area === "user" && <AddEntryNavButton />}
-          {/* 手機沒有側欄: 切換區域、設定與登出都在這一格, 以底部面板呈現, 標題是使用者名稱。
-              不叫「更多」: 錢包頁標題列的「⋯」也叫更多, 同一個畫面上會有兩個。 */}
-          <Menu
-            fullWidth
-            sheetTitle={nickname || t("account")}
-            triggerLabel={t("accountMenu")}
-            triggerClassName={styles.bottomNavItem}
-            items={accountItems}
-            trigger={
-              <>
-                <span className={styles.bottomNavAvatar} aria-hidden>{avatarText}</span>
-                <span>{t("account")}</span>
-              </>
-            }
-          />
-        </nav>
-
-        {children}
-      </div>
+          {children}
+        </div>
+      </WalletNavProvider>
     </AddEntryProvider>
   )
 }

@@ -315,3 +315,8 @@ export async function setWalletVisibility(id: string, isHidden: boolean) {
     refresh: refreshGroups,
   })
 }
+
+/** 導覽的群組清單與「＋」的選錢包面板: 在瀏覽器端取, 不讓每一頁的伺服器端多打一次。 */
+export async function loadMyGroups() {
+  return apiGet({ url: "/wallet-groups/" })
+}

@@ -2957,7 +2957,7 @@
         "type": "string"
       },
       "WalletList": {
-        "description": "自己加入的錢包: 最愛的在前, 其餘依加入的先後, 已結帳的一律排在最後。\n\n`total_balance` 是其中所有一般錢包餘額的總和。",
+        "description": "自己加入的錢包: 最愛的在前, 其餘依加入的先後, 已結帳的一律排在最後。\n\n總額依群組計算, 在錢包群組的列表上 (`WalletGroupInfo.total_balance`)。",
         "properties": {
           "count": {
             "title": "Count",
@@ -2969,16 +2969,11 @@
             },
             "title": "List Data",
             "type": "array"
-          },
-          "total_balance": {
-            "title": "Total Balance",
-            "type": "integer"
           }
         },
         "required": [
           "list_data",
-          "count",
-          "total_balance"
+          "count"
         ],
         "title": "WalletList",
         "type": "object"

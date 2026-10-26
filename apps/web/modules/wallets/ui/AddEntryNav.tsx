@@ -6,11 +6,12 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import { ErrorState, ICON_SIZE, Loading, Modal } from "@/shared/ui"
 import { getApiResponseErrorMessage } from "@/shared/api/error"
 import { useT } from "@/shared/i18n/context"
-import { loadMyWallets } from "../actions"
+import { loadMyGroups, loadMyWallets } from "../actions"
 import { type AddEntryBlock, type AddEntryPickerItem, addEntryPickerGroups } from "../capabilities"
 import { walletsMessages } from "../i18n"
 import { addEntryPath, wantsAddEntry } from "../paths"
 import Amount from "./Amount"
+import { useGroupLabel } from "./useGroupLabel"
 import styles from "./wallets.module.css"
 
 /** 錢包頁交給底部導覽「＋」的記帳動作。被擋時照樣呼叫 `onAdd`, 由頁面說明原因。 */
@@ -116,20 +117,24 @@ export function AddEntryNavButton() {
 }
 
 /**
- * 選錢包面板的資料。外殼掛上時就先取一次: 點了才取的話面板會先出現載入中再換成列表,
+ * 選錢包面板的資料 (錢包與自己的群組)。外殼掛上時就先取一次: 點了才取的話面板會先出現載入中再換成列表,
  * 有一段停頓, 高度也會跟著縮。打開時再背景更新, 期間沿用手上的列表, 不退回載入中。
  */
 function usePickerWallets() {
   const t = useT(walletsMessages)
   const [state, setState] = useState<PickerState>({ status: "loading" })
   const refresh = useCallback(() => {
-    void loadMyWallets().then((res) => setState((current) => {
-      if (res.status === "success") {
-        return { status: "ready", groups: addEntryPickerGroups(res.data.list_data) }
-      }
-      if (current.status === "ready") return current
-      return { status: "failed", message: getApiResponseErrorMessage(res, t("pickWalletFailed")) }
-    }))
+    void Promise.all([loadMyWallets(), loadMyGroups()]).then(([wallets, groups]) => setState(
+      (current) => {
+        if (wallets.status === "success" && groups.status === "success") {
+          const sections = addEntryPickerGroups(wallets.data.list_data, groups.data.list_data)
+          return { status: "ready", groups: sections }
+        }
+        if (current.status === "ready") return current
+        const failed = wallets.status === "success" ? groups : wallets
+        return { status: "failed", message: getApiResponseErrorMessage(failed, t("pickWalletFailed")) }
+      },
+    ))
   }, [t])
   useEffect(() => { refresh() }, [refresh])
   return { state, refresh }
@@ -137,16 +142,17 @@ function usePickerWallets() {
 
 function PickerBody({ state, onPicked }: { state: PickerState; onPicked: () => void }) {
   const t = useT(walletsMessages)
+  const groupLabel = useGroupLabel()
   if (state.status === "loading") return <Loading />
   if (state.status === "failed") return <ErrorState>{state.message}</ErrorState>
-  const { general, travel } = state.groups
-  if (general.length === 0 && travel.length === 0) {
+  if (state.groups.length === 0) {
     return <p className={styles.hint}>{t("pickWalletEmpty")}</p>
   }
   return (
     <div className={styles.picker}>
-      <PickerGroup label={t("tabGeneral")} items={general} onPicked={onPicked} />
-      <PickerGroup label={t("tabTravel")} items={travel} onPicked={onPicked} />
+      {state.groups.map(({ group, items }) => (
+        <PickerGroup key={group.id} label={groupLabel(group)} items={items} onPicked={onPicked} />
+      ))}
     </div>
   )
 }

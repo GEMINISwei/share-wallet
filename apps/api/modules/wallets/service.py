@@ -116,8 +116,7 @@ async def list_wallets(current_user: CurrentUser) -> WalletList:
         infos,
         key=lambda wallet: (wallet.status is WalletStatus.SETTLED, not wallet.is_favorite),
     )
-    total = sum(wallet.balance or 0 for wallet in wallets if wallet.kind is WalletKind.GENERAL)
-    return WalletList(list_data=wallets, count=len(wallets), total_balance=total)
+    return WalletList(list_data=wallets, count=len(wallets))
 
 
 async def get_wallet(id: str, current_user: CurrentUser) -> WalletInfo:

@@ -7,11 +7,12 @@ import { Button, ErrorState, ICON_SIZE, Notify, useNotify } from "@/shared/ui"
 import { useT } from "@/shared/i18n/context"
 import { addEntryBlock, canAddEntry, owingTargets } from "../capabilities"
 import { walletsMessages } from "../i18n"
-import { type WalletArea, walletsListPath } from "../paths"
+import { type WalletArea, walletBackPath } from "../paths"
 import type {
   AdvanceTargetInfo, CategoryInfo, EntryPage, TransferTarget, WalletInfo,
 } from "../types"
 import { useAddEntryFromUrl, useWalletAddEntry } from "./AddEntryNav"
+import { useActiveWalletKind } from "./WalletNav"
 import EntryList from "./EntryList"
 import LedgerDialogs, { type LedgerDialog } from "./LedgerDialogs"
 import OwingList, { OwingDialog } from "./OwingList"
@@ -81,6 +82,7 @@ function GeneralWalletView(
   const openAdjust = () => setDialog({ kind: "adjust" })
   const favorite = useFavoriteAction(wallet, { success: notifySuccess, error: notifyError })
   useWalletAddEntry(block, openAdd, notifyInfo)
+  useActiveWalletKind(wallet.kind)
   useAddEntryFromUrl(openAdd, block === null)
   const menu = useWalletMenu(wallet, area, {
     state, favorite,
@@ -89,7 +91,7 @@ function GeneralWalletView(
 
   return (
     <WalletShell
-      title={wallet.name} subtitle={t("kindGeneral")} backHref={walletsListPath(area, wallet.kind)} backLabel={t("backToList")} actionsDesktopOnly
+      title={wallet.name} subtitle={t("kindGeneral")} backHref={walletBackPath(wallet, area)} backLabel={t("backToList")} actionsDesktopOnly
       mobileActions={menu}
       actions={(ledger || favorite) && (
         <>

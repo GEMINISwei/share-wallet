@@ -19,13 +19,16 @@ function requireEnv(name: string): string {
   return value
 }
 
+/** 登入後與打開 /wallets 時進到的群組頁 (見 docs/features.md〈錢包列表〉)。 */
+export const WALLET_HOME = /\/wallets\/groups\/[0-9a-f-]+$/
+
 export async function login(page: Page, account: { username: string; password: string }) {
   await page.goto("/login")
   await page.getByRole("textbox", { name: "帳號" }).fill(account.username)
   await page.getByLabel("密碼", { exact: true }).fill(account.password)
   await page.getByRole("button", { name: "登入", exact: true }).click()
-  // 首頁導向錢包列表 (next.config.ts 的 redirects)。
-  await expect(page).toHaveURL("/wallets")
+  // 首頁導向 /wallets (next.config.ts 的 redirects), 再進到第一個群組。
+  await expect(page).toHaveURL(WALLET_HOME)
 }
 
 export async function logout(page: Page) {
