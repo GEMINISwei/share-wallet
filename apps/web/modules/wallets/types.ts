@@ -3,6 +3,7 @@ import type { Schema } from "@/shared/api/contract"
 
 export type WalletInfo = Schema<"WalletInfo">
 export type WalletKind = Schema<"WalletKind">
+export type WalletGroupInfo = Schema<"WalletGroupInfo">
 export type MemberInfo = Schema<"MemberInfo">
 export type MemberRole = Schema<"MemberRole">
 export type CategoryInfo = Schema<"CategoryInfo">

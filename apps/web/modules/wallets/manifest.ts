@@ -1,6 +1,8 @@
 import type { ModuleManifest, ProtectedRoute } from "@/shared/module"
 
 export const WALLETS_PATH = "/wallets"
+/** 自己的錢包群組與每個錢包的顯示; 在 `/wallets` 底下, 由同一個前綴保護。 */
+export const WALLET_SETTINGS_PATH = `${WALLETS_PATH}/settings`
 /** 管理區是真正的路徑段, 後台的錢包頁都在這底下。 */
 export const ADMIN_WALLETS_PATH = "/admin/wallets"
 

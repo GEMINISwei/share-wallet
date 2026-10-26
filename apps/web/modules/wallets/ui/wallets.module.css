@@ -277,6 +277,41 @@ a.row:hover {
   text-transform: uppercase;
 }
 
+/* 錢包設定: 每個群組一張卡, 標題列底下是放在裡面的錢包。 */
+.groupBlock {
+  overflow: hidden;
+  border: var(--border-width-hairline) solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-card);
+}
+
+.groupHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: var(--border-width-hairline) solid var(--color-border-subtle);
+}
+
+.groupHeader h3 {
+  margin: 0;
+}
+
+/* 卡片已經有外框, 裡面的清單不再畫一圈。 */
+.groupBlock .list {
+  border: 0;
+  border-radius: 0;
+}
+
+.groupEmpty {
+  padding: var(--space-3) var(--space-4);
+}
+
+/* 不顯示的錢包: 淡一階, 旁邊另有「不顯示」的標籤, 不只靠顏色。 */
+.rowTitleMuted {
+  color: var(--color-text-muted);
+}
+
 .sectionHeader {
   display: flex;
   align-items: center;

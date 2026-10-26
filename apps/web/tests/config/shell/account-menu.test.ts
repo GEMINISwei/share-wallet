@@ -8,25 +8,28 @@ describe("getAccountMenuEntries", () => {
   it("超級管理者在使用者區看得到管理後台的入口，排在最前面，連到第一個管理頁", () => {
     const entries = getAccountMenuEntries("user", ["*"])
 
-    expect(labels(entries)).toEqual(["goAdminArea", "userSettings", "systemSettings", "logout"])
+    expect(labels(entries)).toEqual(["goAdminArea", "walletSettings", "userSettings", "systemSettings", "logout"])
     expect(entries[0]).toMatchObject({ href: AREA_ROUTES.admin[0].path })
   })
 
   it("在管理區一律能回使用者區", () => {
     const entries = getAccountMenuEntries("admin", ["*"])
 
-    expect(labels(entries)).toEqual(["goUserArea", "userSettings", "systemSettings", "logout"])
+    expect(labels(entries)).toEqual(["goUserArea", "walletSettings", "userSettings", "systemSettings", "logout"])
     expect(entries[0]).toMatchObject({ href: "/" })
   })
 
-  it("一般帳號沒有切換區域的項目，只有用戶設定、系統設定與登出", () => {
-    expect(labels(getAccountMenuEntries("user", []))).toEqual(["userSettings", "systemSettings", "logout"])
+  it("一般帳號沒有切換區域的項目，只有錢包設定、用戶設定、系統設定與登出", () => {
+    expect(labels(getAccountMenuEntries("user", []))).toEqual([
+      "walletSettings", "userSettings", "systemSettings", "logout",
+    ])
   })
 
-  it("用戶設定與系統設定各自連到自己的頁面", () => {
+  it("三個設定項目各自連到自己的頁面", () => {
     const entries = getAccountMenuEntries("user", [])
 
-    expect(entries[0]).toMatchObject({ href: "/settings/user" })
-    expect(entries[1]).toMatchObject({ href: "/settings/system" })
+    expect(entries[0]).toMatchObject({ href: "/wallets/settings" })
+    expect(entries[1]).toMatchObject({ href: "/settings/user" })
+    expect(entries[2]).toMatchObject({ href: "/settings/system" })
   })
 })
