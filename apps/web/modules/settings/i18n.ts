@@ -2,7 +2,8 @@ import { defineMessages } from "@/shared/i18n/dictionary"
 
 export const settingsMessages = defineMessages({
   zh: {
-    pageTitle: "系統設定",
+    userPageTitle: "用戶設定",
+    systemPageTitle: "系統設定",
     languageSection: "語言",
     languageName: "顯示語言",
     languageDesc: "同時決定伺服器回傳的訊息語言",
@@ -31,7 +32,8 @@ export const settingsMessages = defineMessages({
     versionUnavailable: "無法取得",
   },
   en: {
-    pageTitle: "Settings",
+    userPageTitle: "User settings",
+    systemPageTitle: "System settings",
     languageSection: "Language",
     languageName: "Display language",
     languageDesc: "Also selects the language of server messages",

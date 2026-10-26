@@ -334,18 +334,6 @@
     cursor: pointer;
   }
 
-  .bottomNavAvatar {
-    width: var(--size-icon-lg);
-    height: var(--size-icon-lg);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: var(--radius-round);
-    border: var(--border-width-thick) solid var(--color-border-brand);
-    font-size: var(--fs-xs);
-    color: var(--color-text-body);
-  }
-
   .bottomNavItemActive {
     background: var(--color-primary-container);
     color: var(--color-on-primary-container);

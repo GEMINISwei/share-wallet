@@ -78,7 +78,7 @@ make gen-types
 2. 在 `manifest.ts` 宣告路由（`as const` 與 `satisfies` 兩個都要，少了前者型別保護就沒了）。
    `group` 決定它在使用者區（`"user"`）還是管理區（`"admin"`）。管理區只開放給超級管理者，
    `"admin"` 的路由一律寫 `requires: ["*"]`（測試會擋）。`showInNav: false` 的頁面照樣受保護，
-   只是不出現在導覽列（例如設定頁，入口在頭像選單）：
+   只是不出現在導覽列（例如設定頁，入口在「更多」面板）：
 
    ```ts
    export const PRODUCTS_ROUTE = {

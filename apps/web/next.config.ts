@@ -18,8 +18,12 @@ const nextConfig: NextConfig = {
   // Next 16 開發版會因此在 Safari 跳出 performance.measure 的 TypeError (vercel/next.js#86060)。
   // next.config 載入時不能引用模組 (public entry 帶著 server-only), 路徑與 WALLETS_PATH 的
   // 一致由 tests/next.config.test.ts 守。
+  // 設定頁拆成用戶設定與系統設定之後, 舊的 /settings 留給已經加到主畫面或存成書籤的人。
   async redirects() {
-    return [{ source: "/", destination: "/wallets", permanent: false }]
+    return [
+      { source: "/", destination: "/wallets", permanent: false },
+      { source: "/settings", destination: "/settings/user", permanent: false },
+    ]
   },
   // Server Action 參數可能含密碼; 開發日誌只保留請求結果, 不展開參數。
   logging: { serverFunctions: false },
