@@ -1,4 +1,5 @@
 import { SYSTEM_SETTINGS_PATH, USER_SETTINGS_PATH } from "@/modules/settings/manifest"
+import { WALLET_SETTINGS_PATH } from "@/modules/wallets/manifest"
 import { accessibleRoutes } from "@/config/routes"
 import type { appMessages } from "@/config/i18n"
 import type { RouteArea } from "@/shared/module"
@@ -6,7 +7,7 @@ import type { RouteArea } from "@/shared/module"
 /** 項目的代號, 同時是 `appMessages` 的字典 key。 */
 export type AccountMenuLabel = Extract<
   keyof (typeof appMessages)["zh"],
-  "goAdminArea" | "goUserArea" | "userSettings" | "systemSettings" | "logout"
+  "goAdminArea" | "goUserArea" | "walletSettings" | "userSettings" | "systemSettings" | "logout"
 >
 
 export type AccountMenuEntry =
@@ -14,7 +15,7 @@ export type AccountMenuEntry =
   | { kind: "logout"; label: "logout" }
 
 /**
- * 帳號選單的項目: 切換區域 (進得去管理區的人才有)、用戶設定、系統設定、登出。
+ * 帳號選單的項目: 切換區域 (進得去管理區的人才有)、錢包設定、用戶設定、系統設定、登出。
  *
  * 切換區域放這裡而不是導覽列: 它是換一個情境, 不是開一個頁面, 而且只有超級管理者用得到。
  * 管理區的入口連到「第一個進得去的管理頁」, 與導覽列用同一個 `accessibleRoutes`,
@@ -34,6 +35,7 @@ export function getAccountMenuEntries(
 
   return [
     ...areaSwitch,
+    { kind: "link", href: WALLET_SETTINGS_PATH, label: "walletSettings" },
     { kind: "link", href: USER_SETTINGS_PATH, label: "userSettings" },
     { kind: "link", href: SYSTEM_SETTINGS_PATH, label: "systemSettings" },
     { kind: "logout", label: "logout" },

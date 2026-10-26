@@ -278,3 +278,40 @@ export async function confirmSettlementTransfer(
   }
   return confirmed ? apiPost(request) : apiDelete(request)
 }
+
+// 錢包群組與顯示都是自己的設定, 會改到列表 (依群組分區、不顯示的不列出);
+// 錢包設定頁本身由畫面在成功後 `router.refresh()`。
+const refreshGroups = refreshWallets
+
+export async function createWalletGroup(data: ApiRequestBody<"/wallet-groups/", "post">) {
+  return apiPost({ url: "/wallet-groups/", data, refresh: refreshGroups })
+}
+
+export async function renameWalletGroup(id: string, name: string) {
+  return apiPatch({
+    url: "/wallet-groups/{id}", params: { id }, data: { name }, refresh: refreshGroups,
+  })
+}
+
+export async function deleteWalletGroup(id: string) {
+  return apiDelete({ url: "/wallet-groups/{id}", params: { id }, refresh: refreshGroups })
+}
+
+export async function moveWalletGroup(id: string, direction: "up" | "down") {
+  return apiPost({
+    url: "/wallet-groups/{id}/move", params: { id }, data: { direction }, refresh: refreshGroups,
+  })
+}
+
+export async function setWalletGroup(id: string, groupId: string) {
+  return apiPatch({
+    url: "/wallets/{id}/group", params: { id }, data: { group_id: groupId }, refresh: refreshGroups,
+  })
+}
+
+export async function setWalletVisibility(id: string, isHidden: boolean) {
+  return apiPatch({
+    url: "/wallets/{id}/visibility", params: { id }, data: { is_hidden: isHidden },
+    refresh: refreshGroups,
+  })
+}

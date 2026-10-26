@@ -23,6 +23,9 @@ export {
   generateMetadata as generateWalletHistoryMetadata,
 } from "./history-page.server"
 export {
+  default as WalletGroupsPage, generateMetadata as generateWalletGroupsMetadata,
+} from "./groups-page.server"
+export {
   default as AdminWalletsPage, generateMetadata as generateAdminWalletsMetadata,
 } from "./admin-page.server"
 export type { AdminWalletsPageProps } from "./admin-page.server"
