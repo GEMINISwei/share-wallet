@@ -14,6 +14,7 @@ from . import (
     entries,
     entry_logs,
     expenses,
+    groups,
     invites,
     members,
     service,
@@ -56,7 +57,14 @@ from .schema import (
     TransferCreate,
     TransferUpdate,
     UuidText,
+    VisibilityUpdate,
     WalletCreate,
+    WalletGroupCreate,
+    WalletGroupList,
+    WalletGroupMove,
+    WalletGroupOperate,
+    WalletGroupRename,
+    WalletGroupUpdate,
     WalletInfo,
     WalletList,
     WalletOperate,
@@ -119,6 +127,26 @@ async def set_favorite_route(
 ) -> WalletOperate:
     """把錢包設為自己的最愛, 或取消。只影響自己的列表排序。"""
     return await service.set_favorite(id, form_data, current_user)
+
+
+@router.patch("/{id}/group")
+async def set_wallet_group_route(
+    id: UuidText,
+    form_data: WalletGroupUpdate,
+    current_user: CurrentUser = Depends(check_user_permission()),
+) -> WalletOperate:
+    """把錢包放進自己的另一個群組。只影響自己的分組。"""
+    return await groups.set_wallet_group(id, form_data, current_user)
+
+
+@router.patch("/{id}/visibility")
+async def set_wallet_visibility_route(
+    id: UuidText,
+    form_data: VisibilityUpdate,
+    current_user: CurrentUser = Depends(check_user_permission()),
+) -> WalletOperate:
+    """設定錢包在自己的列表上要不要顯示。不顯示的錢包不計入群組的總額。"""
+    return await groups.set_wallet_visibility(id, form_data, current_user)
 
 
 @router.get("/{id}/members")
@@ -519,6 +547,56 @@ async def revoke_invite_route(
 ) -> WalletOperate:
     """撤銷邀請連結。"""
     return await invites.revoke_invite(id, current_user)
+
+
+# 每個人自己的錢包群組。不掛在 `/wallets` 底下: 那裡的 `/{id}` 是錢包。
+group_router = APIRouter(prefix="/wallet-groups", tags=["wallet-groups"])
+
+
+@group_router.get("/")
+async def get_wallet_group_list_route(
+    current_user: CurrentUser = Depends(check_user_permission()),
+) -> WalletGroupList:
+    """自己的錢包群組與各群組的錢包數、總額。第一次呼叫時建立兩個預設群組。"""
+    return await groups.list_groups(current_user)
+
+
+@group_router.post("/")
+async def create_wallet_group_route(
+    form_data: WalletGroupCreate,
+    current_user: CurrentUser = Depends(check_user_permission()),
+) -> WalletGroupOperate:
+    """新增群組, 排在同類型的預設群組前面。每種類型最多 20 個 (含預設群組)。"""
+    return await groups.create_group(form_data, current_user)
+
+
+@group_router.patch("/{id}")
+async def rename_wallet_group_route(
+    id: UuidText,
+    form_data: WalletGroupRename,
+    current_user: CurrentUser = Depends(check_user_permission()),
+) -> WalletGroupOperate:
+    """改名。預設群組不能改名。"""
+    return await groups.rename_group(id, form_data, current_user)
+
+
+@group_router.delete("/{id}")
+async def delete_wallet_group_route(
+    id: UuidText,
+    current_user: CurrentUser = Depends(check_user_permission()),
+) -> WalletGroupOperate:
+    """刪除群組, 裡面的錢包移回同類型的預設群組。預設群組不能刪除。"""
+    return await groups.delete_group(id, current_user)
+
+
+@group_router.post("/{id}/move")
+async def move_wallet_group_route(
+    id: UuidText,
+    form_data: WalletGroupMove,
+    current_user: CurrentUser = Depends(check_user_permission()),
+) -> WalletGroupOperate:
+    """跟同類型裡相鄰的群組交換位置。"""
+    return await groups.move_group(id, form_data, current_user)
 
 
 # 拿到邀請連結的人用的: 他還不是成員, 所以不能掛在 `/wallets/{id}` 底下 (那裡一律先檢查成員)。

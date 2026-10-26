@@ -17,7 +17,8 @@ function wallet(overrides: Partial<WalletInfo>): WalletInfo {
   return {
     id: "w-1", kind: "general", name: "家用", status: "active", balance: 0, destination: null,
     start_date: null, end_date: null, created_at: "2026-10-17T00:00:00Z",
-    my_role: "member", can_manage: false, is_favorite: false, ...overrides,
+    my_role: "member", can_manage: false, is_favorite: false, group_id: "g-1", is_hidden: false,
+    ...overrides,
   }
 }
 

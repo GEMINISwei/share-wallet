@@ -363,6 +363,74 @@ export interface paths {
         patch: operations["reset_user_password_route_api_users__id__reset_password_patch"];
         trace?: never;
     };
+    "/api/wallet-groups/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Wallet Group List Route
+         * @description 自己的錢包群組與各群組的錢包數、總額。第一次呼叫時建立兩個預設群組。
+         */
+        get: operations["get_wallet_group_list_route_api_wallet_groups__get"];
+        put?: never;
+        /**
+         * Create Wallet Group Route
+         * @description 新增群組, 排在同類型的預設群組前面。每種類型最多 20 個 (含預設群組)。
+         */
+        post: operations["create_wallet_group_route_api_wallet_groups__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/wallet-groups/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Wallet Group Route
+         * @description 刪除群組, 裡面的錢包移回同類型的預設群組。預設群組不能刪除。
+         */
+        delete: operations["delete_wallet_group_route_api_wallet_groups__id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Rename Wallet Group Route
+         * @description 改名。預設群組不能改名。
+         */
+        patch: operations["rename_wallet_group_route_api_wallet_groups__id__patch"];
+        trace?: never;
+    };
+    "/api/wallet-groups/{id}/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move Wallet Group Route
+         * @description 跟同類型裡相鄰的群組交換位置。
+         */
+        post: operations["move_wallet_group_route_api_wallet_groups__id__move_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/wallets/": {
         parameters: {
             query?: never;
@@ -754,6 +822,26 @@ export interface paths {
         patch: operations["set_favorite_route_api_wallets__id__favorite_patch"];
         trace?: never;
     };
+    "/api/wallets/{id}/group": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Set Wallet Group Route
+         * @description 把錢包放進自己的另一個群組。只影響自己的分組。
+         */
+        patch: operations["set_wallet_group_route_api_wallets__id__group_patch"];
+        trace?: never;
+    };
     "/api/wallets/{id}/invite": {
         parameters: {
             query?: never;
@@ -979,6 +1067,26 @@ export interface paths {
          * @description 修改轉帳的金額、日期、備註, 兩邊一起改。要在兩個錢包都有改刪權限; 對方錢包已刪除時不能改。
          */
         patch: operations["update_transfer_route_api_wallets__id__transfers__entry_id__patch"];
+        trace?: never;
+    };
+    "/api/wallets/{id}/visibility": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Set Wallet Visibility Route
+         * @description 設定錢包在自己的列表上要不要顯示。不顯示的錢包不計入群組的總額。
+         */
+        patch: operations["set_wallet_visibility_route_api_wallets__id__visibility_patch"];
         trace?: never;
     };
 }
@@ -2087,12 +2195,84 @@ export interface components {
             /** Error Type */
             type: string;
         };
+        /** VisibilityUpdate */
+        VisibilityUpdate: {
+            /** Is Hidden */
+            is_hidden: boolean;
+        };
         /** WalletAdmin */
         WalletAdmin: {
             /** Nickname */
             nickname: string;
             /** User Id */
             user_id: string;
+        };
+        /** WalletGroupCreate */
+        WalletGroupCreate: {
+            kind: components["schemas"]["WalletKind"];
+            /** Name */
+            name: string;
+        };
+        /**
+         * WalletGroupInfo
+         * @description 自己的一個錢包群組。
+         */
+        WalletGroupInfo: {
+            /** Id */
+            id: string;
+            /** Is Default */
+            is_default: boolean;
+            kind: components["schemas"]["WalletKind"];
+            /** Name */
+            name: string | null;
+            /** Total Balance */
+            total_balance: number | null;
+            /** Visible Count */
+            visible_count: number;
+            /** Wallet Count */
+            wallet_count: number;
+        };
+        /**
+         * WalletGroupList
+         * @description 自己的錢包群組: 一般群組在前, 同類型裡依自己排的順序。
+         */
+        WalletGroupList: {
+            /** Count */
+            count: number;
+            /** List Data */
+            list_data: components["schemas"]["WalletGroupInfo"][];
+        };
+        /**
+         * WalletGroupMove
+         * @description 跟同類型裡上一個或下一個群組交換位置; 已經在最前或最後時不變。
+         */
+        WalletGroupMove: {
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction: "up" | "down";
+        };
+        /** WalletGroupOperate */
+        WalletGroupOperate: {
+            /** Id */
+            id: string;
+        };
+        /**
+         * WalletGroupRename
+         * @description 群組只能改名, 類型建立後不能改。
+         */
+        WalletGroupRename: {
+            /** Name */
+            name: string;
+        };
+        /**
+         * WalletGroupUpdate
+         * @description 要放進的群組, 必須是自己的、而且跟錢包同類型。
+         */
+        WalletGroupUpdate: {
+            /** Group Id */
+            group_id: string;
         };
         /**
          * WalletInfo
@@ -2112,10 +2292,14 @@ export interface components {
             destination: string | null;
             /** End Date */
             end_date: string | null;
+            /** Group Id */
+            group_id: string | null;
             /** Id */
             id: string;
             /** Is Favorite */
             is_favorite: boolean;
+            /** Is Hidden */
+            is_hidden: boolean;
             kind: components["schemas"]["WalletKind"];
             my_role: components["schemas"]["MemberRole"] | null;
             /** Name */
@@ -2930,6 +3114,160 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UserOperate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_wallet_group_list_route_api_wallet_groups__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WalletGroupList"];
+                };
+            };
+        };
+    };
+    create_wallet_group_route_api_wallet_groups__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WalletGroupCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WalletGroupOperate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_wallet_group_route_api_wallet_groups__id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WalletGroupOperate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rename_wallet_group_route_api_wallet_groups__id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WalletGroupRename"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WalletGroupOperate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    move_wallet_group_route_api_wallet_groups__id__move_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WalletGroupMove"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WalletGroupOperate"];
                 };
             };
             /** @description Validation Error */
@@ -3873,6 +4211,41 @@ export interface operations {
             };
         };
     };
+    set_wallet_group_route_api_wallets__id__group_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WalletGroupUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WalletOperate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_invite_route_api_wallets__id__invite_get: {
         parameters: {
             query?: never;
@@ -4411,6 +4784,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EntryOperate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_wallet_visibility_route_api_wallets__id__visibility_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VisibilityUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WalletOperate"];
                 };
             };
             /** @description Validation Error */

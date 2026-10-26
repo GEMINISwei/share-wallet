@@ -2636,6 +2636,19 @@
         "title": "ValidationError",
         "type": "object"
       },
+      "VisibilityUpdate": {
+        "properties": {
+          "is_hidden": {
+            "title": "Is Hidden",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "is_hidden"
+        ],
+        "title": "VisibilityUpdate",
+        "type": "object"
+      },
       "WalletAdmin": {
         "properties": {
           "nickname": {
@@ -2652,6 +2665,165 @@
           "nickname"
         ],
         "title": "WalletAdmin",
+        "type": "object"
+      },
+      "WalletGroupCreate": {
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/WalletKind"
+          },
+          "name": {
+            "maxLength": 50,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "name"
+        ],
+        "title": "WalletGroupCreate",
+        "type": "object"
+      },
+      "WalletGroupInfo": {
+        "description": "自己的一個錢包群組。",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "is_default": {
+            "title": "Is Default",
+            "type": "boolean"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/WalletKind"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "total_balance": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Balance"
+          },
+          "visible_count": {
+            "title": "Visible Count",
+            "type": "integer"
+          },
+          "wallet_count": {
+            "title": "Wallet Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "name",
+          "is_default",
+          "wallet_count",
+          "visible_count",
+          "total_balance"
+        ],
+        "title": "WalletGroupInfo",
+        "type": "object"
+      },
+      "WalletGroupList": {
+        "description": "自己的錢包群組: 一般群組在前, 同類型裡依自己排的順序。",
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "list_data": {
+            "items": {
+              "$ref": "#/components/schemas/WalletGroupInfo"
+            },
+            "title": "List Data",
+            "type": "array"
+          }
+        },
+        "required": [
+          "list_data",
+          "count"
+        ],
+        "title": "WalletGroupList",
+        "type": "object"
+      },
+      "WalletGroupMove": {
+        "description": "跟同類型裡上一個或下一個群組交換位置; 已經在最前或最後時不變。",
+        "properties": {
+          "direction": {
+            "enum": [
+              "up",
+              "down"
+            ],
+            "title": "Direction",
+            "type": "string"
+          }
+        },
+        "required": [
+          "direction"
+        ],
+        "title": "WalletGroupMove",
+        "type": "object"
+      },
+      "WalletGroupOperate": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "WalletGroupOperate",
+        "type": "object"
+      },
+      "WalletGroupRename": {
+        "description": "群組只能改名, 類型建立後不能改。",
+        "properties": {
+          "name": {
+            "maxLength": 50,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "WalletGroupRename",
+        "type": "object"
+      },
+      "WalletGroupUpdate": {
+        "description": "要放進的群組, 必須是自己的、而且跟錢包同類型。",
+        "properties": {
+          "group_id": {
+            "title": "Group Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "group_id"
+        ],
+        "title": "WalletGroupUpdate",
         "type": "object"
       },
       "WalletInfo": {
@@ -2700,12 +2872,27 @@
             ],
             "title": "End Date"
           },
+          "group_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Id"
+          },
           "id": {
             "title": "Id",
             "type": "string"
           },
           "is_favorite": {
             "title": "Is Favorite",
+            "type": "boolean"
+          },
+          "is_hidden": {
+            "title": "Is Hidden",
             "type": "boolean"
           },
           "kind": {
@@ -2753,7 +2940,9 @@
           "created_at",
           "my_role",
           "can_manage",
-          "is_favorite"
+          "is_favorite",
+          "group_id",
+          "is_hidden"
         ],
         "title": "WalletInfo",
         "type": "object"
@@ -4041,6 +4230,215 @@
         "summary": "Reset User Password Route",
         "tags": [
           "users"
+        ]
+      }
+    },
+    "/api/wallet-groups/": {
+      "get": {
+        "description": "自己的錢包群組與各群組的錢包數、總額。第一次呼叫時建立兩個預設群組。",
+        "operationId": "get_wallet_group_list_route_api_wallet_groups__get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalletGroupList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Wallet Group List Route",
+        "tags": [
+          "wallet-groups"
+        ]
+      },
+      "post": {
+        "description": "新增群組, 排在同類型的預設群組前面。每種類型最多 20 個 (含預設群組)。",
+        "operationId": "create_wallet_group_route_api_wallet_groups__post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WalletGroupCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalletGroupOperate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Wallet Group Route",
+        "tags": [
+          "wallet-groups"
+        ]
+      }
+    },
+    "/api/wallet-groups/{id}": {
+      "delete": {
+        "description": "刪除群組, 裡面的錢包移回同類型的預設群組。預設群組不能刪除。",
+        "operationId": "delete_wallet_group_route_api_wallet_groups__id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "title": "Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalletGroupOperate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Wallet Group Route",
+        "tags": [
+          "wallet-groups"
+        ]
+      },
+      "patch": {
+        "description": "改名。預設群組不能改名。",
+        "operationId": "rename_wallet_group_route_api_wallet_groups__id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "title": "Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WalletGroupRename"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalletGroupOperate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Rename Wallet Group Route",
+        "tags": [
+          "wallet-groups"
+        ]
+      }
+    },
+    "/api/wallet-groups/{id}/move": {
+      "post": {
+        "description": "跟同類型裡相鄰的群組交換位置。",
+        "operationId": "move_wallet_group_route_api_wallet_groups__id__move_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "title": "Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WalletGroupMove"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalletGroupOperate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Move Wallet Group Route",
+        "tags": [
+          "wallet-groups"
         ]
       }
     },
@@ -5597,6 +5995,59 @@
         ]
       }
     },
+    "/api/wallets/{id}/group": {
+      "patch": {
+        "description": "把錢包放進自己的另一個群組。只影響自己的分組。",
+        "operationId": "set_wallet_group_route_api_wallets__id__group_patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "title": "Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WalletGroupUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalletOperate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Wallet Group Route",
+        "tags": [
+          "wallets"
+        ]
+      }
+    },
     "/api/wallets/{id}/invite": {
       "delete": {
         "description": "撤銷邀請連結。",
@@ -6420,6 +6871,59 @@
           }
         },
         "summary": "Update Transfer Route",
+        "tags": [
+          "wallets"
+        ]
+      }
+    },
+    "/api/wallets/{id}/visibility": {
+      "patch": {
+        "description": "設定錢包在自己的列表上要不要顯示。不顯示的錢包不計入群組的總額。",
+        "operationId": "set_wallet_visibility_route_api_wallets__id__visibility_patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "title": "Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VisibilityUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalletOperate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Wallet Visibility Route",
         "tags": [
           "wallets"
         ]
