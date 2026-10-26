@@ -13,6 +13,23 @@ class WalletError(BaseError):
     FAVORITE_NOT_MEMBER = LangText(
         zh="只有錢包成員可以設為最愛", en="Only wallet members can mark a wallet as favorite"
     )
+    GROUP_NOT_FOUND = LangText(zh="錢包群組不存在", en="Wallet Group Not Found")
+    GROUP_NAME_EXISTS = LangText(
+        zh="同類型已有相同名稱的群組", en="Wallet Group Name Already Exists"
+    )
+    GROUP_LIMIT = LangText(
+        zh="每種類型最多 20 個群組", en="You can have at most 20 groups of each type"
+    )
+    DEFAULT_GROUP_FIXED = LangText(
+        zh="預設群組不能改名或刪除", en="The default group cannot be renamed or deleted"
+    )
+    GROUP_KIND_MISMATCH = LangText(
+        zh="錢包只能放進同類型的群組", en="A wallet can only go into a group of the same type"
+    )
+    PLACEMENT_NOT_MEMBER = LangText(
+        zh="只有錢包成員可以設定群組與顯示",
+        en="Only wallet members can choose its group or hide it",
+    )
     LAST_ADMIN = LangText(
         zh="錢包至少要有一位管理者，請先把其他成員升為管理者",
         en="A wallet needs at least one admin. Promote another member first",

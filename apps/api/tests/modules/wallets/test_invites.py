@@ -237,3 +237,40 @@ async def test_accept_invite_after_removal_rejoins_as_member(client: AsyncClient
 
     assert response.status_code == 200
     assert store.roles(wallet_id)[CAROL] is MEMBER
+
+
+@pytest.mark.asyncio
+async def test_accept_invite_places_wallet_in_the_default_group_of_its_kind(
+    client: AsyncClient, store: FakeStore
+):
+    wallet_id = store.add_wallet(kind=WalletKind.TRAVEL)
+    token = await _create(client, wallet_id)
+    authenticate(client, "bob")
+
+    await client.post(f"/api/invites/{token}/accept")
+
+    assert store.placement(wallet_id, BOB) == {
+        "group_id": store.default_group(BOB, WalletKind.TRAVEL),
+        "is_hidden": False,
+    }
+
+
+@pytest.mark.asyncio
+async def test_rejoining_after_leaving_goes_back_to_the_default_group_and_is_shown(
+    client: AsyncClient, store: FakeStore
+):
+    wallet_id = store.add_wallet(members={ALICE: ADMIN, CAROL: MEMBER})
+    store.placements[(wallet_id, CAROL)] = {
+        "group_id": store.add_group(CAROL, "日本"),
+        "is_hidden": True,
+    }
+    token = await _create(client, wallet_id)
+    await client.delete(f"/api/wallets/{wallet_id}/members/{CAROL}")
+    authenticate(client, "carol")
+
+    await client.post(f"/api/invites/{token}/accept")
+
+    assert store.placement(wallet_id, CAROL) == {
+        "group_id": store.default_group(CAROL),
+        "is_hidden": False,
+    }

@@ -9,6 +9,7 @@ from datetime import date, timedelta
 from typing import Any
 
 import pytest
+from sqlalchemy import delete
 from sqlalchemy.exc import IntegrityError
 
 from modules.users.model import UserTable
@@ -21,6 +22,7 @@ from modules.wallets.model import (
     EntryLogAction,
     EntryLogDetail,
     ExpenseDetail,
+    GroupDetail,
     MemberRole,
     PlannedTransfer,
     SettlementTransferDetail,
@@ -33,13 +35,14 @@ from modules.wallets.model import (
     WalletDetail,
     WalletEntryLogTable,
     WalletEntryTable,
+    WalletGroupTable,
     WalletInviteTable,
     WalletKind,
     WalletMemberTable,
     WalletStatus,
     WalletTable,
 )
-from shared.db.session import session_scope
+from shared.db.session import resolve_session, session_scope
 from shared.db.transaction import transaction
 from shared.time import utc_now
 
@@ -55,12 +58,31 @@ async def _user(username: str) -> str:
     return created["id"]
 
 
+async def _default_group(user_id: str, kind: WalletKind = WalletKind.GENERAL) -> str:
+    await WalletGroupTable.ensure_defaults(user_id)
+    group_id = await WalletGroupTable.find_default_id(user_id, kind)
+    assert group_id is not None
+    return group_id
+
+
+async def _join(
+    wallet_id: str, user_id: str, role: MemberRole, kind: WalletKind = WalletKind.GENERAL
+) -> None:
+    """成員紀錄一定屬於一個群組, 放進那個人同類型的預設群組。"""
+    await WalletMemberTable.create(
+        data={
+            "wallet_id": wallet_id,
+            "user_id": user_id,
+            "role": role,
+            "group_id": await _default_group(user_id, kind),
+        }
+    )
+
+
 async def _wallet(members: dict[str, MemberRole] | None = None, name: str = "家用") -> str:
     created = await WalletTable.create(data={"kind": "general", "name": name})
     for user_id, role in (members or {}).items():
-        await WalletMemberTable.create(
-            data={"wallet_id": created["id"], "user_id": user_id, "role": role}
-        )
+        await _join(created["id"], user_id, role)
     return created["id"]
 
 
@@ -122,9 +144,7 @@ async def test_member_is_unique_per_wallet(db):
 
     with pytest.raises(IntegrityError):
         async with transaction():
-            await WalletMemberTable.create(
-                data={"wallet_id": wallet_id, "user_id": alice, "role": MemberRole.MEMBER}
-            )
+            await _join(wallet_id, alice, MemberRole.MEMBER)
 
 
 async def test_delete_wallet_removes_members_and_categories(db):
@@ -282,14 +302,133 @@ async def test_add_member_if_absent_ignores_existing(db):
     alice, bob = await _user("alice"), await _user("bob")
     wallet_id = await _wallet({alice: MemberRole.ADMIN})
 
-    await WalletMemberTable.add_if_absent(wallet_id, alice, MemberRole.MEMBER)
-    await WalletMemberTable.add_if_absent(wallet_id, bob, MemberRole.MEMBER)
-    await WalletMemberTable.add_if_absent(wallet_id, bob, MemberRole.MEMBER)
+    alice_group, bob_group = await _default_group(alice), await _default_group(bob)
+
+    await WalletMemberTable.add_if_absent(wallet_id, alice, MemberRole.MEMBER, alice_group)
+    await WalletMemberTable.add_if_absent(wallet_id, bob, MemberRole.MEMBER, bob_group)
+    await WalletMemberTable.add_if_absent(wallet_id, bob, MemberRole.MEMBER, bob_group)
 
     assert await WalletMemberTable.list_members(wallet_id) == [
         {"user_id": alice, "role": MemberRole.ADMIN},
         {"user_id": bob, "role": MemberRole.MEMBER},
     ]
+
+
+# ── 錢包群組 ──────────────────────────────────────────────────────────────
+
+
+async def _group(user_id: str, name: str, kind: WalletKind = WalletKind.GENERAL) -> str:
+    created = await WalletGroupTable.create(
+        data={"user_id": user_id, "kind": kind, "name": name, "position": 9}
+    )
+    return created["id"]
+
+
+async def test_ensure_defaults_creates_one_default_per_kind_once(db):
+    alice = await _user("alice")
+
+    await WalletGroupTable.ensure_defaults(alice)
+    await WalletGroupTable.ensure_defaults(alice)
+
+    groups = await WalletGroupTable.list_for_user(alice)
+    assert [(g["kind"], g["name"], g["is_default"]) for g in groups] == [
+        (WalletKind.GENERAL, None, True),
+        (WalletKind.TRAVEL, None, True),
+    ]
+    assert_covers(GroupDetail, groups[0], "GroupDetail")
+
+
+async def test_list_for_user_orders_by_kind_then_position_and_skips_others(db):
+    alice, bob = await _user("alice"), await _user("bob")
+    await WalletGroupTable.ensure_defaults(alice)
+    travel = await _group(alice, "日本", WalletKind.TRAVEL)
+    first = await _group(alice, "台幣")
+    await _group(bob, "別人的")
+    await WalletGroupTable.set_positions({first: -1, travel: 5})
+
+    groups = await WalletGroupTable.list_for_user(alice, lock=True)
+
+    assert [g["name"] for g in groups] == ["台幣", None, None, "日本"]
+
+
+async def test_custom_group_name_is_unique_per_user_and_kind(db):
+    alice, bob = await _user("alice"), await _user("bob")
+    await _group(alice, "日本")
+    await _group(alice, "日本", WalletKind.TRAVEL)
+    await _group(bob, "日本")
+
+    assert await WalletGroupTable.name_taken(alice, WalletKind.GENERAL, "日本") is True
+    with pytest.raises(IntegrityError):
+        async with transaction():
+            await _group(alice, "日本")
+
+
+async def test_default_group_has_no_name(db):
+    alice = await _user("alice")
+
+    with pytest.raises(IntegrityError):
+        async with transaction():
+            await WalletGroupTable.create(
+                data={
+                    "user_id": alice,
+                    "kind": WalletKind.GENERAL,
+                    "name": "主要",
+                    "is_default": True,
+                    "position": 0,
+                }
+            )
+
+
+async def test_find_joined_includes_group_and_visibility(db):
+    alice = await _user("alice")
+    wallet_id = await _wallet({alice: MemberRole.ADMIN})
+    group_id = await _group(alice, "日本")
+
+    await WalletMemberTable.set_group(wallet_id, alice, group_id)
+    await WalletMemberTable.set_hidden(wallet_id, alice, True)
+
+    [joined] = await WalletTable.find_joined(alice)
+    assert (joined["group_id"], joined["is_hidden"]) == (group_id, True)
+    assert await WalletMemberTable.find_placement(wallet_id, alice) == {
+        "group_id": group_id,
+        "is_hidden": True,
+    }
+
+
+async def test_member_cannot_point_at_another_users_group(db):
+    alice, bob = await _user("alice"), await _user("bob")
+    wallet_id = await _wallet({alice: MemberRole.ADMIN})
+    bobs_group = await _group(bob, "日本")
+
+    with pytest.raises(IntegrityError):
+        async with transaction():
+            await WalletMemberTable.set_group(wallet_id, alice, bobs_group)
+
+
+async def test_move_group_then_remove_keeps_members(db):
+    alice, bob = await _user("alice"), await _user("bob")
+    wallet_id = await _wallet({alice: MemberRole.ADMIN, bob: MemberRole.MEMBER})
+    group_id = await _group(alice, "日本")
+    await WalletMemberTable.set_group(wallet_id, alice, group_id)
+
+    await WalletMemberTable.move_group(group_id, await _default_group(alice))
+    await WalletGroupTable.remove(group_id)
+
+    placement = await WalletMemberTable.find_placement(wallet_id, alice)
+    assert placement is not None
+    assert placement["group_id"] == await _default_group(alice)
+
+
+async def test_deleting_a_user_removes_groups_and_memberships(db):
+    alice = await _user("alice")
+    wallet_id = await _wallet({alice: MemberRole.ADMIN})
+    await _group(alice, "日本")
+
+    # 使用者平常只會停用; 這裡驗的是真的刪掉時兩條 cascade 不會互相卡住。
+    await resolve_session(None).execute(delete(UserTable).where(UserTable.id == uuid.UUID(alice)))
+
+    assert await WalletGroupTable.list_for_user(alice) == []
+    assert await WalletMemberTable.find_role(wallet_id, alice) is None
 
 
 async def _category(wallet_id: str, name: str = "餐飲") -> str:
@@ -657,9 +796,7 @@ async def _travel_wallet(members: dict[str, MemberRole]) -> str:
         }
     )
     for user_id, role in members.items():
-        await WalletMemberTable.create(
-            data={"wallet_id": created["id"], "user_id": user_id, "role": role}
-        )
+        await _join(created["id"], user_id, role, WalletKind.TRAVEL)
     return created["id"]
 
 

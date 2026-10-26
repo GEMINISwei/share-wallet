@@ -8,8 +8,10 @@ from shared.http.errors import LangException, ensure_found
 from .access import can_manage, manage_wallet, open_wallet
 from .categories import default_categories
 from .errors import WalletError
+from .groups import default_group_id
 from .model import (
     MemberRole,
+    Placement,
     WalletCategoryTable,
     WalletDetail,
     WalletKind,
@@ -55,7 +57,12 @@ async def create_wallet_with_admin(
     # middleware 會整批回滾。
     created = await WalletTable.create(data=data)
     await WalletMemberTable.create(
-        data={"wallet_id": created["id"], "user_id": admin_user_id, "role": MemberRole.ADMIN}
+        data={
+            "wallet_id": created["id"],
+            "user_id": admin_user_id,
+            "role": MemberRole.ADMIN,
+            "group_id": await default_group_id(admin_user_id, form_data.kind),
+        }
     )
     if form_data.kind is WalletKind.GENERAL:
         await WalletCategoryTable.create_many(created["id"], default_categories())
@@ -63,7 +70,11 @@ async def create_wallet_with_admin(
 
 
 def _to_info(
-    wallet: WalletDetail, role: MemberRole | None, manageable: bool, favorite: bool
+    wallet: WalletDetail,
+    role: MemberRole | None,
+    manageable: bool,
+    favorite: bool,
+    placement: Placement | None,
 ) -> WalletInfo:
     is_general = wallet["kind"] == WalletKind.GENERAL
     return WalletInfo(
@@ -79,6 +90,8 @@ def _to_info(
         my_role=role,
         can_manage=manageable,
         is_favorite=favorite,
+        group_id=None if placement is None else placement["group_id"],
+        is_hidden=False if placement is None else placement["is_hidden"],
     )
 
 
@@ -94,6 +107,7 @@ async def list_wallets(current_user: CurrentUser) -> WalletList:
             item["role"],
             can_manage(item["role"], current_user),
             item["is_favorite"],
+            {"group_id": item["group_id"], "is_hidden": item["is_hidden"]},
         )
         for item in joined
     ]
@@ -109,7 +123,8 @@ async def list_wallets(current_user: CurrentUser) -> WalletList:
 async def get_wallet(id: str, current_user: CurrentUser) -> WalletInfo:
     access = await open_wallet(id, current_user)
     favorite = await WalletMemberTable.find_favorite(id, current_user["id"])
-    return _to_info(access.wallet, access.role, access.can_manage, favorite)
+    placement = await WalletMemberTable.find_placement(id, current_user["id"])
+    return _to_info(access.wallet, access.role, access.can_manage, favorite, placement)
 
 
 async def set_favorite(

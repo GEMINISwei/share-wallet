@@ -12,7 +12,9 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    ForeignKeyConstraint,
     Index,
+    Integer,
     Select,
     SmallInteger,
     String,
@@ -22,6 +24,7 @@ from sqlalchemy import (
     false,
     func,
     select,
+    text,
     tuple_,
     update,
 )
@@ -111,6 +114,25 @@ class JoinedWallet(TypedDict):
     wallet: WalletDetail
     role: MemberRole
     is_favorite: bool
+    group_id: str
+    is_hidden: bool
+
+
+class Placement(TypedDict):
+    """自己把這個錢包放在哪個群組、要不要顯示。"""
+
+    group_id: str
+    is_hidden: bool
+
+
+class GroupDetail(TypedDict):
+    id: str
+    user_id: str
+    kind: WalletKind
+    #: 預設群組沒有名稱, 由前端依語系顯示。
+    name: str | None
+    is_default: bool
+    position: int
 
 
 class MemberDetail(TypedDict):
@@ -231,7 +253,13 @@ class WalletTable(BaseTable):
         if row_id is None:
             return []
         statement = (
-            select(cls, WalletMemberTable.role, WalletMemberTable.is_favorite)
+            select(
+                cls,
+                WalletMemberTable.role,
+                WalletMemberTable.is_favorite,
+                WalletMemberTable.group_id,
+                WalletMemberTable.is_hidden,
+            )
             .join(WalletMemberTable, WalletMemberTable.wallet_id == cls.id)
             .where(WalletMemberTable.user_id == row_id)
             .order_by(WalletMemberTable.created_at.asc(), cls.id.asc())
@@ -242,8 +270,10 @@ class WalletTable(BaseTable):
                 "wallet": cast(WalletDetail, wallet.to_detail()),
                 "role": MemberRole(role),
                 "is_favorite": is_favorite,
+                "group_id": str(group_id),
+                "is_hidden": is_hidden,
             }
-            for wallet, role, is_favorite in rows
+            for wallet, role, is_favorite, group_id, is_hidden in rows
         ]
 
     @classmethod
@@ -279,6 +309,151 @@ class WalletTable(BaseTable):
         return result.first() is not None
 
 
+class WalletGroupTable(BaseTable):
+    """每個人自己的錢包群組 (見 docs/features.md〈錢包群組〉)。
+
+    預設群組也是一列: 錢包一定要屬於某個群組, 而且預設群組跟自訂群組一起排序。
+    """
+
+    __tablename__ = "wallet_groups"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    # 存字串的理由同 `WalletTable.kind`。
+    kind: Mapped[str] = mapped_column(String)
+    name: Mapped[str | None] = mapped_column(String, default=None)
+    is_default: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    # 同一個人、同一種類型裡的順序。不設唯一: 交換兩個群組的位置時, 中間會有兩列同一個值。
+    position: Mapped[int] = mapped_column(Integer)
+
+    __table_args__ = (
+        CheckConstraint("kind IN ('general', 'travel')", name="kind"),
+        # 預設群組的名稱跟著語系, 存了名字就會跟畫面上顯示的對不上。
+        CheckConstraint("is_default = (name IS NULL)", name="default_has_no_name"),
+        # 成員紀錄用 (group_id, user_id) 參照這裡, 擋住把錢包放進別人的群組。
+        UniqueConstraint("id", "user_id"),
+        Index(
+            "uq_wallet_groups_default",
+            "user_id",
+            "kind",
+            unique=True,
+            postgresql_where="is_default",
+        ),
+        # service 會先查一次給出好讀的錯誤, 這個索引擋的是兩個請求同時新增。
+        Index(
+            "uq_wallet_groups_name",
+            "user_id",
+            "kind",
+            "name",
+            unique=True,
+            postgresql_where="NOT is_default",
+        ),
+    )
+
+    @staticmethod
+    def _detail(row: WalletGroupTable) -> GroupDetail:
+        return {
+            "id": str(row.id),
+            "user_id": str(row.user_id),
+            "kind": WalletKind(row.kind),
+            "name": row.name,
+            "is_default": row.is_default,
+            "position": row.position,
+        }
+
+    @classmethod
+    async def ensure_defaults(cls, user_id: str) -> None:
+        """兩種類型各補一個預設群組, 已經有就不動。
+
+        第一次用到群組時才建, 而不是建立帳號時: 帳號有註冊、後台、CLI 三個入口, 都屬於
+        users 模組。用 `ON CONFLICT DO NOTHING` 的理由同 `WalletMemberTable.add_if_absent`。
+        """
+        row_user = parse_uuid(user_id)
+        if row_user is None:
+            return
+        now = utc_now()
+        await resolve_session(None).execute(
+            pg_insert(cls)
+            .values(
+                [
+                    {
+                        "id": uuid.uuid4(),
+                        "created_at": now,
+                        "user_id": row_user,
+                        "kind": kind,
+                        "name": None,
+                        "is_default": True,
+                        "position": 0,
+                    }
+                    for kind in WalletKind
+                ]
+            )
+            .on_conflict_do_nothing(
+                # 要跟索引的 WHERE 寫得一模一樣: 寫成 `is_default IS true`
+                # PostgreSQL 就認不出是同一個索引。
+                index_elements=["user_id", "kind"],
+                index_where=text("is_default"),
+            )
+        )
+
+    @classmethod
+    async def list_for_user(cls, user_id: str, lock: bool = False) -> list[GroupDetail]:
+        """一般群組在前, 同類型裡依位置排列。
+
+        `lock` 鎖住這個人所有的群組直到交易結束: 新增、刪除、移動都是先讀出順序再整批改寫,
+        兩個請求同時做的話, 後寫的會蓋掉前一個重新編好的位置。
+        """
+        row_user = parse_uuid(user_id)
+        if row_user is None:
+            return []
+        statement = (
+            select(cls)
+            .where(cls.user_id == row_user)
+            .order_by(cls.kind.asc(), cls.position.asc(), cls.created_at.asc(), cls.id.asc())
+        )
+        if lock:
+            statement = statement.with_for_update()
+        rows = (await resolve_session(None).scalars(statement)).all()
+        return [cls._detail(row) for row in rows]
+
+    @classmethod
+    async def find_default_id(cls, user_id: str, kind: WalletKind) -> str | None:
+        row_user = parse_uuid(user_id)
+        if row_user is None:
+            return None
+        found = await resolve_session(None).scalar(
+            select(cls.id).where(cls.user_id == row_user, cls.kind == kind, cls.is_default)
+        )
+        return None if found is None else str(found)
+
+    @classmethod
+    async def name_taken(
+        cls, user_id: str, kind: WalletKind, name: str, exclude_id: str | None = None
+    ) -> bool:
+        conditions = [
+            cls.user_id == parse_uuid(user_id),
+            cls.kind == kind,
+            cls.name == name,
+        ]
+        if exclude_id is not None:
+            conditions.append(cls.id != parse_uuid(exclude_id))
+        found = await resolve_session(None).scalar(select(cls.id).where(*conditions).limit(1))
+        return found is not None
+
+    @classmethod
+    async def set_positions(cls, positions: dict[str, int]) -> None:
+        """只在 `list_for_user(lock=True)` 之後呼叫, 理由見那裡。"""
+        db = resolve_session(None)
+        for id, position in positions.items():
+            await db.execute(update(cls).where(cls.id == parse_uuid(id)).values(position=position))
+
+    @classmethod
+    async def remove(cls, id: str) -> None:
+        """裡面的錢包要先移走 (`WalletMemberTable.move_group`), 否則成員紀錄的外鍵會擋下。"""
+        await resolve_session(None).execute(delete(cls).where(cls.id == parse_uuid(id)))
+
+
 class WalletMemberTable(BaseTable):
     __tablename__ = "wallet_members"
 
@@ -294,10 +469,18 @@ class WalletMemberTable(BaseTable):
     # 最愛是每個人自己的標記 (見 docs/features.md〈錢包列表〉), 所以放在成員紀錄而不是錢包上;
     # 離開錢包時跟著成員紀錄一起消失。
     is_favorite: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    # 群組與顯示也是每個人自己的設定, 理由同 `is_favorite`。
+    group_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True)
+    is_hidden: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
 
     __table_args__ = (
         UniqueConstraint("wallet_id", "user_id"),
         CheckConstraint("role IN ('admin', 'member')", name="role"),
+        # 連同 user_id 一起參照: 群組一定是這位成員自己的。不設 ON DELETE: 刪除群組前
+        # service 會把裡面的錢包移回預設群組, 漏了就該被擋下, 而不是讓錢包跟著消失。
+        ForeignKeyConstraint(
+            ["group_id", "user_id"], ["wallet_groups.id", "wallet_groups.user_id"]
+        ),
     )
 
     @classmethod
@@ -331,6 +514,40 @@ class WalletMemberTable(BaseTable):
         # 不動 `updated_at`: 最愛是個人的顯示偏好, 不算錢包成員資料的變更。
         await resolve_session(None).execute(
             update(cls).where(*cls._key(wallet_id, user_id)).values(is_favorite=value)
+        )
+
+    @classmethod
+    async def find_placement(cls, wallet_id: str, user_id: str) -> Placement | None:
+        """不是成員時是 None。"""
+        if parse_uuid(wallet_id) is None or parse_uuid(user_id) is None:
+            return None
+        row = (
+            await resolve_session(None).execute(
+                select(cls.group_id, cls.is_hidden).where(*cls._key(wallet_id, user_id))
+            )
+        ).first()
+        return None if row is None else {"group_id": str(row[0]), "is_hidden": row[1]}
+
+    # 群組與顯示都不動 `updated_at`, 理由同 `set_favorite`。
+    @classmethod
+    async def set_group(cls, wallet_id: str, user_id: str, group_id: str) -> None:
+        await resolve_session(None).execute(
+            update(cls).where(*cls._key(wallet_id, user_id)).values(group_id=parse_uuid(group_id))
+        )
+
+    @classmethod
+    async def set_hidden(cls, wallet_id: str, user_id: str, value: bool) -> None:
+        await resolve_session(None).execute(
+            update(cls).where(*cls._key(wallet_id, user_id)).values(is_hidden=value)
+        )
+
+    @classmethod
+    async def move_group(cls, from_group_id: str, to_group_id: str) -> None:
+        """把一個群組裡的錢包整批搬到另一個群組 (刪除群組前)。"""
+        await resolve_session(None).execute(
+            update(cls)
+            .where(cls.group_id == parse_uuid(from_group_id))
+            .values(group_id=parse_uuid(to_group_id))
         )
 
     @classmethod
@@ -385,8 +602,10 @@ class WalletMemberTable(BaseTable):
         await resolve_session(None).execute(delete(cls).where(*cls._key(wallet_id, user_id)))
 
     @classmethod
-    async def add_if_absent(cls, wallet_id: str, user_id: str, role: MemberRole) -> None:
-        """已經是成員時什麼都不做 (角色不變)。
+    async def add_if_absent(
+        cls, wallet_id: str, user_id: str, role: MemberRole, group_id: str
+    ) -> None:
+        """已經是成員時什麼都不做 (角色、群組都不變)。
 
         用 `ON CONFLICT DO NOTHING` 而不是先查再寫: 同一個人連按兩次加入時, 兩個請求都會
         查到「還不是成員」, 第二個寫入就撞唯一約束變成 500。
@@ -399,6 +618,7 @@ class WalletMemberTable(BaseTable):
                 wallet_id=parse_uuid(wallet_id),
                 user_id=parse_uuid(user_id),
                 role=role,
+                group_id=parse_uuid(group_id),
             )
             .on_conflict_do_nothing(index_elements=["wallet_id", "user_id"])
         )

@@ -8,15 +8,17 @@ import secrets
 from datetime import timedelta
 
 from shared.auth.contracts import CurrentUser
-from shared.http.errors import LangException
+from shared.http.errors import LangException, ensure_found
 from shared.time import utc_now
 
 from .access import manage_wallet
 from .errors import WalletError
+from .groups import default_group_id
 from .model import (
     InviteDetail,
     MemberRole,
     WalletInviteTable,
+    WalletKind,
     WalletMemberTable,
     WalletStatus,
     WalletTable,
@@ -99,5 +101,12 @@ async def accept_invite(token: str, current_user: CurrentUser) -> WalletOperate:
     wallet_id = (await _active_invite(token))["wallet_id"]
     if await WalletTable.lock_status(wallet_id) in (None, WalletStatus.SETTLED):
         raise LangException(404, WalletError.INVITE_INVALID)
-    await WalletMemberTable.add_if_absent(wallet_id, current_user["id"], MemberRole.MEMBER)
+    wallet = ensure_found(
+        await WalletTable.find_detail_by_id(wallet_id), WalletError.INVITE_INVALID
+    )
+    # 新加入的錢包放進預設群組; 已經是成員時 add_if_absent 不動, 原本的群組也就保留。
+    group_id = await default_group_id(current_user["id"], WalletKind(wallet["kind"]))
+    await WalletMemberTable.add_if_absent(
+        wallet_id, current_user["id"], MemberRole.MEMBER, group_id
+    )
     return WalletOperate(id=wallet_id)

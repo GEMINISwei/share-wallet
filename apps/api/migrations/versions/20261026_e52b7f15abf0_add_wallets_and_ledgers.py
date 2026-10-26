@@ -4,13 +4,15 @@ Revision ID: e52b7f15abf0
 Revises: 959dc24d48e4
 Create Date: 2026-10-26 01:24:48.647043
 
-錢包功能的全部資料表: 錢包、成員、分類、邀請、一般錢包的帳目 (收支、調整、轉帳、代墊與還款)
+錢包功能的全部資料表: 錢包、成員、每個人自己的錢包群組、分類、邀請、一般錢包的帳目 (收支、調整、轉帳、代墊與還款)
 與異動紀錄、旅遊錢包的支出、分攤與結算。
 
 一次建好整組, 不拆成功能各一支: 這些表上線前沒有任何資料, 拆開只會多出一串
 「先建再改 CHECK」的中間狀態。金額與規則的不變條件 (金額 > 0、代墊未還不為負、
 只有旅遊錢包能結算…) 寫成 CHECK, 由資料庫擋住程式漏掉的路徑; 列表的游標分頁有對應的
 DESC 複合索引, 未封存分類名稱的唯一性用部分唯一索引 (封存的同名分類可以留著)。
+成員紀錄以 (group_id, user_id) 參照錢包群組, 由資料庫擋住把錢包放進別人的群組;
+預設群組在程式第一次用到時才建 (`WalletGroupTable.ensure_defaults`), 這裡不建。
 """
 
 from collections.abc import Sequence
@@ -142,20 +144,42 @@ def upgrade() -> None:
     sa.UniqueConstraint('token', name=op.f('uq_wallet_invites_token')),
     sa.UniqueConstraint('wallet_id', name=op.f('uq_wallet_invites_wallet_id'))
     )
+    op.create_table('wallet_groups',
+    sa.Column('user_id', sa.UUID(), nullable=False),
+    sa.Column('kind', sa.String(), nullable=False),
+    sa.Column('name', sa.String(), nullable=True),
+    sa.Column('is_default', sa.Boolean(), server_default=sa.text('false'), nullable=False),
+    sa.Column('position', sa.Integer(), nullable=False),
+    sa.Column('id', sa.UUID(), nullable=False),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), nullable=True),
+    sa.CheckConstraint("kind IN ('general', 'travel')", name=op.f('ck_wallet_groups_kind')),
+    sa.CheckConstraint('is_default = (name IS NULL)', name=op.f('ck_wallet_groups_default_has_no_name')),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], name=op.f('fk_wallet_groups_user_id_users'), ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id', name=op.f('pk_wallet_groups')),
+    sa.UniqueConstraint('id', 'user_id', name=op.f('uq_wallet_groups_id'))
+    )
+    op.create_index(op.f('ix_wallet_groups_user_id'), 'wallet_groups', ['user_id'], unique=False)
+    op.create_index('uq_wallet_groups_default', 'wallet_groups', ['user_id', 'kind'], unique=True, postgresql_where='is_default')
+    op.create_index('uq_wallet_groups_name', 'wallet_groups', ['user_id', 'kind', 'name'], unique=True, postgresql_where='NOT is_default')
     op.create_table('wallet_members',
     sa.Column('wallet_id', sa.UUID(), nullable=False),
     sa.Column('user_id', sa.UUID(), nullable=False),
     sa.Column('role', sa.String(), nullable=False),
     sa.Column('is_favorite', sa.Boolean(), server_default=sa.text('false'), nullable=False),
+    sa.Column('group_id', sa.UUID(), nullable=False),
+    sa.Column('is_hidden', sa.Boolean(), server_default=sa.text('false'), nullable=False),
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.Column('updated_at', sa.DateTime(), nullable=True),
     sa.CheckConstraint("role IN ('admin', 'member')", name=op.f('ck_wallet_members_role')),
+    sa.ForeignKeyConstraint(['group_id', 'user_id'], ['wallet_groups.id', 'wallet_groups.user_id'], name=op.f('fk_wallet_members_group_id_wallet_groups')),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], name=op.f('fk_wallet_members_user_id_users'), ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['wallet_id'], ['wallets.id'], name=op.f('fk_wallet_members_wallet_id_wallets'), ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id', name=op.f('pk_wallet_members')),
     sa.UniqueConstraint('wallet_id', 'user_id', name=op.f('uq_wallet_members_wallet_id'))
     )
+    op.create_index(op.f('ix_wallet_members_group_id'), 'wallet_members', ['group_id'], unique=False)
     op.create_index(op.f('ix_wallet_members_user_id'), 'wallet_members', ['user_id'], unique=False)
     op.create_table('travel_expense_shares',
     sa.Column('expense_id', sa.UUID(), nullable=False),
@@ -219,7 +243,12 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_travel_expense_shares_user_id'), table_name='travel_expense_shares')
     op.drop_table('travel_expense_shares')
     op.drop_index(op.f('ix_wallet_members_user_id'), table_name='wallet_members')
+    op.drop_index(op.f('ix_wallet_members_group_id'), table_name='wallet_members')
     op.drop_table('wallet_members')
+    op.drop_index('uq_wallet_groups_name', table_name='wallet_groups', postgresql_where='NOT is_default')
+    op.drop_index('uq_wallet_groups_default', table_name='wallet_groups', postgresql_where='is_default')
+    op.drop_index(op.f('ix_wallet_groups_user_id'), table_name='wallet_groups')
+    op.drop_table('wallet_groups')
     op.drop_table('wallet_invites')
     op.drop_index('ix_wallet_entry_logs_wallet_list', table_name='wallet_entry_logs')
     op.drop_index(op.f('ix_wallet_entry_logs_entry_id'), table_name='wallet_entry_logs')
