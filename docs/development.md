@@ -241,8 +241,11 @@ GitHub 端要設定一次，流程才不是靠自覺：
 - [ ] Settings → Rules：替 `main` 建 ruleset，開 **Require a pull request before merging**，
   並把 CI 的四個 job（`check`、`integration`、`images`、`e2e`）設成 **required status check**。
   CI 多了 job 時要回來這裡加：沒列進去的 job 紅了，PR 照樣能合併
-- [ ] Settings → Advanced Security（有的帳號叫 Code security）：打開 **Dependabot alerts** 與
-  **Dependabot security updates**。套件只收安全更新（見〈相依升級〉），沒開的話漏洞修補完全不會來
+- [ ] Settings → Advanced Security（有的帳號叫 Code security）：三項都要打開，少一項安全更新就不會來
+  （套件只收安全更新，見〈相依升級〉）：
+  - **Dependency graph**：從 lock 檔與 manifest 解析出相依清單，後兩項都靠它
+  - **Dependabot alerts**：拿相依清單比對漏洞資料庫，有漏洞時在 Security 分頁發警示
+  - **Dependabot security updates**：針對警示自動開升級到修補版的 PR
 
 ## 提交與 CI
 
@@ -287,7 +290,7 @@ git log --format='%h %s%n  %(trailers:key=Co-authored-by,valueonly,separator=%x2
 系統上線後**不追最新版，只在有漏洞時升**（`.github/dependabot.yml`）：
 
 - **套件與 GitHub Actions**：Dependabot 只開安全更新，一般的版本更新關掉了。要在 repo 的
-  Settings 打開 Dependabot alerts 與 security updates 才會運作，警示在 Security 分頁。
+  Settings 打開 Dependency graph、Dependabot alerts 與 security updates 才會運作，警示在 Security 分頁。
 - **Docker image**：漏洞資料庫不涵蓋 image，所以每月開一次 PR，只送 patch（例如 nginx 1.31.7 → 1.31.8）。
 - **整批升級**：在發版前盤點落後多少再決定範圍——開分支、升級、`make check`、實際建置 image 跑起來，
   再開 PR。api Dockerfile 用 `COPY --from` 複製的 uv 不在 Dependabot 的範圍內，盤點時要用
