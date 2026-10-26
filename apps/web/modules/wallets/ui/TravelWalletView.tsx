@@ -20,7 +20,6 @@ import SettlementConfirm, { type SettlementStep } from "./SettlementConfirm"
 import SettlementPanel from "./SettlementPanel"
 import TravelDialogs, { type TravelDialog } from "./TravelDialogs"
 import WalletLinks from "./WalletLinks"
-import WalletQuickActions from "./WalletQuickActions"
 import WalletShell from "./WalletShell"
 import WalletStatusBadge from "./WalletStatusBadge"
 import WalletSummary from "./WalletSummary"
@@ -118,14 +117,13 @@ export default function TravelWalletView({ wallet, area, travel }: TravelWalletV
     <WalletShell
       title={wallet.name} subtitle={`${wallet.destination} · ${dates}`}
       backHref={walletsListPath(area, wallet.kind)} backLabel={t("backToList")} actionsDesktopOnly
-      actions={actions}
+      actions={actions} mobileActions={menu}
     >
       <WalletSummary
         mobileOnly label={t("myNetBalance")}
         value={myNetBalance(travel.balances, travel.currentUserId, travel.balancesFailed)}
         onAdd={area === "admin" && canAddEntry(wallet, ready) ? openAdd : undefined}
       />
-      <WalletQuickActions title={wallet.name} {...menu} />
       {wallet.status !== "active" && (
         <>
           <p className={`${styles.hint} ${styles.statusLine}`}>

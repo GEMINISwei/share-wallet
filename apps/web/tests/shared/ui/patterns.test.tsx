@@ -202,6 +202,29 @@ describe("PageHeader 的返回", () => {
   })
 })
 
+describe("PageHeader 的手機選單", () => {
+  it("標題列右邊的更多開成沒有標題的底部面板，只列出可用的項目", async () => {
+    const action = vi.fn()
+    render(<PageHeader title="家用" mobileActions={[null, { label: "成員", onClick: action }]} />)
+
+    await userEvent.click(screen.getByRole("button", { name: "更多" }))
+    const sheet = screen.getByRole("dialog", { name: "更多" })
+    expect(within(sheet).queryByRole("heading")).not.toBeInTheDocument()
+    expect(within(sheet).queryByRole("button", { name: "關閉" })).not.toBeInTheDocument()
+    expect(within(sheet).getAllByRole("menuitem")).toHaveLength(1)
+    await userEvent.click(within(sheet).getByRole("menuitem", { name: "成員" }))
+
+    expect(action).toHaveBeenCalledOnce()
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+  })
+
+  it("沒有任何項目時不出現更多", () => {
+    render(<PageHeader title="家用" mobileActions={[null, false]} />)
+
+    expect(screen.queryByRole("button", { name: "更多" })).not.toBeInTheDocument()
+  })
+})
+
 describe("LinkTabs", () => {
   it("每個分頁都是連結, 目前的分頁標成 aria-current", () => {
     render(

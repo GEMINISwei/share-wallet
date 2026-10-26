@@ -41,6 +41,8 @@ type MenuProps = {
    * 給手指點的觸發點用: 下拉的項目對手指太小, 也看不出點哪裡能關掉。
    */
   sheetTitle?: string
+  /** 開成沒有標題的面板, 只列項目: 從頁面上的按鈕打開時, 點的是什麼已經很清楚。 */
+  sheet?: boolean
 }
 
 type Position = { left: number; top?: number; bottom?: number }
@@ -53,11 +55,13 @@ export default function Menu({
   placement = "below",
   fullWidth = false,
   sheetTitle,
+  sheet = false,
 }: MenuProps) {
   const [open, setOpen] = useState(false)
   const [position, setPosition] = useState<Position>({ top: 0, left: 0 })
   const ref = useRef<HTMLDivElement>(null)
   const visibleItems = items.filter((item): item is MenuItem => Boolean(item))
+  const asSheet = sheet || sheetTitle !== undefined
 
   function toggleOpen() {
     if (!open && ref.current) {
@@ -77,7 +81,7 @@ export default function Menu({
 
   useEffect(() => {
     // 面板自己有遮罩處理點外面關閉; 面板內捲動也不該把它關掉。
-    if (!open || sheetTitle !== undefined) return
+    if (!open || asSheet) return
 
     function handleClick(event: MouseEvent) {
       if (ref.current && !ref.current.contains(event.target as Node)) {
@@ -95,7 +99,7 @@ export default function Menu({
       document.removeEventListener("mousedown", handleClick)
       window.removeEventListener("scroll", handleScroll, true)
     }
-  }, [open, sheetTitle])
+  }, [open, asSheet])
 
   function renderItems(itemClassName: string | undefined) {
     return visibleItems.map((item, index) => (
@@ -124,18 +128,18 @@ export default function Menu({
         className={triggerClassName ?? styles.trigger}
         onClick={toggleOpen}
         aria-label={triggerLabel}
-        aria-haspopup={sheetTitle === undefined ? "menu" : "dialog"}
+        aria-haspopup={asSheet ? "dialog" : "menu"}
         aria-expanded={open}
       >
         {trigger}
       </button>
-      {open && sheetTitle === undefined && (
+      {open && !asSheet && (
         <div className={styles.dropdown} role="menu" style={position}>
           {renderItems(styles.item)}
         </div>
       )}
-      {open && sheetTitle !== undefined && (
-        <Modal title={sheetTitle} open onOpenChange={setOpen}>
+      {open && asSheet && (
+        <Modal title={sheetTitle} label={triggerLabel} open onOpenChange={setOpen}>
           <div className={styles.sheetList} role="menu">
             {renderItems(cls(styles.item, styles.sheetItem))}
           </div>

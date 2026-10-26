@@ -15,7 +15,7 @@ type WalletFieldsProps = {
   onChange: (field: keyof WalletFormValues, value: string) => void
 }
 
-/** 建立錢包與錢包設定共用的欄位。類型的選擇只在建立時出現, 不在這裡。 */
+/** 建立錢包與詳細設定共用的欄位。類型的選擇只在建立時出現, 不在這裡。 */
 export default function WalletFields({
   values, errors, disabled, showInitialBalance, onChange,
 }: WalletFieldsProps) {

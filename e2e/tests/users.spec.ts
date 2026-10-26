@@ -28,6 +28,24 @@ test("一般帳號進入管理區會被導回錢包列表", async ({ page }) => 
   await expect(page).toHaveURL("/wallets")
 })
 
+test("從帳號選單進入用戶設定與系統設定，各自只放自己的區塊", async ({ page }) => {
+  await login(page, member)
+
+  await page.getByRole("button", { name: "帳號選單" }).click()
+  await page.getByRole("menuitem", { name: "用戶設定" }).click()
+  await expect(page).toHaveURL("/settings/user")
+  await expect(page.getByText("個人資料")).toBeVisible()
+  await expect(page.getByLabel("目前密碼")).toBeVisible()
+  await expect(page.getByText("顯示語言")).toBeHidden()
+
+  await page.getByRole("button", { name: "帳號選單" }).click()
+  await page.getByRole("menuitem", { name: "系統設定" }).click()
+  await expect(page).toHaveURL("/settings/system")
+  await expect(page.getByText("顯示語言")).toBeVisible()
+  await expect(page.getByText("系統版本")).toBeVisible()
+  await expect(page.getByLabel("目前密碼")).toBeHidden()
+})
+
 test("登出後其他已登入的裝置也會被登出", async ({ browser }) => {
   // 兩個 context 不共用 cookie, 等於兩台裝置。
   const deviceA = await browser.newContext()

@@ -18,7 +18,6 @@ import OwingList, { OwingDialog } from "./OwingList"
 import TravelWalletView, { type TravelLedger } from "./TravelWalletView"
 import { useFavoriteAction } from "./useFavoriteAction"
 import WalletLinks from "./WalletLinks"
-import WalletQuickActions from "./WalletQuickActions"
 import WalletShell from "./WalletShell"
 import WalletSummary from "./WalletSummary"
 import { useWalletMenu } from "./useWalletMenu"
@@ -91,6 +90,7 @@ function GeneralWalletView(
   return (
     <WalletShell
       title={wallet.name} subtitle={t("kindGeneral")} backHref={walletsListPath(area, wallet.kind)} backLabel={t("backToList")} actionsDesktopOnly
+      mobileActions={menu}
       actions={(ledger || favorite) && (
         <>
           {favorite && (
@@ -109,7 +109,6 @@ function GeneralWalletView(
           onAdd={area === "admin" && canAddEntry(wallet, state.ready) ? openAdd : undefined}
         />
       )}
-      <WalletQuickActions title={wallet.name} {...menu} />
       {ledger && <OwingList targets={ledger.advanceTargets} />}
       {ledger && (
         <section>

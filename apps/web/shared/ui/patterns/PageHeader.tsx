@@ -3,7 +3,8 @@ import { ChevronLeft } from "lucide-react"
 import type { ReactNode } from "react"
 import { ICON_SIZE } from "../internals"
 import styles from "../styles/page-header.module.css"
-import ActionMenu, { type ActionMenuItem } from "./ActionMenu"
+import type { ActionMenuItem } from "./ActionMenu"
+import PageHeaderMenu from "./PageHeaderMenu"
 
 type PageHeaderProps = {
   title: string
@@ -12,7 +13,7 @@ type PageHeaderProps = {
   back?: { href: string; label: string }
   actions?: ReactNode
   mobileActions?: (ActionMenuItem | null | false | undefined)[]
-  /** `actions` 只在桌機顯示: 手機把這些操作放在頁面裡 (例如一排按鈕), 標題列不再放一份。 */
+  /** `actions` 只在桌機顯示: 手機的同一組操作改放 `mobileActions`, 標題列不再放一份。 */
   actionsDesktopOnly?: boolean
 }
 
@@ -21,7 +22,8 @@ type PageHeaderProps = {
  * 沒有返回或選單的那一側留空。
  */
 export default function PageHeader({
-  title, subtitle, back, actions, mobileActions, actionsDesktopOnly = false,
+  title, subtitle, back, actions, mobileActions,
+  actionsDesktopOnly = false,
 }: PageHeaderProps) {
   const actionsClass = actionsDesktopOnly
     ? `${styles.pageHeaderActions} ${styles.desktopOnlyActions}`
@@ -43,7 +45,7 @@ export default function PageHeader({
         {actions && <div className={actionsClass}>{actions}</div>}
         {mobileActions && (
           <div className={styles.pageHeaderMobileActions}>
-            <ActionMenu items={mobileActions} triggerClassName={styles.circleButton} />
+            <PageHeaderMenu items={mobileActions} triggerClassName={styles.circleButton} />
           </div>
         )}
       </div>

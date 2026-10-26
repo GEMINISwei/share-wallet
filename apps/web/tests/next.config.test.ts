@@ -96,4 +96,13 @@ describe("首頁導向", () => {
     // permanent 會讓瀏覽器快取 308, 之後首頁改導別處時, 來過的人仍被舊的導向帶走。
     expect(redirects).toContainEqual({ source: "/", destination: WALLETS_PATH, permanent: false })
   })
+
+  it("舊的設定頁暫時導向用戶設定", async () => {
+    // 設定頁拆成用戶設定與系統設定之前, 加到主畫面的 PWA 與書籤存的是 /settings。
+    vi.resetModules()
+    const { default: config } = await import("../next.config")
+    const redirects = (await config.redirects?.()) ?? []
+
+    expect(redirects).toContainEqual({ source: "/settings", destination: "/settings/user", permanent: false })
+  })
 })
