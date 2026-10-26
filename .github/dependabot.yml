@@ -2,7 +2,8 @@
 # 代價是相依會慢慢落後, 由人在發版前盤點、整批升級 (見 docs/development.md〈相依升級〉)。
 #
 # - uv、npm、github-actions: `open-pull-requests-limit: 0` 關掉版本更新。安全更新另有自己的上限,
-#   不受這個值影響, 但要在 repo 的 Settings 打開 Dependabot alerts 與 security updates 才會運作。
+#   不受這個值影響, 但要在 repo 的 Settings 打開 Dependency graph、Dependabot alerts 與
+#   security updates 才會運作。
 # - docker、docker-compose: GitHub 的漏洞資料庫不涵蓋 image, 安全更新顧不到, 所以保留版本更新,
 #   但每月一次、只送 patch (例如 nginx 1.31.7 → 1.31.8)。
 # - 沒人追的: api Dockerfile 用 `COPY --from` 複製的 uv 執行檔, Dependabot 不會提, 盤點時掃 image 才看得到。
