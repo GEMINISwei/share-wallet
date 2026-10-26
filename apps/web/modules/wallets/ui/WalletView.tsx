@@ -90,7 +90,7 @@ function GeneralWalletView(
   return (
     <WalletShell
       title={wallet.name} subtitle={t("kindGeneral")} backHref={walletsListPath(area, wallet.kind)} backLabel={t("backToList")} actionsDesktopOnly
-      mobileActions={menu} mobileActionsTitle={wallet.name}
+      mobileActions={menu}
       actions={(ledger || favorite) && (
         <>
           {favorite && (

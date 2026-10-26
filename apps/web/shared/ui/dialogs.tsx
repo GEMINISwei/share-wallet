@@ -11,7 +11,9 @@ import { uiMessages } from "./i18n"
 import { Button } from "./primitives"
 
 type ModalProps = {
+  /** 沒給就不畫標題列 (連同關閉鈕), 點遮罩或按 Esc 關閉; 這時要給 `label` 當無障礙名稱。 */
   title?: string
+  label?: string
   /** 標題下方的一行說明, 例如這張表單作用在哪個錢包。 */
   subtitle?: string
   open: boolean
@@ -26,7 +28,7 @@ type ModalProps = {
 }
 
 export function Modal({
-  title, subtitle, open, children, width, fullScreen = false, onOpenChange,
+  title, label, subtitle, open, children, width, fullScreen = false, onOpenChange,
 }: ModalProps) {
   const t = useT(uiMessages)
   const onOpenChangeRef = useRef(onOpenChange)
@@ -65,19 +67,21 @@ export function Modal({
         className={cls(styles.modal, fullScreen && styles.modalFull)}
         role="dialog"
         aria-modal="true"
-        aria-label={title}
+        aria-label={title ?? label}
         style={{ width: width ? `min(100%, ${width}px)` : undefined }}
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <div className={styles.modalHeader}>
-          <div className={styles.modalHeading}>
-            <h2 className={styles.modalTitle}>{title}</h2>
-            {subtitle && <p className={styles.modalSubtitle}>{subtitle}</p>}
+        {title !== undefined && (
+          <div className={styles.modalHeader}>
+            <div className={styles.modalHeading}>
+              <h2 className={styles.modalTitle}>{title}</h2>
+              {subtitle && <p className={styles.modalSubtitle}>{subtitle}</p>}
+            </div>
+            <button type="button" className={styles.modalClose} aria-label={t("close")} onClick={() => onOpenChange?.(false)}>
+              <X size={ICON_SIZE.sm} aria-hidden="true" />
+            </button>
           </div>
-          <button type="button" className={styles.modalClose} aria-label={t("close")} onClick={() => onOpenChange?.(false)}>
-            <X size={ICON_SIZE.sm} aria-hidden="true" />
-          </button>
-        </div>
+        )}
         <div className={styles.modalBody}>{children}</div>
       </section>
     </div>,

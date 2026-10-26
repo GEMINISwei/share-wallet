@@ -117,7 +117,7 @@ export default function TravelWalletView({ wallet, area, travel }: TravelWalletV
     <WalletShell
       title={wallet.name} subtitle={`${wallet.destination} · ${dates}`}
       backHref={walletsListPath(area, wallet.kind)} backLabel={t("backToList")} actionsDesktopOnly
-      actions={actions} mobileActions={menu} mobileActionsTitle={wallet.name}
+      actions={actions} mobileActions={menu}
     >
       <WalletSummary
         mobileOnly label={t("myNetBalance")}

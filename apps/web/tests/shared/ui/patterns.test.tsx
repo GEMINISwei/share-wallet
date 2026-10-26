@@ -203,17 +203,19 @@ describe("PageHeader 的返回", () => {
 })
 
 describe("PageHeader 的手機選單", () => {
-  it("給了 mobileActionsTitle 時，標題列右邊的更多開成以它為標題的面板", async () => {
+  it("標題列右邊的更多開成沒有標題的底部面板，只列出可用的項目", async () => {
     const action = vi.fn()
-    render(
-      <PageHeader title="家用" mobileActionsTitle="家用" mobileActions={[{ label: "成員", onClick: action }]} />,
-    )
+    render(<PageHeader title="家用" mobileActions={[null, { label: "成員", onClick: action }]} />)
 
     await userEvent.click(screen.getByRole("button", { name: "更多" }))
-    const sheet = screen.getByRole("dialog", { name: "家用" })
+    const sheet = screen.getByRole("dialog", { name: "更多" })
+    expect(within(sheet).queryByRole("heading")).not.toBeInTheDocument()
+    expect(within(sheet).queryByRole("button", { name: "關閉" })).not.toBeInTheDocument()
+    expect(within(sheet).getAllByRole("menuitem")).toHaveLength(1)
     await userEvent.click(within(sheet).getByRole("menuitem", { name: "成員" }))
 
     expect(action).toHaveBeenCalledOnce()
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
   })
 
   it("沒有任何項目時不出現更多", () => {

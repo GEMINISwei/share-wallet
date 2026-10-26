@@ -13,8 +13,6 @@ type PageHeaderProps = {
   back?: { href: string; label: string }
   actions?: ReactNode
   mobileActions?: (ActionMenuItem | null | false | undefined)[]
-  /** 手機選單開成以它為標題的底部面板 (項目多、要用手指點的頁面); 沒給是一般的下拉。 */
-  mobileActionsTitle?: string
   /** `actions` 只在桌機顯示: 手機的同一組操作改放 `mobileActions`, 標題列不再放一份。 */
   actionsDesktopOnly?: boolean
 }
@@ -24,7 +22,7 @@ type PageHeaderProps = {
  * 沒有返回或選單的那一側留空。
  */
 export default function PageHeader({
-  title, subtitle, back, actions, mobileActions, mobileActionsTitle,
+  title, subtitle, back, actions, mobileActions,
   actionsDesktopOnly = false,
 }: PageHeaderProps) {
   const actionsClass = actionsDesktopOnly
@@ -47,10 +45,7 @@ export default function PageHeader({
         {actions && <div className={actionsClass}>{actions}</div>}
         {mobileActions && (
           <div className={styles.pageHeaderMobileActions}>
-            <PageHeaderMenu
-              items={mobileActions} triggerClassName={styles.circleButton}
-              sheetTitle={mobileActionsTitle}
-            />
+            <PageHeaderMenu items={mobileActions} triggerClassName={styles.circleButton} />
           </div>
         )}
       </div>
