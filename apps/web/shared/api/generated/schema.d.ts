@@ -750,6 +750,9 @@ export interface paths {
         /**
          * Create Expense Route
          * @description 旅遊錢包記一筆: 誰付了多少, 均分或指定每人的金額。付款人與分攤對象都要是成員。
+         *
+         *     付款人是自己時可以帶 `sync_to`, 在自己的一般錢包順便記一筆全額的支出;
+         *     兩筆一起建立, 之後各自獨立。
          */
         post: operations["create_expense_route_api_wallets__id__expenses_post"];
         delete?: never;
@@ -1291,9 +1294,37 @@ export interface components {
         CategoryType: "income" | "expense";
         /**
          * CustomExpenseCreate
-         * @description 指定金額: 每人金額大於 0, 加總剛好等於 `amount`。這一筆不用出錢的人不列。
+         * @description 新增指定金額的帳, 可以同步到自己的一般錢包。
          */
         CustomExpenseCreate: {
+            /** Amount */
+            amount: number;
+            /**
+             * Entry Date
+             * Format: date
+             */
+            entry_date: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /** Payer Id */
+            payer_id: string;
+            /** Shares */
+            shares: components["schemas"]["ShareInput"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            split_mode: "custom";
+            sync_to?: components["schemas"]["ExpenseSync"] | null;
+        };
+        /**
+         * CustomExpenseForm
+         * @description 指定金額: 每人金額大於 0, 加總剛好等於 `amount`。這一筆不用出錢的人不列。
+         */
+        CustomExpenseForm: {
             /** Amount */
             amount: number;
             /**
@@ -1511,10 +1542,38 @@ export interface components {
         };
         /**
          * EqualExpenseCreate
+         * @description 新增均分的帳, 可以同步到自己的一般錢包。
+         */
+        EqualExpenseCreate: {
+            /** Amount */
+            amount: number;
+            /**
+             * Entry Date
+             * Format: date
+             */
+            entry_date: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /** Participant Ids */
+            participant_ids: string[];
+            /** Payer Id */
+            payer_id: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            split_mode: "equal";
+            sync_to?: components["schemas"]["ExpenseSync"] | null;
+        };
+        /**
+         * EqualExpenseForm
          * @description 均分: 零頭依序分給前幾人, 付款人優先, 其餘照加入錢包的順序
          *     (見 docs/features/travel-wallet.md〈分攤〉)。
          */
-        EqualExpenseCreate: {
+        EqualExpenseForm: {
             /** Amount */
             amount: number;
             /**
@@ -1643,6 +1702,17 @@ export interface components {
             /** Shares */
             shares: components["schemas"]["ShareSnapshot"][];
             split_mode: components["schemas"]["SplitMode"];
+        };
+        /**
+         * ExpenseSync
+         * @description 新增旅遊帳時, 在自己的一般錢包順便記一筆全額的支出 (見 docs/features/travel-wallet.md
+         *     〈同步到一般錢包〉)。建好之後兩筆各自獨立。
+         */
+        ExpenseSync: {
+            /** Category Id */
+            category_id: string;
+            /** Wallet Id */
+            wallet_id: string;
         };
         /** FavoriteUpdate */
         FavoriteUpdate: {
@@ -4120,7 +4190,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["EqualExpenseCreate"] | components["schemas"]["CustomExpenseCreate"];
+                "application/json": components["schemas"]["EqualExpenseForm"] | components["schemas"]["CustomExpenseForm"];
             };
         };
         responses: {

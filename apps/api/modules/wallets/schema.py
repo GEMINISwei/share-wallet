@@ -8,7 +8,7 @@ model 才能讓「旅遊錢包一定有目的地與起訖日、一般錢包一�
 from datetime import date
 from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, Field, StringConstraints, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 from shared.http.errors import BaseError, LangText, resolve_text
 from shared.http.schema import PaginatedResponse, SimpleListResponse, UtcDateTime
@@ -461,6 +461,9 @@ class EntryLogPage(BaseModel):
 
 
 class _ExpenseFields(BaseModel):
+    # 修改送了 `sync_to` 要擋成 422, 悄悄忽略的話, 使用者會以為事後補同步成功了。
+    model_config = ConfigDict(extra="forbid")
+
     amount: PositiveAmount
     #: 必須是這個錢包的成員。
     payer_id: UuidText
@@ -474,7 +477,7 @@ def _ensure_unique(user_ids: list[str]) -> None:
         raise ValueError(resolve_text(WalletSchemaError.DUPLICATE_PARTICIPANT.value))
 
 
-class EqualExpenseCreate(_ExpenseFields):
+class EqualExpenseForm(_ExpenseFields):
     """均分: 零頭依序分給前幾人, 付款人優先, 其餘照加入錢包的順序
     (見 docs/features/travel-wallet.md〈分攤〉)。
     """
@@ -494,7 +497,7 @@ class ShareInput(BaseModel):
     amount: PositiveAmount
 
 
-class CustomExpenseCreate(_ExpenseFields):
+class CustomExpenseForm(_ExpenseFields):
     """指定金額: 每人金額大於 0, 加總剛好等於 `amount`。這一筆不用出錢的人不列。"""
 
     split_mode: Literal[SplitMode.CUSTOM]
@@ -509,10 +512,36 @@ class CustomExpenseCreate(_ExpenseFields):
         return self
 
 
-#: 新增與修改共用: 修改時所有欄位都可以改, 包括分攤方式。
+class ExpenseSync(BaseModel):
+    """新增旅遊帳時, 在自己的一般錢包順便記一筆全額的支出 (見 docs/features/travel-wallet.md
+    〈同步到一般錢包〉)。建好之後兩筆各自獨立。
+    """
+
+    #: 自己加入的一般錢包。
+    wallet_id: UuidText
+    #: 那個錢包裡沒有封存的支出分類。
+    category_id: UuidText
+
+
+class _Syncable(BaseModel):
+    #: 只有付款人是自己時可以帶。
+    sync_to: ExpenseSync | None = None
+
+
+class EqualExpenseCreate(EqualExpenseForm, _Syncable):
+    """新增均分的帳, 可以同步到自己的一般錢包。"""
+
+
+class CustomExpenseCreate(CustomExpenseForm, _Syncable):
+    """新增指定金額的帳, 可以同步到自己的一般錢包。"""
+
+
 ExpenseCreate = Annotated[
     EqualExpenseCreate | CustomExpenseCreate, Field(discriminator="split_mode")
 ]
+
+#: 修改時所有欄位都可以改, 包括分攤方式; 不能同步。
+ExpenseUpdate = Annotated[EqualExpenseForm | CustomExpenseForm, Field(discriminator="split_mode")]
 
 
 class ExpenseShare(BaseModel):

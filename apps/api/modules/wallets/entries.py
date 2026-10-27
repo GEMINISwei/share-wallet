@@ -13,6 +13,9 @@ from .errors import WalletError
 from .ledger import (
     balance_effect,
     checked_balance,
+    checked_category_name,
+    checked_new_entry,
+    insert_entry,
     locked_balance,
     modifiable_entry,
     open_general_wallet,
@@ -26,7 +29,6 @@ from .model import (
     EntryDetail,
     EntryKind,
     EntryLogAction,
-    WalletCategoryTable,
     WalletEntryTable,
     WalletTable,
 )
@@ -45,53 +47,13 @@ from .schema import (
 from .transfers import delete_transfer
 
 
-async def _category_name(wallet_id: str, form_data: EntryCreate, keep_id: str | None) -> str:
-    """選的分類要在這個錢包、類型對、沒有封存; 唯一的例外是修改時保留原本的分類。"""
-    category = await WalletCategoryTable.find_detail_in_wallet(wallet_id, form_data.category_id)
-    archived = category is not None and category["archived_at"] is not None
-    if category is None or (archived and form_data.category_id != keep_id):
-        raise LangException(404, WalletError.CATEGORY_NOT_FOUND)
-    if category["type"] != form_data.kind:
-        raise LangException(400, WalletError.CATEGORY_TYPE_MISMATCH)
-    return category["name"]
-
-
 async def create_entry(
     wallet_id: str, form_data: EntryCreate, current_user: CurrentUser
 ) -> EntryOperate:
     access = await open_general_wallet(wallet_id, current_user)
     balance = await locked_balance(wallet_id)
-    category_name = await _category_name(wallet_id, form_data, keep_id=None)
-    new_balance = checked_balance(balance + balance_effect(form_data.kind, form_data.amount))
-
-    created = await WalletEntryTable.create(
-        data={
-            "wallet_id": wallet_id,
-            "kind": form_data.kind,
-            "amount": form_data.amount,
-            "category_id": form_data.category_id,
-            "entry_date": form_data.entry_date,
-            "note": form_data.note,
-            "created_by": current_user["id"],
-        }
-    )
-    await WalletTable.set_balance(wallet_id, new_balance)
-    after = snapshot_of(
-        form_data.kind,
-        form_data.amount,
-        form_data.entry_date,
-        form_data.note,
-        category_name=category_name,
-    )
-    await write_log(
-        access,
-        current_user,
-        (created["id"], current_user["id"]),
-        EntryLogAction.CREATE,
-        None,
-        after,
-    )
-    return EntryOperate(id=created["id"])
+    checked = await checked_new_entry(wallet_id, form_data, balance)
+    return EntryOperate(id=await insert_entry(access, form_data, checked, current_user))
 
 
 async def adjust_balance(
@@ -139,7 +101,8 @@ async def update_entry(
         raise LangException(400, WalletError.ADVANCE_KIND_IMMUTABLE)
     if entry["kind"] is EntryKind.ADJUSTMENT:
         raise LangException(400, WalletError.ADJUSTMENT_IMMUTABLE)
-    category_name = await _category_name(wallet_id, form_data, keep_id=entry["category_id"])
+    keep_id = entry["category_id"]
+    category_name = await checked_category_name(wallet_id, form_data, keep_id=keep_id)
     delta = balance_effect(form_data.kind, form_data.amount) - balance_effect(
         entry["kind"], entry["amount"]
     )

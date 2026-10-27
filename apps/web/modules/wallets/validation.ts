@@ -9,7 +9,8 @@ import { formatAmount } from "./format"
 import { walletsMessages } from "./i18n"
 import type {
   AdjustFormErrors, AdjustFormValues, EntryFormErrors, EntryFormValues, ExpenseFormErrors,
-  ExpenseFormValues, RepayFormErrors, RepayFormValues, ShareRowValues, WalletFormErrors,
+  ExpenseFormValues, ExpenseSyncErrors, ExpenseSyncValues, RepayFormErrors, RepayFormValues,
+  ShareRowValues, WalletFormErrors,
   WalletFormValues, WalletKind,
 } from "./types"
 
@@ -22,7 +23,8 @@ type TransferRequest = ApiRequestBody<"/wallets/{id}/transfers", "post">
 type TransferUpdateRequest = ApiRequestBody<"/wallets/{id}/transfers/{entry_id}", "patch">
 type AdvanceRequest = ApiRequestBody<"/wallets/{id}/advances", "post">
 type MoneyRequest = ApiRequestBody<"/wallets/{id}/advances/{entry_id}", "patch">
-type ExpenseRequest = ApiRequestBody<"/wallets/{id}/expenses", "post">
+type ExpenseCreateRequest = ApiRequestBody<"/wallets/{id}/expenses", "post">
+type ExpenseRequest = ApiRequestBody<"/wallets/{id}/expenses/{expense_id}", "patch">
 
 /** 與後端 `EntryNote` 的上限相同。 */
 const NOTE_MAX_LENGTH = 200
@@ -282,7 +284,7 @@ export function validateExpenseForm(values: ExpenseFormValues, locale: Locale): 
   }
 }
 
-/** 已通過 `validateExpenseForm` 的表單值 → 記一筆與修改的請求。只送目前分攤方式用到的欄位。 */
+/** 已通過 `validateExpenseForm` 的表單值 → 修改的請求, 也是記一筆的基礎。只送目前分攤方式用到的欄位。 */
 export function toExpenseRequest(values: ExpenseFormValues): ExpenseRequest {
   const common = {
     amount: parsePositiveAmount(values.amount) ?? 0,
@@ -300,4 +302,19 @@ export function toExpenseRequest(values: ExpenseFormValues): ExpenseRequest {
       user_id: row.user_id, amount: parsePositiveAmount(row.amount) ?? 0,
     })),
   }
+}
+
+/** 選了要同步的錢包就要選分類; 沒選錢包是不同步, 不用檢查。 */
+export function validateExpenseSync(sync: ExpenseSyncValues, locale: Locale): ExpenseSyncErrors {
+  const t = translate(walletsMessages, locale)
+  return { category_id: sync.wallet_id && !sync.category_id ? t("categoryRequired") : undefined }
+}
+
+/** 記一筆的請求: 有選同步的錢包才帶 `sync_to`。 */
+export function toExpenseCreateRequest(
+  values: ExpenseFormValues, sync: ExpenseSyncValues,
+): ExpenseCreateRequest {
+  const data = toExpenseRequest(values)
+  if (!sync.wallet_id) return data
+  return { ...data, sync_to: { wallet_id: sync.wallet_id, category_id: sync.category_id } }
 }
