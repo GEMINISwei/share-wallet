@@ -691,7 +691,9 @@ async def test_create_expense_with_sync_on_locked_wallet_creates_nothing(
 
 @pytest.mark.asyncio
 async def test_update_expense_with_sync_field_returns_422(client, store, wallet, purse, dining):
-    """只有新增可以同步, 建好的帳不能事後補 (見 docs/features/travel-wallet.md〈同步到一般錢包〉)。"""
+    """只有新增可以同步, 建好的帳不能事後補
+    (見 docs/features/travel-wallet.md〈同步到一般錢包〉)。
+    """
     expense_id = store.add_expense(wallet, ALICE, ALICE, {ALICE: 300})
     authenticate(client, "alice")
 
