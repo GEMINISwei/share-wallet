@@ -93,12 +93,12 @@ export default function WalletGroupsView(
       </div>
 
       <GroupDialog
-        key={editing ? `${editing.group?.id ?? "new"}-${editing.kind}` : "closed"}
+        key={editing ? `group-${editing.group?.id ?? "new"}-${editing.kind}` : "group-closed"}
         group={editing?.group ?? null} kind={editing?.kind ?? "general"} open={editing !== null}
         onClose={() => setEditing(null)} onSuccess={done} onError={notifyError}
       />
       <MoveWalletDialog
-        key={moving?.id ?? "closed"} wallet={moving}
+        key={`move-${moving?.id ?? "closed"}`} wallet={moving}
         targets={moving ? moveTargets(groups, moving) : []} groupLabel={groupLabel}
         onClose={() => setMoving(null)} onSuccess={done} onError={notifyError}
       />
