@@ -1,7 +1,7 @@
 import type { WalletGroupInfo, WalletInfo, WalletKind } from "./types"
 
 // 錢包設定頁的分支。規則在後端 (`modules/wallets/groups.py`), 這裡只決定畫面上列什麼、
-// 給哪些操作; 見 docs/features.md〈錢包群組〉。
+// 給哪些操作; 見 docs/features/wallets.md〈錢包群組〉。
 
 export type GroupSection = { group: WalletGroupInfo; wallets: WalletInfo[] }
 
@@ -40,7 +40,7 @@ export function moveTargets(groups: readonly WalletGroupInfo[], wallet: WalletIn
 }
 
 /**
- * 導覽裡能選的群組 (見 docs/features.md〈錢包列表〉): 自訂群組一律列出, 預設群組只有裡面有
+ * 導覽裡能選的群組 (見 docs/features/wallets.md〈錢包列表〉): 自訂群組一律列出, 預設群組只有裡面有
  * 顯示中的錢包才列出 —— 「未選擇」空著時列出來只會讓人點進一頁空白。
  */
 export function navGroups(groups: readonly WalletGroupInfo[], kind: WalletKind) {

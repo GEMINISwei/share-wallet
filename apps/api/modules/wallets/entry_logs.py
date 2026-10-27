@@ -1,6 +1,6 @@
 """帳目的異動紀錄: 一筆帳的歷史、整個錢包的紀錄。寫入在 `ledger.py`。
 
-所有成員都看得到 (見 docs/features.md〈紀錄〉), 所以只檢查打不打得開錢包。
+所有成員都看得到 (見 docs/features/members.md〈紀錄〉), 所以只檢查打不打得開錢包。
 兩種錢包的紀錄存在同一張表, 快照的形狀不同 (`EntrySnapshot`、`ExpenseSnapshot`),
 所以各有一組端點: 一個錢包只會有其中一種。
 """

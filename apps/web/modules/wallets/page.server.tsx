@@ -15,7 +15,7 @@ export async function generateMetadata() {
 }
 
 /**
- * `/wallets` 沒有自己的內容: 轉到第一個該看的群組 (見 docs/features.md〈錢包列表〉)。
+ * `/wallets` 沒有自己的內容: 轉到第一個該看的群組 (見 docs/features/wallets.md〈錢包列表〉)。
  * 登入後、首頁、刪除或離開錢包之後都經過這裡。
  */
 export default async function WalletsPage({ searchParams }: WalletsPageProps) {

@@ -21,7 +21,7 @@ export type InvitePageProps = {
 }
 
 /**
- * 邀請連結的確認頁 (見 docs/features.md〈加入流程〉)。不在受保護路由裡: 沒登入的人要帶著
+ * 邀請連結的確認頁 (見 docs/features/members.md〈加入流程〉)。不在受保護路由裡: 沒登入的人要帶著
  * token 導到登入頁, 而 proxy 的保護只會導到不帶參數的 `/login`。登入檢查在這裡自己做。
  */
 export default async function InvitePage({ params }: InvitePageProps) {

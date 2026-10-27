@@ -19,7 +19,7 @@ type InviteDialogProps = {
   onClose: () => void
 }
 
-/** 產生、複製、重新產生、撤銷邀請連結 (見 docs/features.md〈邀請連結〉)。 */
+/** 產生、複製、重新產生、撤銷邀請連結 (見 docs/features/members.md〈邀請連結〉)。 */
 export default function InviteDialog({
   open, walletId, invite, loadError, onClose,
 }: InviteDialogProps) {

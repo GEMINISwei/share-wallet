@@ -1,7 +1,7 @@
 """代墊與還款 (`modules/wallets/advances.py`): 餘額與未還金額一起更新, 未還永遠不能是負的。
 
-還款對的是某一筆代墊 (見 docs/features.md〈代墊與還款〉)。對象的唯一約束、還款指向代墊的外鍵與
-刪錢包時的 cascade 在 `test_model.py` 對真的 PostgreSQL 驗。
+還款對的是某一筆代墊 (見 docs/features/general-wallet.md〈代墊與還款〉)。
+對象的唯一約束、還款指向代墊的外鍵與刪錢包時的 cascade 在 `test_model.py` 對真的 PostgreSQL 驗。
 """
 
 import pytest

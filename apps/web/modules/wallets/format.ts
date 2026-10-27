@@ -4,7 +4,7 @@ import { isTransfer } from "./capabilities"
 import { walletsMessages } from "./i18n"
 import type { EntryInfo, EntryKind, EntrySnapshot, ExpenseInfo, ExpenseSnapshot } from "./types"
 
-/** 整數金額加上千分位。不帶幣別: 系統不設幣別 (見 docs/features.md〈金額〉)。 */
+/** 整數金額加上千分位。不帶幣別: 系統不設幣別 (見 docs/features/amounts.md)。 */
 export function formatAmount(amount: number, locale: Locale) {
   return new Intl.NumberFormat(HTML_LANG[locale], { maximumFractionDigits: 0 }).format(amount)
 }

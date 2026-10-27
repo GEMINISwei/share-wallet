@@ -1,6 +1,6 @@
 """旅遊錢包的帳 (`modules/wallets/expenses.py`): 付款人、分攤、每人淨額與異動紀錄。
 
-規則見 docs/features.md〈旅遊錢包〉。分攤存成每人的金額 (均分也是), 查詢、排序與 cascade
+規則見 docs/features/travel-wallet.md。分攤存成每人的金額 (均分也是), 查詢、排序與 cascade
 在 `test_model.py` 對真的 PostgreSQL 驗。
 """
 

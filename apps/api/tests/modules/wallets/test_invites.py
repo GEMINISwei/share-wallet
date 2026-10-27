@@ -1,6 +1,6 @@
 """邀請連結 (`modules/wallets/invites.py`): 產生、查看、撤銷、預覽與加入。
 
-規則見 docs/features.md〈邀請連結〉〈加入流程〉。
+規則見 docs/features/members.md〈邀請連結〉〈加入流程〉。
 """
 
 from datetime import timedelta

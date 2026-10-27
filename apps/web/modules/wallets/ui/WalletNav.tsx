@@ -65,7 +65,7 @@ type WalletNavItemProps = {
 }
 
 /**
- * 導覽的「錢包」(見 docs/features.md〈錢包列表〉): 一般、旅遊合成一項, 點了之後手機從底部
+ * 導覽的「錢包」(見 docs/features/wallets.md〈錢包列表〉): 一般、旅遊合成一項, 點了之後手機從底部
  * 滑出面板、桌機在側欄展開, 兩種各一段列出能選的群組。
  */
 export function WalletNavItem({

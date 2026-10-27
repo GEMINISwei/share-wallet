@@ -14,7 +14,7 @@ export async function generateMetadata() {
   return { title: (await getT(walletsMessages))("pageTitle") }
 }
 
-/** 一個錢包群組: 群組總額與裡面顯示中的錢包 (見 docs/features.md〈錢包列表〉)。 */
+/** 一個錢包群組: 群組總額與裡面顯示中的錢包 (見 docs/features/wallets.md〈錢包列表〉)。 */
 export default async function WalletGroupPage({ params }: WalletGroupPageProps) {
   const { groupId } = await params
   const [groupsRes, walletsRes, t] = await Promise.all([

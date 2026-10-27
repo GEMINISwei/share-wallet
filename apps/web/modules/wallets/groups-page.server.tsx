@@ -9,7 +9,7 @@ export async function generateMetadata() {
   return { title: (await getT(walletsMessages))("walletSettingsTitle") }
 }
 
-/** 自己的錢包群組與每個錢包放在哪、要不要顯示 (見 docs/features.md〈錢包群組〉)。 */
+/** 自己的錢包群組與每個錢包放在哪、要不要顯示 (見 docs/features/wallets.md〈錢包群組〉)。 */
 export default async function WalletGroupsPage() {
   const t = await getT(walletsMessages)
   const [groupsRes, walletsRes] = await Promise.all([

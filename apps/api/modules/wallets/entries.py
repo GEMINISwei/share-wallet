@@ -176,7 +176,7 @@ async def update_entry(
 
 
 async def delete_entry(wallet_id: str, entry_id: str, current_user: CurrentUser) -> EntryOperate:
-    """反向套用這筆帳; 調整也可以刪 (見 docs/features.md〈餘額〉)。
+    """反向套用這筆帳; 調整也可以刪 (見 docs/features/general-wallet.md〈餘額〉)。
 
     轉帳兩邊一起刪; 對方錢包已刪除的轉帳只剩這一邊, 照一般的帳刪。
     代墊與還款另外撤掉對未還金額的影響, 有還款的代墊不能刪。

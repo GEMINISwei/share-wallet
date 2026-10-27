@@ -2,9 +2,9 @@
 
 鎖餘額、檢查範圍、留異動紀錄。其中權限檢查與異動紀錄的寫入, 旅遊錢包的帳 (`expenses.py`) 也共用。
 
-餘額是存起來的值 (見 docs/features.md〈餘額〉): 每個寫入都先 `WalletTable.lock_balance` 鎖住
-錢包, 再在同一個請求的交易裡改帳目、改餘額、留異動紀錄 —— 任何一步丟出例外時 middleware
-整批回滾, 三者不會只寫進一部分。
+餘額是存起來的值 (見 docs/features/general-wallet.md〈餘額〉): 每個寫入都先
+`WalletTable.lock_balance` 鎖住錢包, 再在同一個請求的交易裡改帳目、改餘額、留異動紀錄 ——
+任何一步丟出例外時 middleware 整批回滾, 三者不會只寫進一部分。
 """
 
 from datetime import date
@@ -37,7 +37,7 @@ def balance_effect(kind: EntryKind, amount: int) -> int:
 
 async def open_general_wallet(wallet_id: str, current_user: CurrentUser) -> WalletAccess:
     access = await open_wallet(wallet_id, current_user)
-    # 旅遊錢包記的是誰付了、誰分攤, 不是收支 (見 docs/features.md〈旅遊錢包〉)。
+    # 旅遊錢包記的是誰付了、誰分攤, 不是收支 (見 docs/features/travel-wallet.md)。
     if access.wallet["kind"] != WalletKind.GENERAL:
         raise LangException(400, WalletError.NOT_GENERAL)
     return access
@@ -65,7 +65,7 @@ async def modifiable_entry(
 
 
 def as_super_admin(access: WalletAccess, owner_id: str, current_user: CurrentUser) -> bool:
-    """這次操作是不是靠超管身分才做得到 (見 docs/features.md〈紀錄〉)。"""
+    """這次操作是不是靠超管身分才做得到 (見 docs/features/members.md〈紀錄〉)。"""
     if not is_super_admin(current_user):
         return False
     if access.role is None:

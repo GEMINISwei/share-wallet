@@ -121,7 +121,7 @@ export default function EntryDialog({
         <TextInput
           label={t("advanceTarget")} value={values.target_name} required
           placeholder={t("advanceTargetHint")} suggestions={targetNames}
-          // 代墊不能改對象, 打錯就刪掉重記 (見 docs/features.md〈代墊與還款〉)。
+          // 代墊不能改對象, 打錯就刪掉重記 (見 docs/features/general-wallet.md〈代墊與還款〉)。
           disabled={isPending || entry !== null}
           error={errors.target_name ?? fieldError("target_name")}
           onChange={(value) => change("target_name", value)}
@@ -129,7 +129,7 @@ export default function EntryDialog({
       ) : isTransfer(values.kind) ? (
         <SelectInput
           label={t("counterpartWallet")} value={values.counterpart_wallet_id} required
-          // 轉帳不能換對方錢包, 轉錯就刪掉重記 (見 docs/features.md〈轉帳〉)。
+          // 轉帳不能換對方錢包, 轉錯就刪掉重記 (見 docs/features/general-wallet.md〈轉帳〉)。
           disabled={isPending || entry !== null}
           error={errors.counterpart_wallet_id ?? fieldError("counterpart_wallet_id")}
           options={[

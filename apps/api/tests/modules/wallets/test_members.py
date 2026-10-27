@@ -155,7 +155,8 @@ async def test_remove_last_admin_returns_409(client: AsyncClient, store):
     assert ALICE in store.roles(wallet_id)
 
 
-# ── 旅遊錢包: 有付款或分攤紀錄的人不能離開也不能被移除 (見 docs/features.md〈成員異動〉) ──
+# ── 旅遊錢包: 有付款或分攤紀錄的人不能離開也不能被移除 ──
+# 見 docs/features/travel-wallet.md〈成員異動〉。
 
 
 @pytest.mark.asyncio

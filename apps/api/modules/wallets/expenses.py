@@ -1,4 +1,4 @@
-"""旅遊錢包的帳: 誰付了多少、每人分攤多少, 以及每人的淨額。規則見 docs/features.md〈旅遊錢包〉。
+"""旅遊錢包的帳: 誰付了多少、每人分攤多少, 以及每人的淨額。規則見 docs/features/travel-wallet.md。
 
 旅遊錢包沒有餘額, 但寫入一樣先鎖住錢包那一列: 移除成員也鎖同一列 (見 `members.py`),
 不鎖的話移除的同時可以記進一筆以他為分攤對象的帳, 留下一個不是成員的人;
@@ -56,14 +56,15 @@ class _Fields(TypedDict):
 
 async def open_travel_wallet(wallet_id: str, current_user: CurrentUser) -> WalletAccess:
     access = await open_wallet(wallet_id, current_user)
-    # 一般錢包是一份資產, 錢出去就是錢包的支出, 不分攤 (見 docs/features.md〈收入與支出〉)。
+    # 一般錢包是一份資產, 錢出去就是錢包的支出, 不分攤
+    # (見 docs/features/general-wallet.md〈收入與支出〉)。
     if access.wallet["kind"] != WalletKind.TRAVEL:
         raise LangException(400, WalletError.NOT_TRAVEL)
     return access
 
 
 async def _lock_ledger(wallet_id: str) -> None:
-    """開始結算之後帳目鎖住 (見 docs/features.md〈結算流程〉)。"""
+    """開始結算之後帳目鎖住 (見 docs/features/travel-wallet.md〈結算流程〉)。"""
     if await WalletTable.lock_status(wallet_id) is not WalletStatus.ACTIVE:
         raise LangException(409, WalletError.LEDGER_LOCKED)
 
@@ -247,7 +248,8 @@ async def list_expenses(
 async def _totals_by_person(wallet_id: str) -> list[tuple[str, MemberTotals]]:
     """所有成員依加入順序, 後面接著已經離開、但有紀錄的人。
 
-    有紀錄的人在結帳前不能離開, 結帳後可以 (見 docs/features.md〈封存〉), 金額照樣要算進去。
+    有紀錄的人在結帳前不能離開, 結帳後可以 (見 docs/features/travel-wallet.md〈封存〉),
+    金額照樣要算進去。
     """
     member_ids = [member["user_id"] for member in await WalletMemberTable.list_members(wallet_id)]
     totals = await TravelExpenseTable.totals(wallet_id)

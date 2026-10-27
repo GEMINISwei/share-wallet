@@ -32,7 +32,7 @@ export default function WalletSettingsView({ wallet, area }: WalletSettingsViewP
   const [deleting, setDeleting] = useState(false)
   const { isPending, submit, fieldError } = useActionSubmit()
   const { notify, notifyError, notifySuccess, closeNotify } = useNotify()
-  // 已結帳的錢包只能查看, 設定頁只剩刪除 (見 docs/features.md〈封存〉)。
+  // 已結帳的錢包只能查看, 設定頁只剩刪除 (見 docs/features/travel-wallet.md〈封存〉)。
   const locked = isPending || isArchived(wallet)
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {

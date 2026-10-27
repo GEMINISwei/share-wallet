@@ -64,7 +64,7 @@ export function validateWalletForm(values: WalletFormValues, locale: Locale): Wa
   return errors
 }
 
-/** 收支的金額一律大於 0 (見 docs/features.md〈金額〉), 空白不算 0。 */
+/** 收支的金額一律大於 0 (見 docs/features/amounts.md), 空白不算 0。 */
 export function parsePositiveAmount(text: string): number | null {
   if (!text.trim()) return null
   const value = parseAmount(text)
@@ -203,7 +203,7 @@ function travelFields(values: WalletFormValues) {
   }
 }
 
-/** 建立錢包的空白表單。類型預設跟著使用者正在看的列表分頁 (見 docs/features.md〈錢包列表〉)。 */
+/** 建立錢包的空白表單。類型預設跟著使用者正在看的列表分頁 (見 docs/features/wallets.md〈錢包列表〉)。 */
 export function emptyWalletForm(kind: WalletKind = "general"): WalletFormValues {
   return { kind, name: "", initial_balance: "", destination: "", start_date: "", end_date: "" }
 }

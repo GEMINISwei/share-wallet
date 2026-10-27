@@ -1511,7 +1511,8 @@ export interface components {
         };
         /**
          * EqualExpenseCreate
-         * @description 均分: 零頭依序分給前幾人, 付款人優先, 其餘照加入錢包的順序 (見 docs/features.md〈分攤〉)。
+         * @description 均分: 零頭依序分給前幾人, 付款人優先, 其餘照加入錢包的順序
+         *     (見 docs/features/travel-wallet.md〈分攤〉)。
          */
         EqualExpenseCreate: {
             /** Amount */
@@ -2333,7 +2334,8 @@ export interface components {
         };
         /**
          * WalletStatus
-         * @description 錢包的生命週期。只有旅遊錢包會離開 `active` (見 docs/features.md〈結算流程〉)。
+         * @description 錢包的生命週期。只有旅遊錢包會離開 `active`
+         *     (見 docs/features/travel-wallet.md〈結算流程〉)。
          * @enum {string}
          */
         WalletStatus: "active" | "settling" | "settled";

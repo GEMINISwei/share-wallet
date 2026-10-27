@@ -475,7 +475,9 @@ def _ensure_unique(user_ids: list[str]) -> None:
 
 
 class EqualExpenseCreate(_ExpenseFields):
-    """均分: 零頭依序分給前幾人, 付款人優先, 其餘照加入錢包的順序 (見 docs/features.md〈分攤〉)。"""
+    """均分: 零頭依序分給前幾人, 付款人優先, 其餘照加入錢包的順序
+    (見 docs/features/travel-wallet.md〈分攤〉)。
+    """
 
     split_mode: Literal[SplitMode.EQUAL]
     #: 分攤對象, 都必須是這個錢包的成員。順序不影響結果。

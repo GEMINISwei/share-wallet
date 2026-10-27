@@ -1,6 +1,6 @@
 """旅遊錢包的結算: 清償方案、開始與取消結算、標記付款與確認收款。
 
-規則見 docs/features.md〈結算流程〉〈封存〉。狀態的每一次轉換都先鎖住錢包那一列
+規則見 docs/features/travel-wallet.md〈結算流程〉〈封存〉。狀態的每一次轉換都先鎖住錢包那一列
 (`WalletTable.lock_status`), 記帳也鎖同一列, 所以方案算完之後不會再有帳寫進來。
 這些操作不寫異動紀錄: 異動紀錄只記帳目, 每一筆轉帳自己記著付款與確認的人和時間。
 """
@@ -29,7 +29,7 @@ def plan_transfers(nets: list[tuple[str, int]]) -> list[PlannedTransfer]:
 
     先把金額剛好相同的一對配成一筆, 剩下的每次讓應付最多的付給應收最多的, 同額照加入順序。
     每一筆至少讓一個人歸零, 所以最多是有帳的人數 − 1 筆。不追求真正最少的理由見
-    docs/features.md〈結算流程〉。
+    docs/features/travel-wallet.md〈結算流程〉。
     """
     order = {user_id: index for index, (user_id, _) in enumerate(nets)}
     debts = {user_id: -net for user_id, net in nets if net < 0}
@@ -118,7 +118,7 @@ async def start_settlement(wallet_id: str, current_user: CurrentUser) -> Settlem
     if status is not WalletStatus.ACTIVE:
         raise LangException(409, WalletError.SETTLEMENT_STARTED)
     # 在鎖住之後才查, 才不會跟刪掉最後一筆帳的請求交錯。沒有帳的錢包結算只會直接封存,
-    # 不會是任何人想要的結果 (見 docs/features.md〈結算流程〉)。
+    # 不會是任何人想要的結果 (見 docs/features/travel-wallet.md〈結算流程〉)。
     if not await TravelExpenseTable.totals(wallet_id):
         raise LangException(409, WalletError.NO_EXPENSES_TO_SETTLE)
 
