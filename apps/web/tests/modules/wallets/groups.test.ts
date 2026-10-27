@@ -101,13 +101,14 @@ const EMPTY_DEFAULT = group({ visible_count: 0 })
 const FILLED_DEFAULT = group({ visible_count: 2 })
 const EMPTY_TRAVEL_DEFAULT = group({ id: "g-travel", kind: "travel", visible_count: 0 })
 const FILLED_TRAVEL = group({ id: "g-japan", kind: "travel", name: "日本", is_default: false, visible_count: 1 })
+const FILLED_YEN = group({ id: "g-yen", name: "日圓", is_default: false, visible_count: 1 })
 
 describe("navGroups", () => {
-  it("自訂群組一律列出，預設群組有顯示中的錢包才列出，保留順序", () => {
-    expect(navGroups([YEN, EMPTY_DEFAULT, TRAVEL_DEFAULT], "general").map((g) => g.id))
-      .toEqual(["g-yen"])
-    expect(navGroups([FILLED_DEFAULT, YEN], "general").map((g) => g.id))
-      .toEqual(["g-default", "g-yen"])
+  it("只列出有顯示中錢包的群組，自訂與預設都一樣，保留順序", () => {
+    expect(navGroups([YEN, EMPTY_DEFAULT, TRAVEL_DEFAULT], "general")).toEqual([])
+    expect(navGroups([FILLED_DEFAULT, YEN], "general").map((g) => g.id)).toEqual(["g-default"])
+    expect(navGroups([FILLED_YEN, FILLED_DEFAULT], "general").map((g) => g.id))
+      .toEqual(["g-yen", "g-default"])
   })
 
   it("只列那種類型的群組", () => {
@@ -117,8 +118,8 @@ describe("navGroups", () => {
 })
 
 describe("navSections", () => {
-  it("一般、旅遊各一段，各自列出能選的群組", () => {
-    const sections = navSections([YEN, FILLED_DEFAULT, FILLED_TRAVEL, EMPTY_TRAVEL_DEFAULT])
+  it("一般、旅遊各一段，各自列出有錢包的群組", () => {
+    const sections = navSections([FILLED_YEN, FILLED_DEFAULT, FILLED_TRAVEL, EMPTY_TRAVEL_DEFAULT])
 
     expect(sections.map((s) => [s.kind, s.groups.map((g) => g.id)])).toEqual([
       ["general", ["g-yen", "g-default"]],
@@ -126,10 +127,14 @@ describe("navSections", () => {
     ])
   })
 
-  it("一種都沒有能選的群組時，那一段列出它的預設群組", () => {
-    const sections = navSections([EMPTY_DEFAULT, EMPTY_TRAVEL_DEFAULT])
+  it("一種都沒有有錢包的群組時，不列那一段", () => {
+    const sections = navSections([YEN, FILLED_DEFAULT, EMPTY_TRAVEL_DEFAULT])
 
-    expect(sections.map((s) => s.groups.map((g) => g.id))).toEqual([["g-default"], ["g-travel"]])
+    expect(sections.map((s) => s.kind)).toEqual(["general"])
+  })
+
+  it("一個錢包都沒有時 (例如剛註冊)，一段都不列", () => {
+    expect(navSections([EMPTY_DEFAULT, EMPTY_TRAVEL_DEFAULT])).toEqual([])
   })
 })
 

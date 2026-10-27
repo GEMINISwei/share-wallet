@@ -76,7 +76,9 @@ export function WalletNavItem({
   const nav = useContext(WalletNavContext)
   const [picking, setPicking] = useState(false)
   const [toggled, setToggled] = useState<boolean | null>(null)
-  const sections = nav?.groups ? navSections(nav.groups) : null
+  // 一個錢包都沒有 (例如剛註冊) 時沒有群組可選, 跟還沒載入一樣直接交給 `/wallets`。
+  const choices = nav?.groups ? navSections(nav.groups) : []
+  const sections = choices.length > 0 ? choices : null
   const active = Boolean(nav?.activeKind)
   // 側欄: 在群組頁或錢包頁時預設展開, 點了再收合或展開。
   const expanded = variant === "sidebar" && sections !== null && (toggled ?? active)
