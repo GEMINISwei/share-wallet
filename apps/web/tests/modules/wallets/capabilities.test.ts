@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest"
 import {
   addEntryBlock, addEntryPickerGroups, adminsSummary, canAddEntry, canInvite, canRepay,
-  canStartSettlement, canTransfer, changedFields,
+  canStartSettlement, canSyncExpense, canTransfer, changedFields,
   entryActions, entryCategoryOptions, entryKindOptions, expenseActions, expenseChangedFields,
   groupCategories, initialExpenseValues, isLastAdmin, memberActions, myNetBalance, owingTargets,
-  settlementTransferActions, shareUserOptions, splitEqually, transferTargets,
+  settlementTransferActions, shareUserOptions, splitEqually, syncAfterPayerChange, transferTargets,
   transfersForViewer,
   travelActions, walletMenuItems, walletSections, walletStatusBadge,
 } from "@/modules/wallets/capabilities"
@@ -725,5 +725,32 @@ describe("addEntryPickerGroups", () => {
     ]
     const sections = addEntryPickerGroups(list, [group("a"), group("trip", "travel")])
     expect(sections.map((s) => s.items[0].block)).toEqual([null, "settling"])
+  })
+})
+
+describe("canSyncExpense", () => {
+  it("新增旅遊帳、付款人是自己時可以同步到一般錢包", () => {
+    expect(canSyncExpense(null, "bob", "bob")).toBe(true)
+  })
+
+  it("付款人是別人時不能同步到一般錢包", () => {
+    expect(canSyncExpense(null, "alice", "bob")).toBe(false)
+  })
+
+  it("修改旅遊帳時不能同步到一般錢包", () => {
+    expect(canSyncExpense(expense({ payer: { user_id: "bob", nickname: "Bob" } }), "bob", "bob"))
+      .toBe(false)
+  })
+})
+
+describe("syncAfterPayerChange", () => {
+  const chosen = { wallet_id: "w-1", category_id: "c-1" }
+
+  it("付款人改成別人時清掉同步的錢包與分類", () => {
+    expect(syncAfterPayerChange(chosen, "alice", "bob")).toEqual({ wallet_id: "", category_id: "" })
+  })
+
+  it("付款人還是自己時保留同步的選擇", () => {
+    expect(syncAfterPayerChange(chosen, "bob", "bob")).toEqual(chosen)
   })
 })
