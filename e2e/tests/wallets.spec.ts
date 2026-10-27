@@ -188,3 +188,26 @@ test("新增旅遊帳時同步到一般錢包，一般錢包餘額減少全額�
   await expect(page.getByText("壽司晚餐")).toBeVisible()
   await expect(page.getByText("6,500").first()).toBeVisible()
 })
+
+test("手機版點重整按鈕後顯示最新的帳", async ({ page, browser }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await loginAs(page, owner)
+  await page.goto(walletUrl)
+  await expect(page.getByText("午餐")).toBeVisible()
+
+  // 另一支裝置記了一筆; 這一頁不會自己更新, 要靠重整按鈕。
+  const other = await (await browser.newContext()).newPage()
+  await loginAs(other, owner)
+  await other.goto(walletUrl)
+  await other.getByRole("button", { name: "記一筆" }).first().click()
+  const dialog = other.getByRole("dialog", { name: "記一筆" })
+  await dialog.getByRole("textbox", { name: "金額" }).fill("120")
+  await dialog.getByRole("radio", { name: "餐飲" }).click()
+  await dialog.getByRole("textbox", { name: "備註" }).fill("下午茶")
+  await dialog.getByRole("button", { name: "儲存", exact: true }).click()
+  await expect(dialog).toBeHidden()
+
+  await expect(page.getByText("下午茶")).toBeHidden()
+  await page.getByRole("button", { name: "重新整理" }).click()
+  await expect(page.getByText("下午茶")).toBeVisible()
+})

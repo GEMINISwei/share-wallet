@@ -58,6 +58,18 @@
   transition: background var(--dur-fast) var(--ease-standard);
 }
 .circleButton:hover { background: var(--color-surface-hover); }
+.circleButton:disabled { cursor: default; }
+
+.refreshButton { display: none; }
+.spinning { animation: refresh-spin 800ms linear infinite; }
+
+@keyframes refresh-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinning { animation: none; }
+}
 
 @media (max-width: 720px) {
   /* 底色半透明疊在漸層上, 捲動時內容從底下經過看得出層次, 不像一條白色的橫條。 */
@@ -79,7 +91,7 @@
   /* 兩側一樣寬 (flex: 1), 中間的標題才會在正中間; 標題太長時縮的是標題。 */
   .pageHeaderStart,
   .pageHeaderEnd { display: flex; flex: 1 1 0; min-width: var(--control-height-md); }
-  .pageHeaderEnd { justify-content: flex-end; }
+  .pageHeaderEnd { justify-content: flex-end; gap: var(--space-2); }
   .pageHeaderText { flex: 0 1 auto; text-align: center; }
   .pageTitle { overflow: hidden; font-size: var(--fs-lg); white-space: nowrap; text-overflow: ellipsis; }
   .pageSubtitle {
@@ -95,6 +107,7 @@
   .pageHeaderActions:has(+ .pageHeaderMobileActions),
   .desktopOnlyActions { display: none; }
   .pageHeaderMobileActions { display: flex; }
+  .refreshButton { display: inline-flex; }
 }
 
 .detailBackLink {
