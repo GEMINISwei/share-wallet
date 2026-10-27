@@ -3,6 +3,10 @@ export { WALLETS_PATH } from "./manifest"
 export { default as WalletsPage, generateMetadata as generateWalletsMetadata } from "./page.server"
 export type { WalletsPageProps } from "./page.server"
 export {
+  default as WalletGroupPage, generateMetadata as generateWalletGroupMetadata,
+} from "./group-page.server"
+export type { WalletGroupPageProps } from "./group-page.server"
+export {
   default as WalletPage, AdminWalletPage, generateMetadata as generateWalletMetadata,
 } from "./wallet-page.server"
 export type { WalletPageProps } from "./wallet-page.server"

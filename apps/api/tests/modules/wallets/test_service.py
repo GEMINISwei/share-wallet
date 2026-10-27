@@ -159,7 +159,7 @@ async def test_list_wallets_as_super_admin_returns_only_joined_wallets(client: A
 
 
 @pytest.mark.asyncio
-async def test_list_wallets_total_balance_sums_general_wallets_only(client: AsyncClient, store):
+async def test_list_wallets_has_balance_only_on_general_wallets(client: AsyncClient, store):
     store.add_wallet(balance=1000)
     store.add_wallet(balance=-300)
     store.add_wallet(kind=WalletKind.TRAVEL, balance=999)
@@ -168,7 +168,7 @@ async def test_list_wallets_total_balance_sums_general_wallets_only(client: Asyn
 
     body = (await client.get("/api/wallets/")).json()
 
-    assert body["total_balance"] == 700
+    assert "total_balance" not in body
     assert body["count"] == 3
     travel = next(wallet for wallet in body["list_data"] if wallet["kind"] == "travel")
     assert travel["balance"] is None

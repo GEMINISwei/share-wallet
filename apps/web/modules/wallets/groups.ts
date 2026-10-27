@@ -38,3 +38,50 @@ export function groupMenuItems(
 export function moveTargets(groups: readonly WalletGroupInfo[], wallet: WalletInfo) {
   return groups.filter((group) => group.kind === wallet.kind && group.id !== wallet.group_id)
 }
+
+/**
+ * 導覽裡能選的群組 (見 docs/features.md〈錢包列表〉): 自訂群組一律列出, 預設群組只有裡面有
+ * 顯示中的錢包才列出 —— 「未選擇」空著時列出來只會讓人點進一頁空白。
+ */
+export function navGroups(groups: readonly WalletGroupInfo[], kind: WalletKind) {
+  return groups.filter(
+    (group) => group.kind === kind && (!group.is_default || group.visible_count > 0),
+  )
+}
+
+export type NavSection = { kind: WalletKind; groups: WalletGroupInfo[] }
+
+/**
+ * 導覽的「錢包」展開後的兩段: 一般、旅遊各自能選的群組。一種都沒有時列出它的預設群組,
+ * 才進得去建立那種錢包。
+ */
+export function navSections(groups: readonly WalletGroupInfo[]): NavSection[] {
+  return (["general", "travel"] as const).map((kind) => {
+    const choices = navGroups(groups, kind)
+    const fallback = groups.filter((group) => group.kind === kind && group.is_default)
+    return { kind, groups: choices.length > 0 ? choices : fallback }
+  })
+}
+
+function defaultGroupId(groups: readonly WalletGroupInfo[], kind: WalletKind) {
+  return groups.find((group) => group.kind === kind && group.is_default)?.id ?? ""
+}
+
+function firstFilled(groups: readonly WalletGroupInfo[], kind: WalletKind) {
+  return groups.find((group) => group.kind === kind && group.visible_count > 0)?.id
+}
+
+/**
+ * 登入後與打開 `/wallets` 時進到的群組: 第一個有顯示中錢包的一般群組, 沒有就換旅遊群組,
+ * 都沒有就是一般的預設群組。指定類型時只看那種類型。
+ */
+export function landingGroupId(groups: readonly WalletGroupInfo[], kind?: WalletKind) {
+  if (kind) return firstFilled(groups, kind) ?? defaultGroupId(groups, kind)
+  return firstFilled(groups, "general") ?? firstFilled(groups, "travel")
+    ?? defaultGroupId(groups, "general")
+}
+
+/** 群組頁列出的錢包: 這個群組裡顯示中的, 順序沿用列表 (最愛在前、已結帳最後)。 */
+export function groupWallets(wallets: readonly WalletInfo[], groupId: string) {
+  return wallets.filter((wallet) => wallet.group_id === groupId && !wallet.is_hidden)
+}

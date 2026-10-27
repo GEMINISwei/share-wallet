@@ -4,72 +4,49 @@ import Link from "next/link"
 import { ChevronRight, Plane, Plus, Star, Wallet } from "lucide-react"
 import { useState } from "react"
 import {
-  Button, Container, ErrorState, ICON_SIZE, LinkTabs, Notify, PageHeader, useNotify,
+  Button, Container, ErrorState, ICON_SIZE, Notify, PageHeader, useNotify,
 } from "@/shared/ui"
 import { useT } from "@/shared/i18n/context"
-import { walletsOfTab } from "../capabilities"
 import { walletsMessages } from "../i18n"
-import { walletPath, walletsListPath } from "../paths"
-import type { WalletInfo, WalletKind } from "../types"
+import { walletPath } from "../paths"
+import type { WalletGroupInfo, WalletInfo, WalletKind } from "../types"
 import Amount from "./Amount"
 import CreateWalletDialog from "./CreateWalletDialog"
+import { useActiveWalletKind } from "./WalletNav"
+import { useGroupLabel } from "./useGroupLabel"
 import WalletStatusBadge from "./WalletStatusBadge"
 import styles from "./wallets.module.css"
 
-type WalletsViewProps = {
-  tab: WalletKind
-  wallets: WalletInfo[]
-  totalBalance: number
-  errorMessage: string
-}
+type WalletGroupPageViewProps =
+  | { group: WalletGroupInfo; wallets: WalletInfo[]; errorMessage: "" }
+  | { group?: undefined; wallets?: undefined; errorMessage: string }
 
-/** 錢包列表依類型分成兩個分頁 (見 docs/features.md〈錢包列表〉)。 */
-export default function WalletsView(
-  { tab, wallets, totalBalance, errorMessage }: WalletsViewProps,
+/** 一個錢包群組的頁面 (見 docs/features.md〈錢包列表〉)。載入失敗時只有錯誤訊息。 */
+export default function WalletGroupPageView(
+  { group, wallets, errorMessage }: WalletGroupPageViewProps,
 ) {
   const t = useT(walletsMessages)
+  const groupLabel = useGroupLabel()
   const [creating, setCreating] = useState(false)
   const { notify, notifyError, closeNotify } = useNotify()
   const openCreate = () => setCreating(true)
-  const shown = walletsOfTab(wallets, tab)
-  const tabs = [
-    { href: walletsListPath("user", "general"), label: t("tabGeneral"), active: tab === "general" },
-    { href: walletsListPath("user", "travel"), label: t("tabTravel"), active: tab === "travel" },
-  ]
+  useActiveWalletKind(group?.kind ?? null)
 
   return (
     <Container size="lg" padded>
       <PageHeader
-        title={t("heading")}
+        title={group ? groupLabel(group) : t("pageTitle")}
         actions={<Button icon={<Plus size={ICON_SIZE.sm} />} onClick={openCreate}>{t("create")}</Button>}
         mobileActions={[{ icon: <Plus size={ICON_SIZE.sm} />, label: t("create"), onClick: openCreate }]}
       />
       <div className={styles.content}>
-        <LinkTabs tabs={tabs} label={t("listTabs")} />
-        {tab === "general" && (
-          <section className={styles.totalCard}>
-            <span className={styles.totalLabel}>{t("totalBalance")}</span>
-            <Amount value={totalBalance} className={styles.totalValue} />
-          </section>
-        )}
-
         {errorMessage && <ErrorState>{errorMessage}</ErrorState>}
-        {!errorMessage && shown.length === 0 && (
-          <p className={styles.hint}>{tab === "travel" ? t("emptyTravel") : t("empty")}</p>
-        )}
-        {shown.length > 0 && (
-          <ul className={`${styles.list} ${styles.walletCards}`}>
-            {shown.map((wallet) => (
-              <li key={wallet.id}>
-                <WalletRow wallet={wallet} />
-              </li>
-            ))}
-          </ul>
-        )}
+        {group && <GroupBody group={group} wallets={wallets} />}
       </div>
 
+      {/* 新的錢包放進預設群組; 建立後直接進到錢包頁。 */}
       <CreateWalletDialog
-        key={tab} open={creating} defaultKind={tab}
+        key={group?.kind ?? "general"} open={creating} defaultKind={group?.kind ?? "general"}
         onClose={() => setCreating(false)} onError={notifyError}
       />
       <Notify {...notify} onOpenChange={(open) => { if (!open) closeNotify() }} />
@@ -77,9 +54,34 @@ export default function WalletsView(
   )
 }
 
+/** 一般群組的總額卡片與顯示中的錢包; 旅遊群組沒有總額。 */
+function GroupBody({ group, wallets }: { group: WalletGroupInfo; wallets: WalletInfo[] }) {
+  const t = useT(walletsMessages)
+  return (
+    <>
+      {group.total_balance !== null && (
+        <section className={styles.totalCard}>
+          <span className={styles.totalLabel}>{t("totalBalance")}</span>
+          <Amount value={group.total_balance} className={styles.totalValue} />
+        </section>
+      )}
+      {wallets.length === 0 && <p className={styles.hint}>{t("emptyGroup")}</p>}
+      {wallets.length > 0 && (
+        <ul className={`${styles.list} ${styles.walletCards}`}>
+          {wallets.map((wallet) => (
+            <li key={wallet.id}>
+              <WalletRow wallet={wallet} />
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
+  )
+}
+
 function WalletRow({ wallet }: { wallet: WalletInfo }) {
   const t = useT(walletsMessages)
-  // 已經在分頁裡分了類型, 一般錢包不再標類型; 旅遊錢包標目的地與日期。
+  // 群組只放一種類型, 一般錢包不再標類型; 旅遊錢包標目的地與日期。
   const meta = wallet.kind === "travel"
     ? `${wallet.destination} · ${t("dateRange", { start: wallet.start_date ?? "", end: wallet.end_date ?? "" })}`
     : null

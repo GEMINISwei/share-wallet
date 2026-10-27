@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test"
+import { WALLET_HOME } from "./support"
 
 // 資料庫每次都是新的, 名稱固定即可; 跟其他 spec 的帳號分開, 執行順序才互不影響。
 const owner = { nickname: "E2E 錢包管理者", username: "e2e-wallet-owner", password: "e2e-wallet-owner-pw" }
@@ -22,13 +23,13 @@ async function loginAs(page: Page, account: typeof owner) {
   await page.getByRole("textbox", { name: "帳號" }).fill(account.username)
   await page.getByLabel("密碼", { exact: true }).fill(account.password)
   await page.getByRole("button", { name: "登入", exact: true }).click()
-  await expect(page).toHaveURL("/wallets")
+  await expect(page).toHaveURL(WALLET_HOME)
 }
 
 test("建立一般錢包後進入錢包頁，餘額是初始餘額", async ({ page }) => {
   await page.goto("/signup")
   await signup(page, owner)
-  await expect(page).toHaveURL("/wallets")
+  await expect(page).toHaveURL(WALLET_HOME)
 
   await page.getByRole("button", { name: "建立錢包" }).first().click()
   const dialog = page.getByRole("dialog", { name: "建立錢包" })
@@ -116,4 +117,33 @@ test("從帳號選單進入錢包設定，新增群組、把錢包移進去並�
   await moved.getByRole("button", { name: "操作選單" }).click()
   await page.getByRole("menuitem", { name: "設為不顯示" }).click()
   await expect(moved.getByText("不顯示", { exact: true })).toBeVisible()
+})
+
+test("群組頁只列顯示中的錢包，總額只算顯示中的錢包", async ({ page }) => {
+  await loginAs(page, owner)
+  // 上一個測試把錢包移進「日圓」並設為不顯示: 沒有任何顯示中的錢包, 進到一般的預設群組。
+  await expect(page.getByRole("heading", { name: "一般錢包（未選擇）" })).toBeVisible()
+
+  // 在群組頁時側欄的「錢包」預設展開; 一般錢包那段只剩「日圓」(預設群組裡沒有顯示中的錢包)。
+  const sidebar = page.getByRole("navigation", { name: "主要導覽" })
+  await expect(sidebar.getByRole("button", { name: "錢包", exact: true }))
+    .toHaveAttribute("aria-expanded", "true")
+  const generalSection = sidebar.getByRole("group", { name: "一般錢包" })
+  await expect(generalSection.getByRole("link")).toHaveCount(1)
+  await generalSection.getByRole("link", { name: /日圓/ }).click()
+  await expect(page.getByRole("heading", { name: "日圓" })).toBeVisible()
+  await expect(page.getByText(walletName)).toBeHidden()
+
+  await page.goto("/wallets/settings")
+  const row = page.getByRole("region", { name: "日圓" }).getByRole("listitem")
+    .filter({ hasText: walletName })
+  await row.getByRole("button", { name: "操作選單" }).click()
+  await page.getByRole("menuitem", { name: "設為顯示" }).click()
+  await expect(row.getByText("不顯示", { exact: true })).toBeHidden()
+
+  await page.goto("/wallets")
+  await expect(page).toHaveURL(WALLET_HOME)
+  await expect(page.getByRole("heading", { name: "日圓" })).toBeVisible()
+  await expect(page.getByText(walletName)).toBeVisible()
+  await expect(page.getByText("9,500").first()).toBeVisible()
 })

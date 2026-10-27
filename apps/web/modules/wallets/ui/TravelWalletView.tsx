@@ -9,11 +9,12 @@ import {
   addEntryBlock, canAddEntry, canStartSettlement, myNetBalance, travelActions,
 } from "../capabilities"
 import { walletsMessages } from "../i18n"
-import { type WalletArea, walletsListPath } from "../paths"
+import { type WalletArea, walletBackPath } from "../paths"
 import type {
   ExpensePage, MemberInfo, NetBalanceInfo, SettlementTransferInfo, WalletInfo,
 } from "../types"
 import { useAddEntryFromUrl, useWalletAddEntry } from "./AddEntryNav"
+import { useActiveWalletKind } from "./WalletNav"
 import ExpenseList from "./ExpenseList"
 import NetBalanceList, { NetBalancesDialog } from "./NetBalanceList"
 import SettlementConfirm, { type SettlementStep } from "./SettlementConfirm"
@@ -91,6 +92,7 @@ export default function TravelWalletView({ wallet, area, travel }: TravelWalletV
   const favorite = useFavoriteAction(wallet, { success: notifySuccess, error: notifyError })
   const openAdd = () => setDialog({ kind: "add" })
   useWalletAddEntry(block, openAdd, notifyInfo)
+  useActiveWalletKind(wallet.kind)
   useAddEntryFromUrl(openAdd, block === null)
   const hasExpenses = travel.expenses.list_data.length > 0
   const actions = useHeaderActions(
@@ -116,7 +118,7 @@ export default function TravelWalletView({ wallet, area, travel }: TravelWalletV
   return (
     <WalletShell
       title={wallet.name} subtitle={`${wallet.destination} · ${dates}`}
-      backHref={walletsListPath(area, wallet.kind)} backLabel={t("backToList")} actionsDesktopOnly
+      backHref={walletBackPath(wallet, area)} backLabel={t("backToList")} actionsDesktopOnly
       actions={actions} mobileActions={menu}
     >
       <WalletSummary

@@ -192,10 +192,8 @@ class WalletGroupOperate(BaseModel):
 class WalletList(SimpleListResponse["WalletInfo"]):
     """自己加入的錢包: 最愛的在前, 其餘依加入的先後, 已結帳的一律排在最後。
 
-    `total_balance` 是其中所有一般錢包餘額的總和。
+    總額依群組計算, 在錢包群組的列表上 (`WalletGroupInfo.total_balance`)。
     """
-
-    total_balance: int
 
 
 class WalletAdmin(BaseModel):

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test"
-import { admin, login, logout, member } from "./support"
+import { WALLET_HOME, admin, login, logout, member } from "./support"
 
 // 後面的測試用第一個測試建立的一般帳號; 前一個失敗時其餘的跳過, 不要接著報一串無關的錯。
 test.describe.configure({ mode: "serial" })
@@ -25,7 +25,7 @@ test("一般帳號進入管理區會被導回錢包列表", async ({ page }) => 
 
   await page.goto("/admin/users")
 
-  await expect(page).toHaveURL("/wallets")
+  await expect(page).toHaveURL(WALLET_HOME)
 })
 
 test("從帳號選單進入用戶設定與系統設定，各自只放自己的區塊", async ({ page }) => {

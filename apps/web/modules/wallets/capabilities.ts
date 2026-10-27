@@ -2,22 +2,12 @@ import type {
   AdvanceTargetInfo, CategoryInfo, CategoryType, EntryFormValues, EntryInfo, EntryKind,
   EntryLogInfo, EntrySnapshot, ExpenseFormValues, ExpenseInfo, ExpenseLogInfo, ExpenseSnapshot,
   MemberInfo, NetBalanceInfo, SettlementTransferInfo, ShareRowValues, TransferKind, TransferTarget,
-  WalletAdmin, WalletInfo, WalletKind, WalletStatus,
+  WalletAdmin, WalletGroupInfo, WalletInfo, WalletStatus,
 } from "./types"
 
 // 畫面上的分支。真正的授權在後端 (`modules/wallets/access.py`), 這裡只決定顯示哪些操作,
 // 規則要與後端同一組: 管理者 (或超級管理者, 後端給的 `can_manage`) 才能管理,
 // 錢包至少要有一位管理者。
-
-/** 錢包列表的分頁。沒有或不認得的參數回到預設的一般分頁, 不報錯。 */
-export function walletListTab(param: string | undefined): WalletKind {
-  return param === "travel" ? "travel" : "general"
-}
-
-/** 分頁裡的錢包。排序 (最愛在前、已結帳最後) 由後端決定, 這裡只篩不排。 */
-export function walletsOfTab(wallets: readonly WalletInfo[], tab: WalletKind) {
-  return wallets.filter((wallet) => wallet.kind === tab)
-}
 
 /** 錢包頁上要列出哪些入口。分類只屬於一般錢包, 設定只給管理者。 */
 export function walletSections(wallet: WalletInfo) {
@@ -94,17 +84,21 @@ export function addEntryBlock(wallet: WalletInfo, ready: boolean): AddEntryBlock
 export type AddEntryPickerItem = { wallet: WalletInfo; block: AddEntryBlock | null }
 
 /**
- * 「＋」在錢包頁以外打開的選錢包面板。順序沿用列表 (後端已把最愛排前面)。
- * 已結帳的旅遊錢包不列: 一趟趟旅程會越積越多, 而且永遠不能再記。
+ * 「＋」在錢包頁以外打開的選錢包面板: 依自己的群組分組, 群組照自己排的順序, 群組裡沿用列表
+ * (後端已把最愛排前面)。不顯示的不列 (同列表); 已結帳的旅遊錢包也不列: 一趟趟旅程會越積越多,
+ * 而且永遠不能再記。沒有錢包可以選的群組整組不列。
  */
-export function addEntryPickerGroups(wallets: readonly WalletInfo[]) {
-  const items = wallets
-    .filter((wallet) => wallet.status !== "settled")
-    .map((wallet): AddEntryPickerItem => ({ wallet, block: addEntryBlock(wallet, true) }))
-  return {
-    general: items.filter((item) => item.wallet.kind === "general"),
-    travel: items.filter((item) => item.wallet.kind === "travel"),
-  }
+export function addEntryPickerGroups(
+  wallets: readonly WalletInfo[], groups: readonly WalletGroupInfo[],
+) {
+  return groups
+    .map((group) => ({
+      group,
+      items: wallets
+        .filter((w) => w.group_id === group.id && !w.is_hidden && w.status !== "settled")
+        .map((wallet): AddEntryPickerItem => ({ wallet, block: addEntryBlock(wallet, true) })),
+    }))
+    .filter((section) => section.items.length > 0)
 }
 
 /** 旅遊錢包摘要列的「我的淨額」。沒加入 (超級管理者) 或淨額載入失敗時沒有。 */
@@ -207,13 +201,16 @@ export function entryActions(entry: EntryInfo, viewer: Viewer) {
   return { edit: allowed && entry.kind !== "adjustment" && !orphan, delete: allowed }
 }
 
-/** 轉帳的對方錢包選單: 自己加入的其他一般錢包, 依錢包列表的順序。 */
+/**
+ * 轉帳的對方錢包選單: 自己加入的其他一般錢包, 依錢包列表的順序。設為不顯示的不列
+ * (見 docs/features.md〈錢包群組〉); 後端照樣接受, 這裡只是選單。
+ */
 export function transferTargets(
   wallets: readonly WalletInfo[],
   currentWalletId: string,
 ): TransferTarget[] {
   return wallets
-    .filter((wallet) => wallet.kind === "general" && wallet.id !== currentWalletId)
+    .filter((w) => w.kind === "general" && w.id !== currentWalletId && !w.is_hidden)
     .map(({ id, name }) => ({ id, name }))
 }
 

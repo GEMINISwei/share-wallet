@@ -8,8 +8,9 @@ export const ADMIN_WALLETS_PATH = "/admin/wallets"
 
 // 不要求任何權限: 錢包功能不設全站權限, 錢包裡能做什麼由成員角色決定 (後端判斷)。
 // 錢包頁、設定、成員、分類都在這個路徑底下, 由前綴一起受保護。
+// 不放進一般的導覽: 使用者區的「錢包」點了要展開群組, 由外殼放 `WalletNavItem`。
 const WALLETS_ROUTE = {
-  path: WALLETS_PATH, label: { zh: "錢包", en: "Wallets" }, group: "user", requires: [], navIcon: "wallets", showInNav: true,
+  path: WALLETS_PATH, label: { zh: "錢包", en: "Wallets" }, group: "user", requires: [], navIcon: "wallets", showInNav: false,
 } as const satisfies ProtectedRoute
 
 // 後台列出所有錢包, 只給超級管理者 (見 docs/features.md〈不設全站權限〉)。
