@@ -152,6 +152,35 @@ def test_check_migrate_compares_with_latest_release_tag(tmp_path: Path) -> None:
     assert "bbb.py" in result.stderr
 
 
+def test_check_migrate_allows_rewriting_migration_added_after_release(tmp_path: Path) -> None:
+    # 兩次發版之間, 同一個功能的 migration 可以併成一支: 它們還沒跑在任何主機上。
+    repo = Repo(tmp_path)
+    repo.migration("aaa", None)
+    repo.commit(tag="v0.0.1")
+    second = repo.migration("bbb", "aaa")
+    third = repo.migration("ccc", "bbb")
+    repo.commit()
+    third.unlink()
+    second.write_text(second.read_text() + "# folded ccc\n")
+
+    result = released_check(repo)
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_check_migrate_treats_prerelease_tag_as_release(tmp_path: Path) -> None:
+    # prerelease 會部署到 staging, 隨它發出去的 migration 一樣不能再改寫。
+    repo = Repo(tmp_path)
+    initial = repo.migration("aaa", None)
+    repo.commit(tag="v0.1.0-rc.1")
+    initial.write_text(initial.read_text() + "# changed after prerelease\n")
+
+    result = released_check(repo)
+
+    assert result.returncode != 0
+    assert "aaa.py" in result.stderr
+
+
 def test_ci_check_job_fetches_release_tags() -> None:
     # actions/checkout 預設只抓一個 commit、不抓 tag: 找不到 tag 時檢查會當成「還沒發版」而略過。
     workflow = CI_WORKFLOW.read_text(encoding="utf-8")
