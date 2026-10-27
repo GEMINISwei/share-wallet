@@ -156,17 +156,20 @@
 
 /*
  * iOS Safari 的原生日期欄位依顯示的日期文字自訂最小寬度, 不吃 `width: 100%`, 在手機上會撐出面板;
- * 關掉原生外觀才會照容器寬度。關掉後日期文字預設置中, 改回跟其他欄位一樣靠左。
+ * 關掉原生外觀才會照容器寬度。關掉後 iOS 不再垂直置中, 文字會貼在上緣, 用 line-height 撐回欄位內高。
+ * 日期文字刻意上下左右都置中, 不跟其他欄位一樣靠左。
  */
 .input[type="date"] {
   display: block;
   min-width: 0;
   appearance: none;
   -webkit-appearance: none;
+  line-height: calc(var(--control-height-md) - 2 * var(--border-width-hairline));
+  text-align: center;
 }
 
 .input[type="date"]::-webkit-date-and-time-value {
-  text-align: start;
+  text-align: center;
 }
 
 .selectControl {
