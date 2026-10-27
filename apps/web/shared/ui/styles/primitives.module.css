@@ -154,6 +154,21 @@
               box-shadow var(--dur-fast) var(--ease-standard);
 }
 
+/*
+ * iOS Safari 的原生日期欄位依顯示的日期文字自訂最小寬度, 不吃 `width: 100%`, 在手機上會撐出面板;
+ * 關掉原生外觀才會照容器寬度。關掉後日期文字預設置中, 改回跟其他欄位一樣靠左。
+ */
+.input[type="date"] {
+  display: block;
+  min-width: 0;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.input[type="date"]::-webkit-date-and-time-value {
+  text-align: start;
+}
+
 .selectControl {
   position: relative;
   display: block;

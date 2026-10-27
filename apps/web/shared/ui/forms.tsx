@@ -22,6 +22,7 @@ type TextInputProps = {
   readOnly?: boolean
   placeholder?: string
   autoComplete?: string
+  /** 只在 `Modal` 裡有效: 由 Modal 開啟時決定要不要 focus (觸控裝置不 focus, 見 `Modal`)。 */
   autoFocus?: boolean
   error?: string
   /** 可見標籤在別處時用 (例如登入頁只有 placeholder), 此時不要再給 `label`。 */
@@ -91,7 +92,7 @@ export function TextInput({
   const inputId = id ?? generatedId
   const errorId = error ? `${inputId}-error` : undefined
   const listId = suggestions?.length ? `${inputId}-suggestions` : undefined
-  const { onChange, ...inputProps } = props
+  const { onChange, autoFocus, ...inputProps } = props
   const accessibility = {
     id: inputId,
     name,
@@ -115,6 +116,7 @@ export function TextInput({
           )}
           onChange={(event) => onChange?.(event.target.value)}
           list={listId}
+          data-autofocus={autoFocus || undefined}
           {...accessibility}
           {...inputProps}
         />
@@ -205,6 +207,7 @@ type SelectInputProps = {
   /** 只給人看、複製的值 (例如分享連結)。 */
   readOnly?: boolean
   options: ReadonlyArray<{ label?: string; text?: string; value: string }>
+  /** 見 `TextInput` 的 `autoFocus`。 */
   autoFocus?: boolean
   error?: string
   /** 可見標籤在別處時用 (例如設定頁的列名), 此時不要再給 `label`。 */
@@ -219,7 +222,7 @@ export function SelectInput({
   const generatedId = useId()
   const inputId = id ?? generatedId
   const errorId = error ? `${inputId}-error` : undefined
-  const { onChange, ...selectProps } = props
+  const { onChange, autoFocus, ...selectProps } = props
   return (
     <label className={styles.field}>
       <FieldLabel label={label} required={selectProps.required} />
@@ -231,6 +234,7 @@ export function SelectInput({
           aria-label={ariaLabel}
           aria-invalid={error ? true : undefined}
           aria-describedby={errorId}
+          data-autofocus={autoFocus || undefined}
           onChange={(event) => onChange?.(event.target.value)}
           {...selectProps}
         >

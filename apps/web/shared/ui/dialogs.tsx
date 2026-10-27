@@ -47,7 +47,11 @@ export function Modal({
     if (!open) return
     const node = dialogRef.current
     if (!node || node.contains(document.activeElement)) return
-    const target = node.querySelector<HTMLElement>("[autofocus]") ?? node
+    // 觸控裝置 focus 輸入框會立刻叫出鍵盤, 這時底部面板還在滑入動畫的起點 (畫面外),
+    // 鍵盤蓋住欄位、使用者看不到在輸入什麼; 所以只 focus 對話框本身, 等使用者自己點欄位。
+    // 欄位用 `data-autofocus` 標記而不是 React 的 `autoFocus`, 後者在掛載時就 focus, 這裡攔不到。
+    const touch = window.matchMedia?.("(pointer: coarse)").matches ?? false
+    const target = touch ? node : node.querySelector<HTMLElement>("[data-autofocus]") ?? node
     target.focus({ preventScroll: true })
   }, [open])
 
