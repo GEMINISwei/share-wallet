@@ -10,53 +10,18 @@ from shared.auth.contracts import CurrentUser
 from shared.http.errors import LangException
 from shared.time import utc_now
 
-from .access import WalletAccess
+from .access import WalletAccess, open_travel_wallet
 from .errors import WalletError
-from .expenses import net_amounts, open_travel_wallet
+from .ledger import net_amounts
 from .model import (
-    PlannedTransfer,
     SettlementTransferDetail,
     TravelExpenseTable,
     TravelSettlementTransferTable,
     WalletStatus,
     WalletTable,
 )
+from .rules import plan_transfers
 from .schema import EntryUser, SettlementInfo, SettlementOperate, SettlementTransferInfo
-
-
-def plan_transfers(nets: list[tuple[str, int]]) -> list[PlannedTransfer]:
-    """依每人淨額 (依加入順序, 加總為 0) 算出清償方案, 依付款人、收款人的加入順序排列。
-
-    先把金額剛好相同的一對配成一筆, 剩下的每次讓應付最多的付給應收最多的, 同額照加入順序。
-    每一筆至少讓一個人歸零, 所以最多是有帳的人數 − 1 筆。不追求真正最少的理由見
-    docs/features/travel-wallet.md〈結算流程〉。
-    """
-    order = {user_id: index for index, (user_id, _) in enumerate(nets)}
-    debts = {user_id: -net for user_id, net in nets if net < 0}
-    credits = {user_id: net for user_id, net in nets if net > 0}
-    transfers: list[PlannedTransfer] = []
-
-    def pay(debtor: str, creditor: str, amount: int) -> None:
-        transfers.append({"from_user_id": debtor, "to_user_id": creditor, "amount": amount})
-        for balances, user_id in ((debts, debtor), (credits, creditor)):
-            balances[user_id] -= amount
-            if balances[user_id] == 0:
-                del balances[user_id]
-
-    for debtor in list(debts):
-        match = next((user_id for user_id in credits if credits[user_id] == debts[debtor]), None)
-        if match is not None:
-            pay(debtor, match, debts[debtor])
-
-    def largest(balances: dict[str, int]) -> str:
-        return max(balances, key=lambda user_id: (balances[user_id], -order[user_id]))
-
-    while debts:
-        debtor, creditor = largest(debts), largest(credits)
-        pay(debtor, creditor, min(debts[debtor], credits[creditor]))
-
-    transfers.sort(key=lambda t: (order[t["from_user_id"]], order[t["to_user_id"]]))
-    return transfers
 
 
 def _ensure_manage(access: WalletAccess) -> None:

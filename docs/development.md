@@ -167,10 +167,13 @@ cd apps/web && npm run test:watch           # 前端 watch 模式
 | 寫 session cookie 的 action 回傳前經過 `withoutAccessToken` | `apps/web/tests/token-cookie-writers.test.ts` |
 | 不用 `NEXT_PUBLIC_*` | `apps/web/tests/runtime-env.test.ts` |
 | 後端錯誤不用裸的 `HTTPException` | ruff `TID251`（`pyproject.toml`） |
+| 後端 service 回傳 pydantic model（不是 dict）並寫回傳型別 | `apps/api/tests/test_service_returns.py`、mypy `disallow_untyped_defs` |
 | compose 只由 `scripts/lib/compose.sh` 呼叫 | `apps/api/tests/test_compose_usage.py` |
 | 沒有未使用的匯出 | knip（`npm run check:deadcode`） |
 | model 改了有寫 migration | `make check integration` |
 | nginx 每個 location 都覆寫用戶端 IP、兩份模板都帶安全標頭 | `apps/api/tests/test_nginx_templates.py` |
+| 容器 nginx 只信任私有網段、port 只綁 `127.0.0.1`、主機範例覆寫轉送標頭 | `apps/api/tests/test_nginx_trusted_proxy.py` |
+| nginx 與 Next 的上傳上限一致 | `apps/web/tests/next.config.test.ts` |
 | nginx 的模板變了 `make start` 會重建 nginx | `apps/api/tests/test_nginx_config_recreate.py` |
 | `scripts/` 的 shell 寫法 | shellcheck（`make check lint`） |
 | compose 展得開、用到的變數 `.env.example` 都有 | `docker compose config`（`make check lint`） |
@@ -180,6 +183,7 @@ cd apps/web && npm run test:watch           # 前端 watch 模式
 | `make start` 先單獨跑 migrate，失敗不切換服務 | `apps/api/tests/test_stack_scripts.py` |
 | api 開機時不寫資料，初始資料由 migrate 寫入 | `apps/api/tests/shared/test_platform.py`、`apps/api/tests/scripts/test_db.py` |
 | `shared/` 用到的 CSS 變數都定義在 shared 裡 | `apps/web/tests/shared/ui/tokens.test.ts` |
+| `APP_VERSION` 與 CHANGELOG 的版號一致 | `apps/api/tests/test_version.py` |
 | 文件的相對連結與錨點有效、`features/` 與 ADR 都列在索引、ADR 的取代關係兩邊一致 | `apps/api/tests/test_docs.py`、`test_doc_decisions.py`、`test_doc_decision_supersession.py` |
 
 規則本身見 [`architecture.md`](architecture.md#強制依賴規則)。
@@ -261,7 +265,7 @@ GitHub 端要設定一次，流程才不是靠自覺：
 - 送出前通過 `make check`，實質改動在 [`CHANGELOG.md`](../CHANGELOG.md) 的 `## [Unreleased]` 留一筆。
 
 CI（`.github/workflows/ci.yml`）跑的就是本機指令：`check`（`make check`，含契約比對）、`integration`（`make check integration`）、`images`（兩份 production image
-建得起來，且 web image 裡沒有真的 Server Action 金鑰）。**本機綠，CI 就綠。** 部署另由
+建得起來，且 web image 裡沒有真的 Server Action 金鑰）、`e2e`（`make check e2e`）。**本機綠，CI 就綠。** 部署另由
 `deploy.yml` 在 Publish release 時執行，見 [`operations.md`](operations.md#自動部署)。
 
 ### AI 協作的共同作者

@@ -11,7 +11,7 @@ from shared.auth.permissions import WILDCARD
 from shared.http.errors import LangException, ensure_found
 
 from .errors import WalletError
-from .model import MemberRole, WalletDetail, WalletMemberTable, WalletTable
+from .model import MemberRole, WalletDetail, WalletKind, WalletMemberTable, WalletTable
 
 
 @dataclass(frozen=True)
@@ -44,4 +44,13 @@ async def manage_wallet(wallet_id: str, user: CurrentUser) -> WalletAccess:
     access = await open_wallet(wallet_id, user)
     if not access.can_manage:
         raise LangException(403, WalletError.NOT_ADMIN)
+    return access
+
+
+async def open_travel_wallet(wallet_id: str, current_user: CurrentUser) -> WalletAccess:
+    access = await open_wallet(wallet_id, current_user)
+    # 一般錢包是一份資產, 錢出去就是錢包的支出, 不分攤
+    # (見 docs/features/general-wallet.md〈收入與支出〉)。
+    if access.wallet["kind"] != WalletKind.TRAVEL:
+        raise LangException(400, WalletError.NOT_TRAVEL)
     return access

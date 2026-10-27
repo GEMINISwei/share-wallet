@@ -12,21 +12,20 @@ from modules.users.public import find_nicknames
 from shared.auth.contracts import CurrentUser
 from shared.http.errors import LangException, NoChangeError
 
-from .access import WalletAccess, open_wallet
+from .access import WalletAccess, open_travel_wallet
 from .errors import WalletError
-from .ledger import ensure_can_modify, write_log
+from .ledger import ensure_can_modify, totals_by_person, write_log
 from .model import (
     EntryLogAction,
     ExpenseDetail,
-    MemberTotals,
     ShareDetail,
     SplitMode,
     TravelExpenseTable,
-    WalletKind,
     WalletMemberTable,
     WalletStatus,
     WalletTable,
 )
+from .rules import split_equally
 from .schema import (
     CustomExpenseCreate,
     EntryOperate,
@@ -54,35 +53,10 @@ class _Fields(TypedDict):
     note: str
 
 
-async def open_travel_wallet(wallet_id: str, current_user: CurrentUser) -> WalletAccess:
-    access = await open_wallet(wallet_id, current_user)
-    # 一般錢包是一份資產, 錢出去就是錢包的支出, 不分攤
-    # (見 docs/features/general-wallet.md〈收入與支出〉)。
-    if access.wallet["kind"] != WalletKind.TRAVEL:
-        raise LangException(400, WalletError.NOT_TRAVEL)
-    return access
-
-
 async def _lock_ledger(wallet_id: str) -> None:
     """開始結算之後帳目鎖住 (見 docs/features/travel-wallet.md〈結算流程〉)。"""
     if await WalletTable.lock_status(wallet_id) is not WalletStatus.ACTIVE:
         raise LangException(409, WalletError.LEDGER_LOCKED)
-
-
-def split_equally(
-    amount: int, payer_id: str, participant_ids: list[str], member_ids: list[str]
-) -> list[ShareDetail]:
-    """除不盡的零頭依序一人一份: 付款人優先, 其餘照加入順序。結果依加入順序排列。
-
-    `member_ids` 是加入錢包的順序; 分攤對象都要在裡面 (呼叫端先檢查)。
-    """
-    chosen = set(participant_ids)
-    ordered = [user_id for user_id in member_ids if user_id in chosen]
-    base, remainder = divmod(amount, len(ordered))
-    # sorted 是穩定的: 付款人移到最前面, 其他人維持加入順序。
-    priority = sorted(ordered, key=lambda user_id: user_id != payer_id)
-    extra = set(priority[:remainder])
-    return [{"user_id": user_id, "amount": base + (user_id in extra)} for user_id in ordered]
 
 
 async def _shares(wallet_id: str, form_data: ExpenseForm) -> list[ShareDetail]:
@@ -245,27 +219,9 @@ async def list_expenses(
     return ExpensePage(list_data=items, next_cursor=page["next_cursor"])
 
 
-async def _totals_by_person(wallet_id: str) -> list[tuple[str, MemberTotals]]:
-    """所有成員依加入順序, 後面接著已經離開、但有紀錄的人。
-
-    有紀錄的人在結帳前不能離開, 結帳後可以 (見 docs/features/travel-wallet.md〈封存〉),
-    金額照樣要算進去。
-    """
-    member_ids = [member["user_id"] for member in await WalletMemberTable.list_members(wallet_id)]
-    totals = await TravelExpenseTable.totals(wallet_id)
-    members = set(member_ids)
-    people = [*member_ids, *(user_id for user_id in totals if user_id not in members)]
-    return [(user_id, totals.get(user_id, {"paid": 0, "owed": 0})) for user_id in people]
-
-
-async def net_amounts(wallet_id: str) -> list[tuple[str, int]]:
-    """每人的淨額, 順序同 `_totals_by_person`。給結算算清償方案。"""
-    return [(user_id, t["paid"] - t["owed"]) for user_id, t in await _totals_by_person(wallet_id)]
-
-
 async def list_net_balances(wallet_id: str, current_user: CurrentUser) -> NetBalanceList:
     await open_travel_wallet(wallet_id, current_user)
-    people = await _totals_by_person(wallet_id)
+    people = await totals_by_person(wallet_id)
     nicknames = await find_nicknames([user_id for user_id, _ in people])
     items = [
         NetBalanceInfo(
