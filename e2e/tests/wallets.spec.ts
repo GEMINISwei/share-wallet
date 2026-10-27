@@ -10,6 +10,7 @@ const walletName = "E2E 家用"
 test.describe.configure({ mode: "serial" })
 
 let walletUrl = ""
+let yenUrl = ""
 
 async function signup(page: Page, account: typeof owner) {
   await page.getByRole("textbox", { name: "暱稱" }).fill(account.nickname)
@@ -112,8 +113,15 @@ test("從帳號選單進入錢包設定，新增群組、把錢包移進去並�
   await moveDialog.getByRole("button", { name: "儲存", exact: true }).click()
   await expect(moveDialog).toBeHidden()
 
+  await expect(yen.getByRole("listitem").filter({ hasText: walletName })).toBeVisible()
+
+  // 「日圓」現在是第一個有顯示中錢包的一般群組: 記下網址, 設為不顯示後導覽就不列它了。
+  await page.goto("/wallets")
+  await expect(page.getByRole("heading", { name: "日圓" })).toBeVisible()
+  yenUrl = page.url()
+  await page.goto("/wallets/settings")
+
   const moved = yen.getByRole("listitem").filter({ hasText: walletName })
-  await expect(moved).toBeVisible()
   await moved.getByRole("button", { name: "操作選單" }).click()
   await page.getByRole("menuitem", { name: "設為不顯示" }).click()
   await expect(moved.getByText("不顯示", { exact: true })).toBeVisible()
@@ -124,13 +132,12 @@ test("群組頁只列顯示中的錢包，總額只算顯示中的錢包", async
   // 上一個測試把錢包移進「日圓」並設為不顯示: 沒有任何顯示中的錢包, 進到一般的預設群組。
   await expect(page.getByRole("heading", { name: "一般錢包（未選擇）" })).toBeVisible()
 
-  // 在群組頁時側欄的「錢包」預設展開; 一般錢包那段只剩「日圓」(預設群組裡沒有顯示中的錢包)。
+  // 沒有任何群組有顯示中的錢包: 側欄的「錢包」不展開, 一段都不列。
   const sidebar = page.getByRole("navigation", { name: "主要導覽" })
-  await expect(sidebar.getByRole("button", { name: "錢包", exact: true }))
-    .toHaveAttribute("aria-expanded", "true")
   const generalSection = sidebar.getByRole("group", { name: "一般錢包" })
-  await expect(generalSection.getByRole("link")).toHaveCount(1)
-  await generalSection.getByRole("link", { name: /日圓/ }).click()
+  await expect(generalSection).toHaveCount(0)
+
+  await page.goto(yenUrl)
   await expect(page.getByRole("heading", { name: "日圓" })).toBeVisible()
   await expect(page.getByText(walletName)).toBeHidden()
 
@@ -146,4 +153,10 @@ test("群組頁只列顯示中的錢包，總額只算顯示中的錢包", async
   await expect(page.getByRole("heading", { name: "日圓" })).toBeVisible()
   await expect(page.getByText(walletName)).toBeVisible()
   await expect(page.getByText("9,500").first()).toBeVisible()
+
+  // 設回顯示之後, 一般錢包那段只列「日圓」(預設群組裡沒有顯示中的錢包)。
+  await expect(sidebar.getByRole("button", { name: "錢包", exact: true }))
+    .toHaveAttribute("aria-expanded", "true")
+  await expect(generalSection.getByRole("link")).toHaveCount(1)
+  await expect(generalSection.getByRole("link", { name: /日圓/ })).toBeVisible()
 })

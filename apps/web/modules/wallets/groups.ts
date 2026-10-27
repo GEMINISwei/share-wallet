@@ -40,27 +40,23 @@ export function moveTargets(groups: readonly WalletGroupInfo[], wallet: WalletIn
 }
 
 /**
- * 導覽裡能選的群組 (見 docs/features/wallets.md〈錢包列表〉): 自訂群組一律列出, 預設群組只有裡面有
- * 顯示中的錢包才列出 —— 「未選擇」空著時列出來只會讓人點進一頁空白。
+ * 導覽裡能選的群組 (見 docs/features/wallets.md〈錢包列表〉): 只列裡面有顯示中錢包的,
+ * 自訂與預設都一樣 —— 空的群組列出來只會讓人點進一頁空白。
  */
 export function navGroups(groups: readonly WalletGroupInfo[], kind: WalletKind) {
-  return groups.filter(
-    (group) => group.kind === kind && (!group.is_default || group.visible_count > 0),
-  )
+  return groups.filter((group) => group.kind === kind && group.visible_count > 0)
 }
 
 export type NavSection = { kind: WalletKind; groups: WalletGroupInfo[] }
 
 /**
- * 導覽的「錢包」展開後的兩段: 一般、旅遊各自能選的群組。一種都沒有時列出它的預設群組,
- * 才進得去建立那種錢包。
+ * 導覽的「錢包」展開後的段落: 一般、旅遊各一段, 沒有能選的群組就不列那一段。
+ * 建立錢包時可以選類型, 不必靠空的預設群組進去建立。
  */
 export function navSections(groups: readonly WalletGroupInfo[]): NavSection[] {
-  return (["general", "travel"] as const).map((kind) => {
-    const choices = navGroups(groups, kind)
-    const fallback = groups.filter((group) => group.kind === kind && group.is_default)
-    return { kind, groups: choices.length > 0 ? choices : fallback }
-  })
+  return (["general", "travel"] as const)
+    .map((kind) => ({ kind, groups: navGroups(groups, kind) }))
+    .filter((section) => section.groups.length > 0)
 }
 
 function defaultGroupId(groups: readonly WalletGroupInfo[], kind: WalletKind) {
