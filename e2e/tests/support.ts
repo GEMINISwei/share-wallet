@@ -19,7 +19,7 @@ function requireEnv(name: string): string {
   return value
 }
 
-/** 登入後與打開 /wallets 時進到的群組頁 (見 docs/features.md〈錢包列表〉)。 */
+/** 登入後與打開 /wallets 時進到的群組頁 (見 docs/features/wallets.md〈錢包列表〉)。 */
 export const WALLET_HOME = /\/wallets\/groups\/[0-9a-f-]+$/
 
 export async function login(page: Page, account: { username: string; password: string }) {

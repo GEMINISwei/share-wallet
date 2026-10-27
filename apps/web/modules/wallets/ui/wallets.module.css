@@ -615,7 +615,7 @@ a.row:hover {
 }
 
 /* 錢包頁的手機版只留摘要列、清償方案與帳目, 其他收進標題列的 ⋮ 選單
- * (見 docs/features.md〈錢包頁的版面〉)。放在檔尾, 才蓋得過同權重的 display。 */
+ * (見 docs/features/ui.md〈錢包頁的版面〉)。放在檔尾, 才蓋得過同權重的 display。 */
 @media (min-width: 721px) {
   .mobileOnly {
     display: none;

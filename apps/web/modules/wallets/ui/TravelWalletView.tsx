@@ -77,7 +77,7 @@ function useHeaderActions(wallet: WalletInfo, ready: boolean, canStart: boolean,
 
 /**
  * 旅遊錢包頁: 結算狀態與清償方案、每人淨額、帳目列表, 以及成員、異動紀錄、設定的入口。
- * 手機只留摘要列 (我的淨額)、清償方案與帳目, 其他收進 ⋮ 選單 (見 docs/features.md〈錢包頁的版面〉)。
+ * 手機只留摘要列 (我的淨額)、清償方案與帳目, 其他收進 ⋮ 選單 (見 docs/features/ui.md〈錢包頁的版面〉)。
  */
 export default function TravelWalletView({ wallet, area, travel }: TravelWalletViewProps) {
   const t = useT(walletsMessages)

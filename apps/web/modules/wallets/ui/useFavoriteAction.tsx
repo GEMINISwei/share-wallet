@@ -10,7 +10,7 @@ import type { WalletInfo } from "../types"
 
 /**
  * 錢包頁選單裡的「加入／取消最愛」。最愛記在自己的成員紀錄上, 沒加入的超級管理者沒有這一項
- * (見 docs/features.md〈錢包列表〉)。
+ * (見 docs/features/wallets.md〈錢包列表〉)。
  */
 type Notify = { success: (message: string) => void; error: (message: string) => void }
 

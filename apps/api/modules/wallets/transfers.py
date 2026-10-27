@@ -1,4 +1,5 @@
-"""一般錢包之間的轉帳: 兩個錢包各一筆, 一起建立、一起修改、一起刪除 (見 docs/features.md〈轉帳〉)。
+"""一般錢包之間的轉帳: 兩個錢包各一筆, 一起建立、一起修改、一起刪除
+(見 docs/features/general-wallet.md〈轉帳〉)。
 
 兩筆以 `transfer_id` 連在一起, 各自記著對方錢包。建立要同時是兩邊的成員; 修改、刪除要在兩邊都
 有改刪權限。對方錢包被刪除後只剩這一邊, 由 `entries.delete_entry` 當成一般的帳刪。
@@ -99,7 +100,9 @@ async def _create_half(
 
 
 async def _joined_general_wallet(wallet_id: str, current_user: CurrentUser) -> WalletAccess:
-    """建立轉帳的對方: 要是自己加入的一般錢包。超管沒加入也不行 (見 docs/features.md〈轉帳〉)。"""
+    """建立轉帳的對方: 要是自己加入的一般錢包。超管沒加入也不行
+    (見 docs/features/general-wallet.md〈轉帳〉)。
+    """
     access = await _counterpart_access(wallet_id, current_user)
     if access is None or access.role is None:
         raise LangException(404, WalletError.TRANSFER_WALLET_NOT_FOUND)

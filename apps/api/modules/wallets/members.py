@@ -67,7 +67,7 @@ async def update_member_role(
 async def remove_member(wallet_id: str, user_id: str, current_user: CurrentUser) -> MemberOperate:
     """移除自己就是離開, 每個成員都可以; 移除別人要是管理者。
 
-    只刪成員紀錄 (見 docs/features.md〈離開與移除〉)。最後一位管理者不能離開也不能被移除;
+    只刪成員紀錄 (見 docs/features/members.md〈離開與移除〉)。最後一位管理者不能離開也不能被移除;
     旅遊錢包裡有付款或分攤紀錄的人也不能 (見〈成員異動〉): 他一走, 淨額就少了一個人。
     已結帳的旅遊錢包不能移除別人, 但有紀錄的人可以自己離開 (見〈封存〉): 金額不會再變了。
     """

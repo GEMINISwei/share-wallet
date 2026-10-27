@@ -80,7 +80,7 @@ function RemainderHint({ values }: { values: ExpenseFormValues }) {
 }
 
 /**
- * 指定金額: 一張表, 按「新增」加一列, 選人、填金額 (見 docs/features.md〈分攤〉)。
+ * 指定金額: 一張表, 按「新增」加一列, 選人、填金額 (見 docs/features/travel-wallet.md〈分攤〉)。
  * 每一列能選的人不含其他列已經選的; 全部的人都在表上時「新增」就停用。
  */
 export function CustomShares(

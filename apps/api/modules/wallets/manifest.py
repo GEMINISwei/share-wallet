@@ -15,7 +15,7 @@ from .model import (
 )
 from .router import admin_router, group_router, invite_router, router
 
-# 沒有 permissions: 錢包功能不設全站權限 (見 docs/features.md〈不設全站權限〉);
+# 沒有 permissions: 錢包功能不設全站權限 (見 docs/features/members.md〈不設全站權限〉);
 # 後台的端點跟 users、roles 一樣只開放給超級管理者 (`Permission.ALL`)。
 MODULE = ModuleManifest(
     name="wallets",

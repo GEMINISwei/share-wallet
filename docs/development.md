@@ -180,6 +180,7 @@ cd apps/web && npm run test:watch           # 前端 watch 模式
 | `make start` 先單獨跑 migrate，失敗不切換服務 | `apps/api/tests/test_stack_scripts.py` |
 | api 開機時不寫資料，初始資料由 migrate 寫入 | `apps/api/tests/shared/test_platform.py`、`apps/api/tests/scripts/test_db.py` |
 | `shared/` 用到的 CSS 變數都定義在 shared 裡 | `apps/web/tests/shared/ui/tokens.test.ts` |
+| 文件的相對連結與錨點有效、`features/` 與 ADR 都列在索引、ADR 的取代關係兩邊一致 | `apps/api/tests/test_docs.py`、`test_doc_decisions.py`、`test_doc_decision_supersession.py` |
 
 規則本身見 [`architecture.md`](architecture.md#強制依賴規則)。
 
@@ -238,9 +239,14 @@ GitHub 端要設定一次，流程才不是靠自覺：
 
 - [ ] Settings → General → Pull Requests：只勾 **Allow squash merging**，預設訊息選
   **Pull request title and commit details**，並勾 **Automatically delete head branches**
-- [ ] Settings → Rules：替 `main` 建 ruleset，開 **Require a pull request before merging**，
-  並把 CI 的四個 job（`check`、`integration`、`images`、`e2e`）設成 **required status check**。
-  CI 多了 job 時要回來這裡加：沒列進去的 job 紅了，PR 照樣能合併
+- [ ] Settings → Rules：替 `main` 建 ruleset，開下面幾項。上一項的 General 設定任何管理員都能改回來，
+  而且不會有人發現；ruleset 綁在 `main` 上，才是真正擋住的那一層：
+  - **Restrict deletions**、**Block force pushes**：建 ruleset 時預設勾起，保持勾選
+  - **Require linear history**：`main` 上不會出現 merge commit，有 bypass 權限的人直接 push 也一樣
+  - **Require a pull request before merging**，展開後把 **Allowed merge methods** 改成只留 **Squash**
+  - **Require status checks to pass**：把 CI 的四個 job（`check`、`integration`、`images`、`e2e`）
+    加進去，並勾 **Require branches to be up to date before merging**，CI 是跟最新的 `main` 一起跑過的。
+    CI 多了 job 時要回來這裡加：沒列進去的 job 紅了，PR 照樣能合併
 - [ ] Settings → Advanced Security（有的帳號叫 Code security）：三項都要打開，少一項安全更新就不會來
   （套件只收安全更新，見〈相依升級〉）：
   - **Dependency graph**：從 lock 檔與 manifest 解析出相依清單，後兩項都靠它

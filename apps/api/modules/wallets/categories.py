@@ -38,7 +38,7 @@ def default_categories() -> list[tuple[CategoryType, str]]:
 
 
 def _ensure_general(access: WalletAccess) -> None:
-    # 旅遊錢包不選分類 (見 docs/features.md〈旅遊錢包〉)。
+    # 旅遊錢包不選分類 (見 docs/features/travel-wallet.md)。
     if access.wallet["kind"] != WalletKind.GENERAL:
         raise LangException(400, WalletError.NO_CATEGORIES)
 
@@ -94,7 +94,7 @@ async def rename_category(
 
 
 async def archive_category(wallet_id: str, id: str, current_user: CurrentUser) -> CategoryOperate:
-    """刪除分類是封存 (見 docs/features.md〈分類〉)。"""
+    """刪除分類是封存 (見 docs/features/general-wallet.md〈分類〉)。"""
     _ensure_general(await manage_wallet(wallet_id, current_user))
     await _active_category(wallet_id, id)
     await WalletCategoryTable.update_by_id(id=id, data={"archived_at": utc_now()})

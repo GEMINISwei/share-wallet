@@ -48,7 +48,9 @@ class WalletKind(StrEnum):
 
 
 class WalletStatus(StrEnum):
-    """錢包的生命週期。只有旅遊錢包會離開 `active` (見 docs/features.md〈結算流程〉)。"""
+    """錢包的生命週期。只有旅遊錢包會離開 `active`
+    (見 docs/features/travel-wallet.md〈結算流程〉)。
+    """
 
     ACTIVE = "active"
     SETTLING = "settling"
@@ -163,7 +165,8 @@ class WalletTable(BaseTable):
     name: Mapped[str]
     # 存字串的理由同 `kind`。
     status: Mapped[str] = mapped_column(String, default=WalletStatus.ACTIVE)
-    # 餘額是存起來的值 (記帳時當下更新), 不是顯示時才從明細加總, 見 docs/features.md〈餘額〉。
+    # 餘額是存起來的值 (記帳時當下更新), 不是顯示時才從明細加總,
+    # 見 docs/features/general-wallet.md〈餘額〉。
     # 旅遊錢包沒有餘額, 但仍是 0 而不是 NULL: 列表的加總只看一般錢包, 不必處理 NULL。
     balance: Mapped[int] = mapped_column(BigInteger, default=0)
     destination: Mapped[str | None] = mapped_column(String, default=None)
@@ -298,7 +301,7 @@ class WalletTable(BaseTable):
         """真的刪除, 成員與分類由外鍵的 `ON DELETE CASCADE` 一起刪掉。
 
         這個模板其他的 DELETE 都是停用, 錢包例外: 規格要求刪除是永久的
-        (見 docs/features.md〈刪除錢包〉), 留著列只會讓每個查詢都要記得過濾。
+        (見 docs/features/wallets.md〈刪除錢包〉), 留著列只會讓每個查詢都要記得過濾。
         """
         row_id = parse_uuid(id)
         if row_id is None:
@@ -310,7 +313,7 @@ class WalletTable(BaseTable):
 
 
 class WalletGroupTable(BaseTable):
-    """每個人自己的錢包群組 (見 docs/features.md〈錢包群組〉)。
+    """每個人自己的錢包群組 (見 docs/features/wallets.md〈錢包群組〉)。
 
     預設群組也是一列: 錢包一定要屬於某個群組, 而且預設群組跟自訂群組一起排序。
     """
@@ -466,7 +469,8 @@ class WalletMemberTable(BaseTable):
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
     role: Mapped[str] = mapped_column(String)
-    # 最愛是每個人自己的標記 (見 docs/features.md〈錢包列表〉), 所以放在成員紀錄而不是錢包上;
+    # 最愛是每個人自己的標記 (見 docs/features/wallets.md〈錢包列表〉),
+    # 所以放在成員紀錄而不是錢包上;
     # 離開錢包時跟著成員紀錄一起消失。
     is_favorite: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     # 群組與顯示也是每個人自己的設定, 理由同 `is_favorite`。
@@ -632,7 +636,8 @@ class WalletCategoryTable(BaseTable):
     )
     type: Mapped[str] = mapped_column(String)
     name: Mapped[str]
-    # 刪除分類是封存 (見 docs/features.md〈分類〉): 帳目引用著它, 舊帳要照樣顯示原本的名稱。
+    # 刪除分類是封存 (見 docs/features/general-wallet.md〈分類〉): 帳目引用著它,
+    # 舊帳要照樣顯示原本的名稱。
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), default=None)
 
     __table_args__ = (
@@ -719,7 +724,8 @@ class WalletInviteTable(BaseTable):
     wallet_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("wallets.id", ondelete="CASCADE"), unique=True
     )
-    # 存原文而不是雜湊: 有效期內管理者要能再看到同一條連結 (見 docs/features.md〈邀請連結〉)。
+    # 存原文而不是雜湊: 有效期內管理者要能再看到同一條連結
+    # (見 docs/features/members.md〈邀請連結〉)。
     # 連結一天就過期、只能以成員身分加入, 外洩的代價有限。
     token: Mapped[str] = mapped_column(String, unique=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=False))
@@ -776,7 +782,7 @@ class AdvanceTargetDetail(TypedDict):
 
 
 class WalletAdvanceTargetTable(BaseTable):
-    """代墊的對象。不是成員, 只是名字 (見 docs/features.md〈代墊與還款〉)。
+    """代墊的對象。不是成員, 只是名字 (見 docs/features/general-wallet.md〈代墊與還款〉)。
 
     未還金額存在這裡而不是查詢時加總各筆代墊: 錢包頁每次都要顯示未還清單。
     名字用過一次就留著 (未還為 0 也是), 記代墊時當作輸入提示。
@@ -923,7 +929,7 @@ class WalletEntryTable(BaseTable):
         UUID(as_uuid=True), default=None, index=True
     )
     # 對方錢包被刪除時設成 NULL 而不是連帶刪掉這一筆: 別人刪掉自己的錢包, 不該改到這個錢包的
-    # 帳與餘額 (見 docs/features.md〈轉帳〉)。
+    # 帳與餘額 (見 docs/features/general-wallet.md〈轉帳〉)。
     counterpart_wallet_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("wallets.id", ondelete="SET NULL"), default=None
     )
@@ -931,14 +937,16 @@ class WalletEntryTable(BaseTable):
     advance_target_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("wallet_advance_targets.id"), default=None
     )
-    # 還款指向它的代墊。不設 ON DELETE: 有還款的代墊不能刪 (見 docs/features.md〈代墊與還款〉),
+    # 還款指向它的代墊。不設 ON DELETE: 有還款的代墊不能刪
+    # (見 docs/features/general-wallet.md〈代墊與還款〉),
     # 外鍵替 service 的檢查再擋一次。
     advance_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("wallet_entries.id"), default=None, index=True
     )
     # 代墊還沒還的金額, 存起來的值: 還款的上限要在上鎖後直接讀, 不從還款加總。
     outstanding: Mapped[int | None] = mapped_column(BigInteger, default=None)
-    # 指向使用者而不是成員紀錄: 記帳人離開錢包後帳目照樣保留 (見 docs/features.md〈離開與移除〉)。
+    # 指向使用者而不是成員紀錄: 記帳人離開錢包後帳目照樣保留
+    # (見 docs/features/members.md〈離開與移除〉)。
     # 不設 ON DELETE: 使用者只會被停用, 不會被刪除。
     created_by: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
 
@@ -948,7 +956,7 @@ class WalletEntryTable(BaseTable):
             " 'advance', 'repayment')",
             name="kind",
         ),
-        # 只有調整的差額可以是負的 (見 docs/features.md〈金額〉)。
+        # 只有調整的差額可以是負的 (見 docs/features/amounts.md)。
         CheckConstraint(
             "(kind = 'adjustment' AND amount <> 0) OR (kind <> 'adjustment' AND amount > 0)",
             name="amount",
@@ -1236,7 +1244,7 @@ class TravelExpenseTable(BaseTable):
     )
     amount: Mapped[int] = mapped_column(BigInteger)
     # 指向使用者而不是成員紀錄, 理由同 `WalletEntryTable.created_by`; 有紀錄的人不能離開
-    # (見 docs/features.md〈成員異動〉), 所以付款人一定還是成員。
+    # (見 docs/features/travel-wallet.md〈成員異動〉), 所以付款人一定還是成員。
     payer_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
     # 存字串的理由同 `WalletTable.kind`。
     split_mode: Mapped[str] = mapped_column(String)
@@ -1463,7 +1471,7 @@ class SettlementTransferDetail(TypedDict):
 
 
 class TravelSettlementTransferTable(BaseTable):
-    """清償方案的一筆轉帳, 以及它的付款與確認 (見 docs/features.md〈結算流程〉)。
+    """清償方案的一筆轉帳, 以及它的付款與確認 (見 docs/features/travel-wallet.md〈結算流程〉)。
 
     方案在開始結算時算好整份存進來, 結算中不重算: 帳目鎖住了, 重算只會得到同樣的結果,
     而存下來才能逐筆記付款與確認。取消結算時整份刪掉, 不留作廢的列: 規格說作廢,

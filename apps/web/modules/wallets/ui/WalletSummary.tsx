@@ -19,7 +19,7 @@ type WalletSummaryProps = {
 
 /**
  * 錢包頁最上方的摘要列。「記一筆」只在手機放在這裡 (桌機在標題列),
- * 理由見 docs/features.md〈錢包頁的版面〉。
+ * 理由見 docs/features/ui.md〈錢包頁的版面〉。
  */
 export default function WalletSummary(
   { label, value, onAdd, mobileOnly = false }: WalletSummaryProps,

@@ -32,7 +32,7 @@ type WalletPageState = {
   hasExpenses: boolean
 }
 
-/** 手機錢包頁標題列「⋯」的項目, 依顯示順序 (見 docs/features.md〈錢包頁的版面〉)。 */
+/** 手機錢包頁標題列「⋯」的項目, 依顯示順序 (見 docs/features/ui.md〈錢包頁的版面〉)。 */
 export function walletMenuItems(wallet: WalletInfo, state: WalletPageState): WalletMenuItem[] {
   const sections = walletSections(wallet)
   const travel = travelActions(wallet)
@@ -56,7 +56,7 @@ export function walletMenuItems(wallet: WalletInfo, state: WalletPageState): Wal
 }
 
 /**
- * 開始結算: 管理者、進行中, 還要有帳目 (後端也擋, 見 docs/features.md〈結算流程〉)。
+ * 開始結算: 管理者、進行中, 還要有帳目 (後端也擋, 見 docs/features/travel-wallet.md〈結算流程〉)。
  * 載入失敗時管理者看不到要結算的帳, 也不給按。
  */
 export function canStartSettlement(wallet: WalletInfo, ready: boolean, hasExpenses: boolean) {
@@ -131,7 +131,7 @@ type Viewer = { userId: string; canManage: boolean }
 
 /**
  * 成員清單上某一列可以做的事。自己那一列是「離開」, 別人那一列 (管理者才有) 是「移出」。
- * 已結帳的旅遊錢包只剩離開 (見 docs/features.md〈封存〉)。
+ * 已結帳的旅遊錢包只剩離開 (見 docs/features/travel-wallet.md〈封存〉)。
  */
 export function memberActions(
   member: MemberInfo,
@@ -203,7 +203,7 @@ export function entryActions(entry: EntryInfo, viewer: Viewer) {
 
 /**
  * 轉帳的對方錢包選單: 自己加入的其他一般錢包, 依錢包列表的順序。設為不顯示的不列
- * (見 docs/features.md〈錢包群組〉); 後端照樣接受, 這裡只是選單。
+ * (見 docs/features/wallets.md〈錢包群組〉); 後端照樣接受, 這裡只是選單。
  */
 export function transferTargets(
   wallets: readonly WalletInfo[],
@@ -221,7 +221,7 @@ export function canTransfer(wallet: WalletInfo, targets: readonly TransferTarget
 
 /**
  * 記一筆能選的類型。修改時收支只能互換, 轉帳與代墊不能切換類型
- * (見 docs/features.md〈轉帳〉〈代墊與還款〉)。還款不從記一筆記, 而是從代墊的詳情。
+ * (見 docs/features/general-wallet.md〈轉帳〉〈代墊與還款〉)。還款不從記一筆記, 而是從代墊的詳情。
  */
 export function entryKindOptions(
   entry: EntryInfo | null,
@@ -247,7 +247,7 @@ type CategoryOption = { id: string; name: string }
 
 /**
  * 記帳時能選的分類: 這個類型、還沒封存的。修改時再加上這筆帳原本的分類 —— 它可能已經封存,
- * 而後端允許保留 (見 docs/features.md〈收入與支出〉); 換了類型就不留。
+ * 而後端允許保留 (見 docs/features/general-wallet.md〈收入與支出〉); 換了類型就不留。
  */
 export function entryCategoryOptions(
   categories: readonly CategoryInfo[],
@@ -278,7 +278,7 @@ export function changedFields(log: EntryLogInfo): (keyof EntrySnapshot)[] {
 // ── 旅遊錢包 ────────────────────────────────────────────────────────────────
 
 /**
- * 旅遊錢包的帳: 權限同一般錢包, 所有欄位都可以改 (見 docs/features.md〈記帳〉)。
+ * 旅遊錢包的帳: 權限同一般錢包, 所有欄位都可以改 (見 docs/features/travel-wallet.md〈記帳〉)。
  * 開始結算之後帳目鎖住 (`locked`), 誰都不能改刪。
  */
 export function expenseActions(expense: ExpenseInfo, viewer: Viewer, locked = false) {

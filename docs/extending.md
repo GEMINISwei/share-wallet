@@ -1,6 +1,6 @@
 # 擴充指南
 
-用這個模板開新案時，可以加上的擴充項目與做法。內建功能怎麼運作見 [`features.md`](features.md)，
+用這個模板開新案時，可以加上的擴充項目與做法。內建功能怎麼運作見 [`features/`](features/README.md)，
 依賴邊界與模組介面的**規則**在 [`architecture.md`](architecture.md)。
 
 範例一律照抄現成模組，兩邊都從 **roles** 開始（標準的 CRUD：列表、建立、修改、停用）：
@@ -227,7 +227,7 @@ autogenerate 固定會漏三件事，產出一定要讀：
 
 定義在 model class 上，由 **migrate 服務**在 `alembic upgrade head` 之後以 `BaseTable.ensure_seed()`
 寫入（`scripts/db.py migrate`）。`make start`、`make db migrate`、`make db reset` 都會經過它；
-api 開機時**不寫任何資料**。所以 seed 失敗跟 migration 失敗一樣，會被 `make start`「migrate 失敗就不切換服務」
+api 開機時**不寫任何資料**（[ADR 0007](decisions/0007-seed-in-migrate-service.md)）。所以 seed 失敗跟 migration 失敗一樣，會被 `make start`「migrate 失敗就不切換服務」
 擋下（見 [`operations.md`](operations.md#生產部署)）：
 
 
@@ -242,7 +242,8 @@ api 開機時**不寫任何資料**。所以 seed 失敗跟 migration 失敗一�
 
 ## 背景工作（尚未內建）
 
-寄信、匯出報表、排程這類不該卡住請求的工作，模板還沒有提供，但方向已經定了，加的時候照這個做：
+寄信、匯出報表、排程這類不該卡住請求的工作，模板還沒有提供，但方向已經定了
+（[ADR 0006](decisions/0006-postgres-job-queue.md)），加的時候照這個做：
 
 - **另開一個 worker 容器**，跟 `migrate` 一樣用 api 的 image、換一個 command，程式與 model 共用。
 - **佇列放 PostgreSQL**（`SELECT … FOR UPDATE SKIP LOCKED`），**不導入 Redis**：少一個要維運與備份的
@@ -257,7 +258,7 @@ api 開機時**不寫任何資料**。所以 seed 失敗跟 migration 失敗一�
 
 ## 語系（i18n）
 
-語系怎麼在前後端之間傳遞見 [`features.md`](features.md#語系)。
+語系怎麼在前後端之間傳遞見 [語系](features/i18n.md)。
 
 **字串放在擁有它的那一層的 `i18n.ts`**，沒有全站字典：
 

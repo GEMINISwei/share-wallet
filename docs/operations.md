@@ -1,6 +1,6 @@
 # 部署與維運
 
-正式環境的部署、主機設定、備份與救援。系統功能怎麼運作見 [`features.md`](features.md)，本機開發見 [`development.md`](development.md)。
+正式環境的部署、主機設定、備份與救援。系統功能怎麼運作見 [`features/`](features/README.md)，本機開發見 [`development.md`](development.md)。
 
 ## 生產部署
 
@@ -60,7 +60,7 @@ seed 失敗時結構已經升上去了，服務一樣不切換，修好之後重
 **每次部署都會短暫中斷服務**：部署前的備份期間 nginx 是停的（資料越多越久，見
 〈[備份與還原](#備份與還原)〉），`make start` 重建容器後也要等 healthcheck 通過，nginx 才會接回流量。
 所以要挑離峰時段部署。零停機（新版起來才切流量）的前提是 api 能同時跑兩份，目前做不到，見
-〈[單一行程，不能直接加副本](#單一行程不能直接加副本)〉。
+〈[單一行程，不能直接加副本](#單一行程不能直接加副本)〉與 [ADR 0004](decisions/0004-downtime-deploys.md)。
 
 prod overlay 比 dev 多了 **log 上限**與**記憶體上限**（api、web 各 512M，postgres 1G）。
 api 週期性重啟時，先懷疑記憶體上限。
@@ -73,7 +73,7 @@ api 週期性重啟時，先懷疑記憶體上限。
 - [ ] `.env` 的密碼、`JWT_SECRET_KEY` 都是這台主機自己產的
 - [ ] 備份排程與異地保存，並做過一次還原演練
 - [ ] 確認只有 log、沒有錯誤追蹤與告警是可以接受的（見〈[可觀測性只到 stdout](#可觀測性只到-stdout)〉）
-- [ ] 使用者知道忘記密碼要找誰（沒有寄信重設的功能，見 [`features.md`](features.md#密碼)）
+- [ ] 使用者知道忘記密碼要找誰（沒有寄信重設的功能，見 [帳號、角色與密碼](features/accounts-roles.md#密碼)）
 
 要改成 CI 建 image、主機只拉 image，見下一節〈自動部署〉。
 
@@ -299,14 +299,14 @@ gh workflow run deploy.yml --ref main -f tag=v0.1.0 -f target="production stagin
   **重建容器時舊的 log 會一起消失**，要長期保存就自己轉送到別處。
 - **沒有**：結構化 log、錯誤追蹤（Sentry 之類）、指標與告警。模板刻意不內建：做法依部署平台而定，
   而且錯誤內容可能帶著使用者資料，送不送到第三方要由專案決定。所以出錯時不會有人收到通知，
-  要等使用者回報再上主機查。
+  要等使用者回報再上主機查（[ADR 0008](decisions/0008-no-built-in-error-tracking.md)）。
 - **最大的盲點是瀏覽器端的錯誤**：前端 JavaScript 在使用者的瀏覽器裡出錯時（按了沒反應、畫面白掉），
   主機上的 log 一行都沒有。需要時先補錯誤追蹤（Sentry，或自架、與它相容的 GlitchTip），
   DSN 走執行期設定（後端 `app/config.py`、前端 `shared/runtime/`）。
 
 ## 帳號
 
-帳號、角色、Session 怎麼運作見 [`features.md`](features.md)。這裡只放要在主機上執行的操作。
+帳號、角色、Session 怎麼運作見 [`features/`](features/README.md)。這裡只放要在主機上執行的操作。
 
 ### 建立超級管理者
 
@@ -315,7 +315,7 @@ make db superuser
 ```
 
 互動式輸入暱稱、帳號、密碼（密碼不回顯），可以重複執行。第一個超管、再加一個超管，
-以及唯一的超管失聯時的救援，都用這個指令（理由見 [`features.md`](features.md#帳號)）。
+以及唯一的超管失聯時的救援，都用這個指令（理由見 [帳號、角色與密碼](features/accounts-roles.md#帳號)）。
 
 ### 套用 `.env` 的變更
 
@@ -338,11 +338,11 @@ make db revoke-sessions
 ```
 
 確認後所有使用者的 token 立刻失效（包含執行的人自己），不用改 `.env`、不用重新部署。用在帳號被盜、
-懷疑 token 外流的時候；之後所有人同時重新登入的負擔見 [`features.md`](features.md#撤銷)。
+懷疑 token 外流的時候；之後所有人同時重新登入的負擔見 [Session](features/session.md#撤銷)。
 
 ### 更換 `JWT_SECRET_KEY`
 
-金鑰外洩時要換掉金鑰本身，`make db revoke-sessions` 擋不住（理由見 [`features.md`](features.md#撤銷)）。
+金鑰外洩時要換掉金鑰本身，`make db revoke-sessions` 擋不住（理由見 [Session](features/session.md#撤銷)）。
 在主機上產生新值換掉 `.env` 的 `JWT_SECRET_KEY`（產法與 `make init` 相同），再照
 〈[套用 `.env` 的變更](#套用-env-的變更)〉重新部署。舊金鑰簽的 token 會全部失效，所有人都要重新登入。
 
@@ -432,7 +432,7 @@ ssh -N -L 8080:127.0.0.1:<SYSTEM_PORT> <使用者>@<主機 IP>
 
 ## 用戶端 IP 與限流
 
-登入與改密碼的限流（規則見 [`features.md`](features.md#限流)）以用戶端 IP 計數。
+登入與改密碼的限流（規則見 [限流](features/rate-limit.md)）以用戶端 IP 計數。
 後端只讀 `X-Real-IP`：容器 nginx 先依主機送來的值換掉 `$remote_addr`（見上一節），再以它覆寫這個標頭，
 `apps/api/tests/test_nginx_templates.py` 確保每個 location 都有覆寫。
 
@@ -440,7 +440,7 @@ ssh -N -L 8080:127.0.0.1:<SYSTEM_PORT> <使用者>@<主機 IP>
 
 API 是**單一 Python 行程**（沒有 workers，compose 也沒有 replica）。限流的計數存在行程記憶體裡，
 加 workers 或副本會讓允許次數直接變成 N 倍，而且沒有任何症狀。要水平擴充時，**先**把
-`RateLimiter` 的計數換成 Redis，**再**加副本。
+`RateLimiter` 的計數換成 PostgreSQL，**再**加副本（不用 Redis 的理由見 [ADR 0005](decisions/0005-in-process-rate-limit.md)）。
 
 初始資料（seed）由 migrate 服務寫入，api 開機時不寫任何東西，所以加副本不受它影響。
 

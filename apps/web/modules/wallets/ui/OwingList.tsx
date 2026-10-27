@@ -8,7 +8,7 @@ import type { AdvanceTargetInfo } from "../types"
 import Amount from "./Amount"
 import styles from "./wallets.module.css"
 
-/** 代墊未還的清單, 只是顯示: 還款一律從代墊的詳情操作 (見 docs/features.md〈代墊與還款〉)。 */
+/** 代墊未還的清單, 只是顯示: 還款一律從代墊的詳情操作 (見 docs/features/general-wallet.md〈代墊與還款〉)。 */
 function OwingRows({ owing }: { owing: AdvanceTargetInfo[] }) {
   return (
     <ul className={`${styles.fieldList} ${styles.owingList}`}>

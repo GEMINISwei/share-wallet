@@ -1,6 +1,6 @@
 """錢包群組 (`modules/wallets/groups.py`): 每個人自己的分組、排序與顯示。
 
-規則見 docs/features.md〈錢包群組〉。
+規則見 docs/features/wallets.md〈錢包群組〉。
 """
 
 import pytest

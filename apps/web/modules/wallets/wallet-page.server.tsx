@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: WalletPageProps) {
   return { title: wallet?.name ?? (await getT(walletsMessages))("notFound") }
 }
 
-/** 一般錢包頁就是帳目 (見 docs/features.md〈帳目列表〉); 旅遊錢包沒有, 是 null。 */
+/** 一般錢包頁就是帳目 (見 docs/features/general-wallet.md〈帳目列表〉); 旅遊錢包沒有, 是 null。 */
 async function loadLedger(wallet: WalletInfo): Promise<WalletLedger | null> {
   if (wallet.kind !== "general") return null
   const params = { id: wallet.id }

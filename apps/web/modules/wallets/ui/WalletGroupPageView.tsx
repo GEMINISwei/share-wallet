@@ -21,7 +21,7 @@ type WalletGroupPageViewProps =
   | { group: WalletGroupInfo; wallets: WalletInfo[]; errorMessage: "" }
   | { group?: undefined; wallets?: undefined; errorMessage: string }
 
-/** 一個錢包群組的頁面 (見 docs/features.md〈錢包列表〉)。載入失敗時只有錯誤訊息。 */
+/** 一個錢包群組的頁面 (見 docs/features/wallets.md〈錢包列表〉)。載入失敗時只有錯誤訊息。 */
 export default function WalletGroupPageView(
   { group, wallets, errorMessage }: WalletGroupPageViewProps,
 ) {

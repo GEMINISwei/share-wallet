@@ -1,6 +1,6 @@
 """旅遊錢包的結算 (`modules/wallets/settlement.py`): 清償方案、開始與取消結算、付款與確認。
 
-規則見 docs/features.md〈結算流程〉〈封存〉。方案的算法是純函式, 直接測;
+規則見 docs/features/travel-wallet.md〈結算流程〉〈封存〉。方案的算法是純函式, 直接測;
 其他經過 API, 資料表換成 `conftest.py` 的 FakeStore。
 """
 

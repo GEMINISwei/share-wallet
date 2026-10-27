@@ -1,7 +1,7 @@
 /**
  * 邀請連結的網址。登入、註冊頁 (auth 模組) 也要依 token 組出確認頁, 所以從 public.client 交出去。
  *
- * `invite` 參數只帶 token, 不帶導向網址 (見 docs/features.md〈加入流程〉): 由這裡把 token
+ * `invite` 參數只帶 token, 不帶導向網址 (見 docs/features/members.md〈加入流程〉): 由這裡把 token
  * 組成站內路徑, 參數就不可能被拿來導到別的網站。
  */
 

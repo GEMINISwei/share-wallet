@@ -13,7 +13,7 @@ const WALLETS_ROUTE = {
   path: WALLETS_PATH, label: { zh: "錢包", en: "Wallets" }, group: "user", requires: [], navIcon: "wallets", showInNav: false,
 } as const satisfies ProtectedRoute
 
-// 後台列出所有錢包, 只給超級管理者 (見 docs/features.md〈不設全站權限〉)。
+// 後台列出所有錢包, 只給超級管理者 (見 docs/features/members.md〈不設全站權限〉)。
 const ADMIN_WALLETS_ROUTE = {
   path: ADMIN_WALLETS_PATH, label: { zh: "錢包", en: "Wallets" }, group: "admin", requires: ["*"], navIcon: "wallets", showInNav: true,
 } as const satisfies ProtectedRoute

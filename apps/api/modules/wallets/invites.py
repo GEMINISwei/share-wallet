@@ -1,6 +1,6 @@
 """邀請連結: 管理者產生、查看、撤銷; 拿到連結的人預覽錢包、確認加入。
 
-規則見 docs/features.md〈邀請連結〉〈加入流程〉。過期的連結仍留在資料表裡, 直到被重新產生、
+規則見 docs/features/members.md〈邀請連結〉〈加入流程〉。過期的連結仍留在資料表裡, 直到被重新產生、
 撤銷或錢包刪除; 讀取時一律依「現在」判斷, 過期的就當作沒有。
 """
 
@@ -37,7 +37,7 @@ def _to_info(invite: InviteDetail) -> InviteInfo:
 
 
 async def get_invite(wallet_id: str, current_user: CurrentUser) -> InviteState:
-    """只有管理者看得到連結, 一般成員也不行 (見 docs/features.md〈邀請連結〉)。
+    """只有管理者看得到連結, 一般成員也不行 (見 docs/features/members.md〈邀請連結〉)。
 
     已結帳的錢包就像沒有連結: 舊連結留在資料表裡, 但已經不能用了。
     """
@@ -49,7 +49,9 @@ async def get_invite(wallet_id: str, current_user: CurrentUser) -> InviteState:
 
 
 async def create_invite(wallet_id: str, current_user: CurrentUser) -> InviteInfo:
-    """產生或重新產生, 舊的連結立即失效。已結帳的錢包不能產生 (見 docs/features.md〈封存〉)。"""
+    """產生或重新產生, 舊的連結立即失效。已結帳的錢包不能產生
+    (見 docs/features/travel-wallet.md〈封存〉)。
+    """
     access = await manage_wallet(wallet_id, current_user)
     if access.wallet["status"] == WalletStatus.SETTLED:
         raise LangException(409, WalletError.WALLET_ARCHIVED)

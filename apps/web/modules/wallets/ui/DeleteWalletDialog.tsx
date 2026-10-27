@@ -19,7 +19,7 @@ type DeleteWalletDialogProps = {
   onError: (message: string) => void
 }
 
-// 刪除是永久的, 所以要輸入一樣的名稱才送得出去 (見 docs/features.md〈刪除錢包〉)。
+// 刪除是永久的, 所以要輸入一樣的名稱才送得出去 (見 docs/features/wallets.md〈刪除錢包〉)。
 export default function DeleteWalletDialog({
   wallet, area, open, onClose, onError,
 }: DeleteWalletDialogProps) {

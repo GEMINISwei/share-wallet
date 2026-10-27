@@ -210,7 +210,8 @@ modules/products/
 
 `app/permissions.py` 的 `Permission` 與 `shared/http/errors.py` 的 `Language` 是**僅有的兩處**
 「新增功能要改共用檔案」的地方。它們要進 OpenAPI 成為字串聯集，前端才拿得到編譯期保護
-（權限打錯字是 `tsc` 失敗，而不是執行期靜默失效），所以不要改成由模組動態貢獻。
+（權限打錯字是 `tsc` 失敗，而不是執行期靜默失效），所以不要改成由模組動態貢獻
+（[ADR 0003](decisions/0003-centralized-permission-and-language.md)）。
 
 ## 前後端契約
 

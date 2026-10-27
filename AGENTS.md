@@ -3,9 +3,10 @@
 這是給 AI agent 的**唯一**指引（不另設 `CLAUDE.md`）。只寫無法從程式碼推導的規則，細節見：
 [`architecture.md`](docs/architecture.md)（依賴規則、模組介面）、
 [`development.md`](docs/development.md)（指令、測試、風格）、
-[`features.md`](docs/features.md)（帳號、角色、Session、限流等內建功能）、
+[`features/`](docs/features/README.md)（錢包規則，以及帳號、角色、Session、限流等內建功能）、
 [`extending.md`](docs/extending.md)（新增模組／權限／migration／i18n）、
-[`operations.md`](docs/operations.md)（部署、備份、主機設定）。
+[`operations.md`](docs/operations.md)（部署、備份、主機設定）、
+[`decisions/`](docs/decisions/README.md)（刻意不採用主流做法的設計決策，提議改掉之前先讀）。
 
 ## 硬規則（`make check` 會擋）
 

@@ -98,7 +98,7 @@ def _to_info(
 async def list_wallets(current_user: CurrentUser) -> WalletList:
     """只列自己加入的錢包, 超級管理者也一樣 (所有錢包在後台看)。
 
-    最愛的在前, 已結帳的不論是不是最愛都排在最後 (見 docs/features.md〈錢包列表〉)。
+    最愛的在前, 已結帳的不論是不是最愛都排在最後 (見 docs/features/wallets.md〈錢包列表〉)。
     """
     joined = await WalletTable.find_joined(current_user["id"])
     infos = [
@@ -144,7 +144,8 @@ async def update_wallet(
     # 類型決定了錢包有哪些資料 (餘額或起訖日), 換類型等於換一個錢包。
     if form_data.kind != access.wallet["kind"]:
         raise LangException(400, WalletError.KIND_MISMATCH)
-    # 結算中可以改 (名稱與日期不影響金額), 已結帳的只能查看 (見 docs/features.md〈封存〉)。
+    # 結算中可以改 (名稱與日期不影響金額), 已結帳的只能查看
+    # (見 docs/features/travel-wallet.md〈封存〉)。
     if await WalletTable.lock_status(id) is WalletStatus.SETTLED:
         raise LangException(409, WalletError.WALLET_ARCHIVED)
 
@@ -160,7 +161,7 @@ async def update_wallet(
 
 
 async def delete_wallet(id: str, current_user: CurrentUser) -> WalletOperate:
-    """永久刪除, 不論餘額 (見 docs/features.md〈刪除錢包〉)。"""
+    """永久刪除, 不論餘額 (見 docs/features/wallets.md〈刪除錢包〉)。"""
     await manage_wallet(id, current_user)
     if not await WalletTable.delete_by_id(id):
         raise LangException(404, WalletError.NOT_FOUND)
