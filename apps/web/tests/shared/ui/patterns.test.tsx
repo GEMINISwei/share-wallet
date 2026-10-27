@@ -223,3 +223,20 @@ describe("PageHeader 的手機選單", () => {
     expect(screen.queryByRole("button", { name: "更多" })).not.toBeInTheDocument()
   })
 })
+
+describe("PageHeader 的重整", () => {
+  // 重整比選單裡的操作常用得多, 所以獨立一顆, 放在最右邊。
+  it("標題列右側有重整按鈕, 在選單之後", () => {
+    render(<PageHeader title="家用" mobileActions={[{ label: "成員", onClick: vi.fn() }]} />)
+
+    const names = within(screen.getByRole("banner")).getAllByRole("button")
+      .map((button) => button.getAttribute("aria-label"))
+    expect(names).toEqual(["更多", "重新整理"])
+  })
+
+  it("沒有選單時也有重整按鈕", () => {
+    render(<PageHeader title="家用" />)
+
+    expect(screen.getByRole("button", { name: "重新整理" })).toBeInTheDocument()
+  })
+})

@@ -4,6 +4,7 @@ import type { ReactNode } from "react"
 import { ICON_SIZE } from "../internals"
 import styles from "../styles/page-header.module.css"
 import type { ActionMenuItem } from "./ActionMenu"
+import RefreshButton from "../refresh-button"
 import PageHeaderMenu from "./PageHeaderMenu"
 
 type PageHeaderProps = {
@@ -20,6 +21,8 @@ type PageHeaderProps = {
 /**
  * 頁面標題列。手機是「左圓鈕｜置中標題｜右圓鈕」: 兩側等寬, 標題才會真的在正中間;
  * 沒有返回或選單的那一側留空。
+ *
+ * 手機最右邊固定是重整: 比選單裡的操作常用得多, 不收進選單; 桌機用瀏覽器的重新整理。
  */
 export default function PageHeader({
   title, subtitle, back, actions, mobileActions,
@@ -48,6 +51,7 @@ export default function PageHeader({
             <PageHeaderMenu items={mobileActions} triggerClassName={styles.circleButton} />
           </div>
         )}
+        <RefreshButton className={`${styles.circleButton} ${styles.refreshButton}`} />
       </div>
     </header>
   )

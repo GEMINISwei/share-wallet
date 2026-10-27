@@ -2,7 +2,6 @@ import { getCurrentUser } from "@/modules/auth/public.server"
 import { getT } from "@/shared/i18n/locale.server"
 import type { RouteArea } from "@/shared/module"
 import { appMessages } from "@/config/i18n"
-import { PullToRefresh } from "@/shared/ui"
 import AppShell from "./AppShell"
 import styles from "./shell.module.css"
 
@@ -27,7 +26,7 @@ export default async function AreaLayout({ area, children }: AreaLayoutProps) {
       userRole={isSuperUser ? t("roleSuperAdmin") : t("roleUser")}
       permissions={data?.permissions ?? []}
     >
-      <PullToRefresh as="main" className={styles.main}>{children}</PullToRefresh>
+      <main className={styles.main}>{children}</main>
     </AppShell>
   )
 }
