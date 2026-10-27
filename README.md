@@ -33,55 +33,33 @@
 錢包裡的事由錢包自己的管理者決定，不需要網站管理員開權限；網站管理員在後台只負責救援
 （例如管理者都不在了），不介入日常記帳。
 
+## 用起來的樣子
+
+- **隨手記一筆**：手機底部正中間的「＋」，在哪一頁都點得到；在錢包頁直接記到這個錢包，在其他頁先選錢包。
+- **自己整理錢包**：把錢包分進自己的群組（例如台幣、日圓分開），一般群組會顯示總額；
+  常用的設為最愛排在前面，用不到的可以隱藏。這些都只影響自己的畫面，其他成員看不到。
+- **只通知跟你有關的事**：一般記帳不打擾人，只有要你付款、確認收款、自己記的帳被別人改了、
+  有人加入你管理的錢包這類事情才推播（iPhone 要先把網站加到主畫面）。
+- **分類與代墊**：一般錢包的收支可以分類；替別人先付的錢記成代墊，一眼看出還有誰沒還。
+- **金額單純**：一律用整數，不設幣別，要標示幣別就寫在錢包名稱裡，例如「日本旅遊（日圓）」。
+- **中英雙語**：介面與訊息都有中文與英文。
+
+## 目前不做
+
+統計圖表、預算、排程交易（房租、訂閱）、匯出 CSV、即時同步（別人記的帳要下拉重新整理才看到）、收據附件。
+
+完整的產品規則見 [`docs/features/`](docs/features/README.md)。
+
 ## 開發
 
 需要 Docker Desktop、`make`、`openssl`、`uv` 與 Node（版本見 [`apps/web/.nvmrc`](apps/web/.nvmrc)）。
 
 ```bash
-make init dev   # 產生 .env（MODE=development，金鑰自動產生）並安裝相依
-make start      # 啟動開發環境（首次建置約 2–5 分鐘）
+make init dev   # 產生 .env 並安裝相依
+make start      # 啟動開發環境
 ```
 
-### 技術
-
-| | |
-|---|---|
-| 後端 | FastAPI、SQLAlchemy 2.0 async、Alembic、Python 3.14；pytest、ruff、mypy |
-| 前端 | Next.js 16、React 19、TypeScript、CSS Modules；Vitest、ESLint、knip |
-| 基礎設施 | PostgreSQL 17、Docker Compose（dev／prod）、nginx、GitHub Actions |
-| 平台功能 | JWT 認證、公開註冊、角色權限、使用者與角色管理、Session 撤銷、登入限流、游標分頁 |
-| 前後端契約 | 後端產生 OpenAPI → 前端型別，端點、權限、語系寫錯都是編譯錯誤 |
-| i18n | 前後端一致的中英雙語，漏翻譯會編譯失敗 |
-
-### 架構
-
-```text
-app（組裝層） → modules（垂直功能） → shared（平台能力）
-```
-
-- **每個功能是一個模組**，前後端同名，各自擁有路由、資料表、權限、畫面與測試。
-- **跨模組只走 public entry**，由 import-linter（後端）與 dependency-cruiser（前端）強制執行。
-- **測試與原始碼同構**：`tests/modules/users/` 對 `modules/users/`。
-
-```mermaid
-flowchart LR
-    B["瀏覽器"] --> N["nginx"]
-    N --> W["web · Next.js"]
-    W -->|"伺服器端呼叫（compose 內網）"| A["api · FastAPI"]
-    A --> M[("PostgreSQL")]
-    G["migrate"] -.->|"跑完才啟動 api"| A
-```
-
-瀏覽器只認得 nginx，碰不到 api。
-
-### 文件
-
-| | |
-|---|---|
-| [`AGENTS.md`](AGENTS.md) | 給 AI agent 的規則與陷阱 |
-| [`docs/architecture.md`](docs/architecture.md) | 依賴規則、模組介面、目錄結構、前後端契約 |
-| [`docs/development.md`](docs/development.md) | 指令、測試策略、程式碼風格、CI |
-| [`docs/features/`](docs/features/README.md) | 產品規則，一個主題一份：錢包、成員、記帳、結算，以及帳號、角色、Session、限流、語系 |
-| [`docs/extending.md`](docs/extending.md) | 擴充項目：新增模組、權限、migration、語系 |
-| [`docs/operations.md`](docs/operations.md) | 部署、主機設定、備份與救援 |
-| [`docs/decisions/`](docs/decisions/README.md) | 設計決策（ADR）：刻意不採用主流做法的地方與理由 |
+技術架構、開發流程與部署方式見 [`docs/`](docs/)：
+[`architecture.md`](docs/architecture.md)、[`development.md`](docs/development.md)、
+[`extending.md`](docs/extending.md)、[`operations.md`](docs/operations.md)、
+[`decisions/`](docs/decisions/README.md)；給 AI agent 的規則在 [`AGENTS.md`](AGENTS.md)。
