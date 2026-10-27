@@ -42,6 +42,7 @@ from .schema import (
     ExpenseLogList,
     ExpenseLogPage,
     ExpensePage,
+    ExpenseUpdate,
     FavoriteUpdate,
     InviteInfo,
     InvitePreview,
@@ -397,7 +398,11 @@ async def create_expense_route(
     form_data: ExpenseCreate,
     current_user: CurrentUser = Depends(check_user_permission()),
 ) -> EntryOperate:
-    """旅遊錢包記一筆: 誰付了多少, 均分或指定每人的金額。付款人與分攤對象都要是成員。"""
+    """旅遊錢包記一筆: 誰付了多少, 均分或指定每人的金額。付款人與分攤對象都要是成員。
+
+    付款人是自己時可以帶 `sync_to`, 在自己的一般錢包順便記一筆全額的支出;
+    兩筆一起建立, 之後各自獨立。
+    """
     return await expenses.create_expense(id, form_data, current_user)
 
 
@@ -405,7 +410,7 @@ async def create_expense_route(
 async def update_expense_route(
     id: UuidText,
     expense_id: UuidText,
-    form_data: ExpenseCreate,
+    form_data: ExpenseUpdate,
     current_user: CurrentUser = Depends(check_user_permission()),
 ) -> EntryOperate:
     """修改自己記的帳, 所有欄位都可以改; 錢包管理者可以修改任何人的。"""

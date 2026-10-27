@@ -448,6 +448,66 @@
         "type": "string"
       },
       "CustomExpenseCreate": {
+        "additionalProperties": false,
+        "description": "新增指定金額的帳, 可以同步到自己的一般錢包。",
+        "properties": {
+          "amount": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 9007199254740991.0,
+            "title": "Amount",
+            "type": "integer"
+          },
+          "entry_date": {
+            "format": "date",
+            "title": "Entry Date",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "maxLength": 200,
+            "title": "Note",
+            "type": "string"
+          },
+          "payer_id": {
+            "title": "Payer Id",
+            "type": "string"
+          },
+          "shares": {
+            "items": {
+              "$ref": "#/components/schemas/ShareInput"
+            },
+            "minItems": 1,
+            "title": "Shares",
+            "type": "array"
+          },
+          "split_mode": {
+            "const": "custom",
+            "title": "Split Mode",
+            "type": "string"
+          },
+          "sync_to": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExpenseSync"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "amount",
+          "payer_id",
+          "entry_date",
+          "split_mode",
+          "shares"
+        ],
+        "title": "CustomExpenseCreate",
+        "type": "object"
+      },
+      "CustomExpenseForm": {
+        "additionalProperties": false,
         "description": "指定金額: 每人金額大於 0, 加總剛好等於 `amount`。這一筆不用出錢的人不列。",
         "properties": {
           "amount": {
@@ -492,7 +552,7 @@
           "split_mode",
           "shares"
         ],
-        "title": "CustomExpenseCreate",
+        "title": "CustomExpenseForm",
         "type": "object"
       },
       "EntryCategory": {
@@ -976,6 +1036,66 @@
         "type": "object"
       },
       "EqualExpenseCreate": {
+        "additionalProperties": false,
+        "description": "新增均分的帳, 可以同步到自己的一般錢包。",
+        "properties": {
+          "amount": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 9007199254740991.0,
+            "title": "Amount",
+            "type": "integer"
+          },
+          "entry_date": {
+            "format": "date",
+            "title": "Entry Date",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "maxLength": 200,
+            "title": "Note",
+            "type": "string"
+          },
+          "participant_ids": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Participant Ids",
+            "type": "array"
+          },
+          "payer_id": {
+            "title": "Payer Id",
+            "type": "string"
+          },
+          "split_mode": {
+            "const": "equal",
+            "title": "Split Mode",
+            "type": "string"
+          },
+          "sync_to": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExpenseSync"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "amount",
+          "payer_id",
+          "entry_date",
+          "split_mode",
+          "participant_ids"
+        ],
+        "title": "EqualExpenseCreate",
+        "type": "object"
+      },
+      "EqualExpenseForm": {
+        "additionalProperties": false,
         "description": "均分: 零頭依序分給前幾人, 付款人優先, 其餘照加入錢包的順序\n(見 docs/features/travel-wallet.md〈分攤〉)。",
         "properties": {
           "amount": {
@@ -1020,7 +1140,7 @@
           "split_mode",
           "participant_ids"
         ],
-        "title": "EqualExpenseCreate",
+        "title": "EqualExpenseForm",
         "type": "object"
       },
       "ExpenseInfo": {
@@ -1282,6 +1402,25 @@
           "note"
         ],
         "title": "ExpenseSnapshot",
+        "type": "object"
+      },
+      "ExpenseSync": {
+        "description": "新增旅遊帳時, 在自己的一般錢包順便記一筆全額的支出 (見 docs/features/travel-wallet.md\n〈同步到一般錢包〉)。建好之後兩筆各自獨立。",
+        "properties": {
+          "category_id": {
+            "title": "Category Id",
+            "type": "string"
+          },
+          "wallet_id": {
+            "title": "Wallet Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "wallet_id",
+          "category_id"
+        ],
+        "title": "ExpenseSync",
         "type": "object"
       },
       "FavoriteUpdate": {
@@ -5692,7 +5831,7 @@
         ]
       },
       "post": {
-        "description": "旅遊錢包記一筆: 誰付了多少, 均分或指定每人的金額。付款人與分攤對象都要是成員。",
+        "description": "旅遊錢包記一筆: 誰付了多少, 均分或指定每人的金額。付款人與分攤對象都要是成員。\n\n付款人是自己時可以帶 `sync_to`, 在自己的一般錢包順便記一筆全額的支出;\n兩筆一起建立, 之後各自獨立。",
         "operationId": "create_expense_route_api_wallets__id__expenses_post",
         "parameters": [
           {
@@ -5838,17 +5977,17 @@
               "schema": {
                 "discriminator": {
                   "mapping": {
-                    "custom": "#/components/schemas/CustomExpenseCreate",
-                    "equal": "#/components/schemas/EqualExpenseCreate"
+                    "custom": "#/components/schemas/CustomExpenseForm",
+                    "equal": "#/components/schemas/EqualExpenseForm"
                   },
                   "propertyName": "split_mode"
                 },
                 "oneOf": [
                   {
-                    "$ref": "#/components/schemas/EqualExpenseCreate"
+                    "$ref": "#/components/schemas/EqualExpenseForm"
                   },
                   {
-                    "$ref": "#/components/schemas/CustomExpenseCreate"
+                    "$ref": "#/components/schemas/CustomExpenseForm"
                   }
                 ],
                 "title": "Form Data"

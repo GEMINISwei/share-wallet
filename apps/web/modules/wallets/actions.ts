@@ -186,7 +186,7 @@ export async function loadMoreEntries(id: string, cursor: string) {
   return apiGet({ url: "/wallets/{id}/entries", params: { id }, query: { cursor } })
 }
 
-/** 底部導覽「＋」的選錢包面板: 點了才取, 不讓每一頁都多打一次列表。 */
+/** 底部導覽「＋」的選錢包面板與旅遊帳的同步選單: 用到才取, 不讓每一頁都多打一次列表。 */
 export async function loadMyWallets() {
   return apiGet({ url: "/wallets/" })
 }
@@ -208,15 +208,22 @@ export async function loadRepayments(id: string, advanceId: string) {
 }
 
 // 旅遊錢包沒有餘額, 記帳不影響錢包列表, 只重新整理這個錢包。
-type ExpenseRequest = ApiRequestBody<"/wallets/{id}/expenses", "post">
-
-export async function createExpense(id: string, data: ExpenseRequest) {
+export async function createExpense(
+  id: string, data: ApiRequestBody<"/wallets/{id}/expenses", "post">,
+) {
   return apiPost({
     url: "/wallets/{id}/expenses", params: { id }, data, refresh: { path: walletPath(id) },
   })
 }
 
-export async function updateExpense(id: string, expenseId: string, data: ExpenseRequest) {
+/** 同步到一般錢包時, 選了錢包才取它的分類。 */
+export async function loadCategories(id: string) {
+  return apiGet({ url: "/wallets/{id}/categories", params: { id } })
+}
+
+export async function updateExpense(
+  id: string, expenseId: string, data: ApiRequestBody<"/wallets/{id}/expenses/{expense_id}", "patch">,
+) {
   return apiPatch({
     url: "/wallets/{id}/expenses/{expense_id}",
     params: { id, expense_id: expenseId },

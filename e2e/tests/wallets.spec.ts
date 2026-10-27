@@ -160,3 +160,31 @@ test("群組頁只列顯示中的錢包，總額只算顯示中的錢包", async
   await expect(generalSection.getByRole("link")).toHaveCount(1)
   await expect(generalSection.getByRole("link", { name: /日圓/ })).toBeVisible()
 })
+
+test("新增旅遊帳時同步到一般錢包，一般錢包餘額減少全額、帳目列表看得到這一筆", async ({ page }) => {
+  await loginAs(page, owner)
+
+  await page.getByRole("button", { name: "建立錢包" }).first().click()
+  const createDialog = page.getByRole("dialog", { name: "建立錢包" })
+  await createDialog.getByRole("radio", { name: /旅遊錢包/ }).click()
+  await createDialog.getByRole("textbox", { name: "名稱" }).fill("E2E 東京")
+  await createDialog.getByRole("textbox", { name: "目的地" }).fill("東京")
+  await createDialog.getByLabel("開始日").fill("2026-11-01")
+  await createDialog.getByLabel("結束日").fill("2026-11-05")
+  await createDialog.getByRole("button", { name: "建立", exact: true }).click()
+  await expect(page.getByRole("heading", { name: "E2E 東京" })).toBeVisible()
+
+  await page.getByRole("button", { name: "記一筆" }).first().click()
+  const dialog = page.getByRole("dialog", { name: "記一筆" })
+  await dialog.getByRole("textbox", { name: "金額" }).fill("3000")
+  await dialog.getByRole("textbox", { name: "備註" }).fill("壽司晚餐")
+  await dialog.getByRole("combobox", { name: "同步到一般錢包" }).selectOption({ label: walletName })
+  await dialog.getByRole("radio", { name: "餐飲" }).click()
+  await dialog.getByRole("button", { name: "儲存", exact: true }).click()
+  await expect(dialog).toBeHidden()
+  await expect(page.getByText("壽司晚餐")).toBeVisible()
+
+  await page.goto(walletUrl)
+  await expect(page.getByText("壽司晚餐")).toBeVisible()
+  await expect(page.getByText("6,500").first()).toBeVisible()
+})

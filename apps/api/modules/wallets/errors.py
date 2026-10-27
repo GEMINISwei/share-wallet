@@ -103,6 +103,15 @@ class WalletError(BaseError):
     PAYER_NOT_MEMBER = LangText(
         zh="付款人必須是這個錢包的成員", en="The payer must be a member of this wallet"
     )
+    SYNC_PAYER_NOT_SELF = LangText(
+        zh="付款人是自己才能同步到一般錢包",
+        en="You can only sync to a general wallet when you are the payer",
+    )
+    # 沒加入也回這個, 理由同 TRANSFER_WALLET_NOT_FOUND。
+    SYNC_WALLET_NOT_FOUND = LangText(
+        zh="要同步的錢包不存在", en="The wallet to sync to was not found"
+    )
+    SYNC_NOT_GENERAL = LangText(zh="只能同步到一般錢包", en="You can only sync to a general wallet")
     PARTICIPANT_NOT_MEMBER = LangText(
         zh="分攤對象必須是這個錢包的成員",
         en="Everyone sharing the cost must be a member of this wallet",

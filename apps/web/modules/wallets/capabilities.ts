@@ -1,6 +1,7 @@
 import type {
   AdvanceTargetInfo, CategoryInfo, CategoryType, EntryFormValues, EntryInfo, EntryKind,
   EntryLogInfo, EntrySnapshot, ExpenseFormValues, ExpenseInfo, ExpenseLogInfo, ExpenseSnapshot,
+  ExpenseSyncValues,
   MemberInfo, NetBalanceInfo, SettlementTransferInfo, ShareRowValues, TransferKind, TransferTarget,
   WalletAdmin, WalletGroupInfo, WalletInfo, WalletStatus,
 } from "./types"
@@ -360,6 +361,25 @@ let rowSeq = 0
 export function newShareRow(userId = "", amount = ""): ShareRowValues {
   rowSeq += 1
   return { key: `row-${rowSeq}`, user_id: userId, amount }
+}
+
+export const NO_SYNC: ExpenseSyncValues = { wallet_id: "", category_id: "" }
+
+/**
+ * 只有新增、而且付款人是自己時能同步到一般錢包; 修改時不能事後補
+ * (見 docs/features/travel-wallet.md〈同步到一般錢包〉)。
+ */
+export function canSyncExpense(
+  expense: ExpenseInfo | null, payerId: string, currentUserId: string,
+) {
+  return expense === null && payerId === currentUserId
+}
+
+/** 付款人改成別人時清掉同步的選擇, 改回自己也不會冒出之前選過的錢包。 */
+export function syncAfterPayerChange(
+  sync: ExpenseSyncValues, payerId: string, currentUserId: string,
+): ExpenseSyncValues {
+  return payerId === currentUserId ? sync : NO_SYNC
 }
 
 /**

@@ -94,3 +94,8 @@ export type ExpenseFormValues = {
 }
 
 export type ExpenseFormErrors = Partial<Record<keyof ExpenseFormValues, string>>
+
+/** 新增旅遊帳時同步到一般錢包的選擇; 沒選錢包是不同步。跟表單分開, 修改時根本沒有這一塊。 */
+export type ExpenseSyncValues = { wallet_id: string; category_id: string }
+
+export type ExpenseSyncErrors = Partial<Record<keyof ExpenseSyncValues, string>>

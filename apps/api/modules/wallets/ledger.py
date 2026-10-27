@@ -2,6 +2,8 @@
 
 鎖餘額、檢查範圍、留異動紀錄。其中權限檢查與異動紀錄的寫入, 旅遊錢包的帳 (`expenses.py`) 也共用;
 每人的合計與淨額由旅遊錢包的帳與結算 (`settlement.py`) 共用。
+新增收支的檢查與寫入分成兩步 (`checked_new_entry`、`insert_entry`), 旅遊帳同步到一般錢包時
+先檢查兩邊再寫入。
 
 餘額是存起來的值 (見 docs/features/general-wallet.md〈餘額〉): 每個寫入都先
 `WalletTable.lock_balance` 鎖住錢包, 再在同一個請求的交易裡改帳目、改餘額、留異動紀錄 ——
@@ -22,13 +24,14 @@ from .model import (
     MemberRole,
     MemberTotals,
     TravelExpenseTable,
+    WalletCategoryTable,
     WalletEntryLogTable,
     WalletEntryTable,
     WalletKind,
     WalletMemberTable,
     WalletTable,
 )
-from .schema import MAX_SAFE_AMOUNT, EntrySnapshot
+from .schema import MAX_SAFE_AMOUNT, EntryCreate, EntrySnapshot
 
 #: 讓餘額變少的種類。代墊是錢包替別人付出去的錢。
 _OUTFLOW = frozenset({EntryKind.EXPENSE, EntryKind.TRANSFER_OUT, EntryKind.ADVANCE})
@@ -163,3 +166,63 @@ async def totals_by_person(wallet_id: str) -> list[tuple[str, MemberTotals]]:
 async def net_amounts(wallet_id: str) -> list[tuple[str, int]]:
     """每人的淨額, 順序同 `totals_by_person`。給結算算清償方案。"""
     return [(user_id, t["paid"] - t["owed"]) for user_id, t in await totals_by_person(wallet_id)]
+
+
+async def checked_category_name(wallet_id: str, form_data: EntryCreate, keep_id: str | None) -> str:
+    """選的分類要在這個錢包、類型對、沒有封存; 唯一的例外是修改時保留原本的分類。"""
+    category = await WalletCategoryTable.find_detail_in_wallet(wallet_id, form_data.category_id)
+    archived = category is not None and category["archived_at"] is not None
+    if category is None or (archived and form_data.category_id != keep_id):
+        raise LangException(404, WalletError.CATEGORY_NOT_FOUND)
+    if category["type"] != form_data.kind:
+        raise LangException(400, WalletError.CATEGORY_TYPE_MISMATCH)
+    return category["name"]
+
+
+async def checked_new_entry(
+    wallet_id: str, form_data: EntryCreate, balance: int
+) -> tuple[str, int]:
+    """檢查分類與餘額上限, 回傳分類名稱與記帳後的餘額。在寫入任何東西之前呼叫,
+    同步旅遊帳時 (見 `expenses.py`) 擋下就兩邊都還沒寫。
+    """
+    category_name = await checked_category_name(wallet_id, form_data, keep_id=None)
+    new_balance = checked_balance(balance + balance_effect(form_data.kind, form_data.amount))
+    return category_name, new_balance
+
+
+async def insert_entry(
+    access: WalletAccess,
+    form_data: EntryCreate,
+    checked: tuple[str, int],
+    current_user: CurrentUser,
+) -> str:
+    """寫入 `checked_new_entry` 檢查過的帳、餘額與異動紀錄。"""
+    category_name, new_balance = checked
+    created = await WalletEntryTable.create(
+        data={
+            "wallet_id": access.wallet["id"],
+            "kind": form_data.kind,
+            "amount": form_data.amount,
+            "category_id": form_data.category_id,
+            "entry_date": form_data.entry_date,
+            "note": form_data.note,
+            "created_by": current_user["id"],
+        }
+    )
+    await WalletTable.set_balance(access.wallet["id"], new_balance)
+    after = snapshot_of(
+        form_data.kind,
+        form_data.amount,
+        form_data.entry_date,
+        form_data.note,
+        category_name=category_name,
+    )
+    await write_log(
+        access,
+        current_user,
+        (created["id"], current_user["id"]),
+        EntryLogAction.CREATE,
+        None,
+        after,
+    )
+    return created["id"]

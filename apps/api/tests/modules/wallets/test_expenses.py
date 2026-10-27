@@ -7,7 +7,8 @@
 import pytest
 from httpx import AsyncClient
 
-from modules.wallets.model import MemberRole, SplitMode, WalletKind
+from modules.wallets.model import CategoryType, MemberRole, SplitMode, WalletKind, WalletStatus
+from modules.wallets.schema import MAX_SAFE_AMOUNT
 
 from ..helpers import authenticate
 from .conftest import ALICE, BOB, CAROL, SUPER, FakeStore
@@ -519,3 +520,216 @@ async def test_list_wallet_expense_logs_in_general_wallet_returns_400(client, st
     response = await client.get(f"/api/wallets/{general}/expense-logs")
 
     assert response.status_code == 400
+
+
+# ── 同步到一般錢包 ──────────────────────────────────────────────────────────
+
+
+@pytest.fixture
+def purse(store: FakeStore) -> str:
+    """Alice 自己的一般錢包, 餘額 5000。"""
+    return store.add_wallet(name="錢包", balance=5000, members={ALICE: MemberRole.ADMIN})
+
+
+@pytest.fixture
+def dining(store: FakeStore, purse: str) -> str:
+    return store.add_category(purse, "餐飲")
+
+
+def _sync(wallet_id: str, category_id: str) -> dict:
+    return {"sync_to": {"wallet_id": wallet_id, "category_id": category_id}}
+
+
+@pytest.mark.asyncio
+async def test_create_expense_with_sync_creates_general_expense_with_full_amount(
+    client, store, wallet, purse, dining
+):
+    authenticate(client, "alice")
+
+    body = _equal(3000, ALICE, [ALICE, BOB, CAROL], note="晚餐", **_sync(purse, dining))
+    await _create(client, wallet, body)
+
+    [entry] = [entry for entry in store.entries.values() if entry["wallet_id"] == purse]
+    assert (entry["kind"], entry["amount"], entry["category_id"]) == ("expense", 3000, dining)
+    assert (str(entry["entry_date"]), entry["note"], entry["created_by"]) == (DAY, "晚餐", ALICE)
+    assert store.balance(purse) == 2000
+    [log] = [log for log in store.logs if log["wallet_id"] == purse]
+    assert (log["entry_id"], log["action"], log["actor_id"]) == (entry["id"], "create", ALICE)
+    assert log["after"]["category_name"] == "餐飲"
+
+
+@pytest.mark.asyncio
+async def test_create_expense_with_sync_when_payer_is_not_self_returns_400(
+    client, store, wallet, purse, dining
+):
+    authenticate(client, "alice")
+
+    body = _equal(300, BOB, [ALICE, BOB], **_sync(purse, dining))
+    response = await client.post(f"/api/wallets/{wallet}/expenses", json=body)
+
+    assert response.status_code == 400
+    assert store.expenses == {}
+    assert store.balance(purse) == 5000
+
+
+@pytest.mark.asyncio
+async def test_create_expense_with_sync_to_unjoined_wallet_returns_404(client, store, wallet):
+    others = store.add_wallet(name="Bob 的錢包", members={BOB: MemberRole.ADMIN})
+    category = store.add_category(others, "餐飲")
+    store.members[(wallet, SUPER)] = MemberRole.MEMBER
+
+    for name, payer in (("alice", ALICE), ("super", SUPER)):
+        authenticate(client, name)
+        body = _equal(300, payer, [payer], **_sync(others, category))
+        response = await client.post(f"/api/wallets/{wallet}/expenses", json=body)
+        assert response.status_code == 404, name
+
+    assert store.expenses == {}
+    assert store.entries == {}
+
+
+@pytest.mark.asyncio
+async def test_create_expense_with_sync_to_travel_wallet_returns_400(client, store, wallet):
+    trip = store.add_wallet(kind=WalletKind.TRAVEL, name="大阪", members={ALICE: MemberRole.ADMIN})
+    category = store.add_category(trip, "餐飲")
+    authenticate(client, "alice")
+
+    body = _equal(300, ALICE, [ALICE], **_sync(trip, category))
+    response = await client.post(f"/api/wallets/{wallet}/expenses", json=body)
+
+    assert response.status_code == 400
+    assert store.expenses == {}
+
+
+@pytest.mark.asyncio
+async def test_create_expense_with_sync_to_hidden_wallet_succeeds(
+    client, store, wallet, purse, dining
+):
+    """不顯示只是畫面上的設定, 後端照樣接受, 同轉帳 (見 docs/features/wallets.md〈錢包群組〉)。"""
+    store.placements[(purse, ALICE)]["is_hidden"] = True
+    authenticate(client, "alice")
+
+    await _create(client, wallet, _equal(300, ALICE, [ALICE], **_sync(purse, dining)))
+
+    assert store.balance(purse) == 4700
+
+
+@pytest.mark.asyncio
+async def test_create_expense_with_sync_category_from_other_wallet_returns_404(
+    client, store, wallet, purse
+):
+    elsewhere = store.add_wallet(name="存款", members={ALICE: MemberRole.ADMIN})
+    category = store.add_category(elsewhere, "餐飲")
+    authenticate(client, "alice")
+
+    body = _equal(300, ALICE, [ALICE], **_sync(purse, category))
+    response = await client.post(f"/api/wallets/{wallet}/expenses", json=body)
+
+    assert response.status_code == 404
+    assert store.expenses == {}
+    assert store.balance(purse) == 5000
+
+
+@pytest.mark.asyncio
+async def test_create_expense_with_sync_archived_category_returns_404(
+    client, store, wallet, purse
+):
+    category = store.add_category(purse, "舊分類", archived=True)
+    authenticate(client, "alice")
+
+    body = _equal(300, ALICE, [ALICE], **_sync(purse, category))
+    response = await client.post(f"/api/wallets/{wallet}/expenses", json=body)
+
+    assert response.status_code == 404
+    assert store.expenses == {}
+
+
+@pytest.mark.asyncio
+async def test_create_expense_with_sync_income_category_returns_400(client, store, wallet, purse):
+    category = store.add_category(purse, "薪資", CategoryType.INCOME)
+    authenticate(client, "alice")
+
+    body = _equal(300, ALICE, [ALICE], **_sync(purse, category))
+    response = await client.post(f"/api/wallets/{wallet}/expenses", json=body)
+
+    assert response.status_code == 400
+    assert store.expenses == {}
+
+
+@pytest.mark.asyncio
+async def test_create_expense_with_sync_over_balance_limit_creates_nothing(
+    client, store, wallet, purse, dining
+):
+    store.wallets[purse]["balance"] = -MAX_SAFE_AMOUNT + 100
+    authenticate(client, "alice")
+
+    body = _equal(101, ALICE, [ALICE], **_sync(purse, dining))
+    response = await client.post(f"/api/wallets/{wallet}/expenses", json=body)
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "餘額超出可記錄的範圍"
+    assert store.expenses == {}
+    assert store.entries == {}
+    assert store.logs == []
+
+
+@pytest.mark.asyncio
+async def test_create_expense_with_sync_on_locked_wallet_creates_nothing(
+    client, store, wallet, purse, dining
+):
+    store.wallets[wallet]["status"] = WalletStatus.SETTLING
+    authenticate(client, "alice")
+
+    body = _equal(300, ALICE, [ALICE], **_sync(purse, dining))
+    response = await client.post(f"/api/wallets/{wallet}/expenses", json=body)
+
+    assert response.status_code == 409
+    assert store.expenses == {}
+    assert store.entries == {}
+    assert store.balance(purse) == 5000
+
+
+@pytest.mark.asyncio
+async def test_update_expense_with_sync_field_returns_422(client, store, wallet, purse, dining):
+    """只有新增可以同步, 建好的帳不能事後補
+    (見 docs/features/travel-wallet.md〈同步到一般錢包〉)。
+    """
+    expense_id = store.add_expense(wallet, ALICE, ALICE, {ALICE: 300})
+    authenticate(client, "alice")
+
+    body = _equal(300, ALICE, [ALICE], **_sync(purse, dining))
+    response = await client.patch(f"/api/wallets/{wallet}/expenses/{expense_id}", json=body)
+
+    assert response.status_code == 422
+    assert store.entries == {}
+
+
+@pytest.mark.asyncio
+async def test_update_synced_expense_leaves_general_entry_unchanged(
+    client, store, wallet, purse, dining
+):
+    authenticate(client, "alice")
+    expense_id = await _create(
+        client, wallet, _equal(300, ALICE, [ALICE], note="午餐", **_sync(purse, dining))
+    )
+
+    body = _equal(900, BOB, [ALICE, BOB], note="改過")
+    response = await client.patch(f"/api/wallets/{wallet}/expenses/{expense_id}", json=body)
+
+    assert response.status_code == 200
+    [entry] = store.entries.values()
+    assert (entry["amount"], entry["note"]) == (300, "午餐")
+    assert store.balance(purse) == 4700
+
+
+@pytest.mark.asyncio
+async def test_delete_synced_expense_leaves_general_entry(client, store, wallet, purse, dining):
+    authenticate(client, "alice")
+    expense_id = await _create(client, wallet, _equal(300, ALICE, [ALICE], **_sync(purse, dining)))
+
+    response = await client.delete(f"/api/wallets/{wallet}/expenses/{expense_id}")
+
+    assert response.status_code == 200
+    assert store.expenses == {}
+    assert len(store.entries) == 1
+    assert store.balance(purse) == 4700

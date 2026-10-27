@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
-  canConfirmDelete, emptyWalletForm, hasErrors, parseAmount, shareRemainder, toExpenseRequest,
+  canConfirmDelete, emptyWalletForm, hasErrors, parseAmount, shareRemainder, toExpenseCreateRequest,
+  toExpenseRequest, validateExpenseSync,
   validateExpenseForm, parsePositiveAmount, toAdjustRequest,
   toAdminCreateRequest, toAdvanceRequest, toCreateRequest, toEntryRequest, toMoneyRequest,
   toTransferRequest, toTransferUpdateRequest, toUpdateRequest, validateAdjustForm,
@@ -327,5 +328,30 @@ describe("emptyWalletForm", () => {
     expect(emptyWalletForm("travel").kind).toBe("travel")
     expect(emptyWalletForm("general").kind).toBe("general")
     expect(emptyWalletForm("travel").name).toBe("")
+  })
+})
+
+describe("同步到一般錢包", () => {
+  const values: ExpenseFormValues = {
+    amount: "3,000", payer_id: "alice", split_mode: "equal", participant_ids: ["alice", "bob"],
+    shares: [], entry_date: "2026-11-02", note: "晚餐",
+  }
+
+  it("選了同步的錢包但沒選分類時擋下", () => {
+    expect(validateExpenseSync({ wallet_id: "w-1", category_id: "" }, "zh").category_id)
+      .toBe("請選擇分類")
+    expect(validateExpenseSync({ wallet_id: "", category_id: "" }, "zh").category_id)
+      .toBeUndefined()
+  })
+
+  it("沒選同步的錢包時請求不帶同步欄位", () => {
+    expect(toExpenseCreateRequest(values, { wallet_id: "", category_id: "" }))
+      .toEqual(toExpenseRequest(values))
+  })
+
+  it("選了同步的錢包與分類時請求帶上兩者", () => {
+    expect(toExpenseCreateRequest(values, { wallet_id: "w-1", category_id: "c-1" })).toEqual({
+      ...toExpenseRequest(values), sync_to: { wallet_id: "w-1", category_id: "c-1" },
+    })
   })
 })
