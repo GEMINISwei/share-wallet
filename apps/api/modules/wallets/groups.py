@@ -30,16 +30,6 @@ from .schema import (
 MAX_GROUPS_PER_KIND = 20
 
 
-async def default_group_id(user_id: str, kind: WalletKind) -> str:
-    """這個人某種類型的預設群組, 還沒有就先建。建立與加入錢包時用。"""
-    await WalletGroupTable.ensure_defaults(user_id)
-    group_id = await WalletGroupTable.find_default_id(user_id, kind)
-    # ensure_defaults 之後一定有; 真的沒有表示 user_id 不是合法的 uuid。
-    if group_id is None:
-        raise LangException(404, WalletError.GROUP_NOT_FOUND)
-    return group_id
-
-
 async def _locked_groups(user_id: str) -> list[GroupDetail]:
     await WalletGroupTable.ensure_defaults(user_id)
     return await WalletGroupTable.list_for_user(user_id, lock=True)

@@ -6,9 +6,8 @@ from shared.auth.contracts import CurrentUser
 from shared.http.errors import LangException, ensure_found
 
 from .access import can_manage, manage_wallet, open_wallet
-from .categories import default_categories
+from .defaults import default_categories, default_group_id
 from .errors import WalletError
-from .groups import default_group_id
 from .model import (
     MemberRole,
     Placement,

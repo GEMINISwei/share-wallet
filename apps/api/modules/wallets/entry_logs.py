@@ -9,8 +9,8 @@ from modules.users.public import find_nicknames
 from shared.auth.contracts import CurrentUser
 from shared.http.errors import LangException
 
+from .access import open_travel_wallet
 from .errors import WalletError
-from .expenses import open_travel_wallet
 from .ledger import open_general_wallet
 from .model import EntryLogDetail, WalletEntryLogTable
 from .schema import (

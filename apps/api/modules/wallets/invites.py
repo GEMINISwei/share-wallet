@@ -12,8 +12,8 @@ from shared.http.errors import LangException, ensure_found
 from shared.time import utc_now
 
 from .access import manage_wallet
+from .defaults import default_group_id
 from .errors import WalletError
-from .groups import default_group_id
 from .model import (
     InviteDetail,
     MemberRole,

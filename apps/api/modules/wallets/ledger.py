@@ -1,6 +1,7 @@
 """收支、轉帳與代墊 (`entries.py`、`transfers.py`、`advances.py`) 共用的記帳步驟。
 
-鎖餘額、檢查範圍、留異動紀錄。其中權限檢查與異動紀錄的寫入, 旅遊錢包的帳 (`expenses.py`) 也共用。
+鎖餘額、檢查範圍、留異動紀錄。其中權限檢查與異動紀錄的寫入, 旅遊錢包的帳 (`expenses.py`) 也共用;
+每人的合計與淨額由旅遊錢包的帳與結算 (`settlement.py`) 共用。
 
 餘額是存起來的值 (見 docs/features/general-wallet.md〈餘額〉): 每個寫入都先
 `WalletTable.lock_balance` 鎖住錢包, 再在同一個請求的交易裡改帳目、改餘額、留異動紀錄 ——
@@ -19,9 +20,12 @@ from .model import (
     EntryKind,
     EntryLogAction,
     MemberRole,
+    MemberTotals,
+    TravelExpenseTable,
     WalletEntryLogTable,
     WalletEntryTable,
     WalletKind,
+    WalletMemberTable,
     WalletTable,
 )
 from .schema import MAX_SAFE_AMOUNT, EntrySnapshot
@@ -141,3 +145,21 @@ async def write_log(
             "after": after,
         }
     )
+
+
+async def totals_by_person(wallet_id: str) -> list[tuple[str, MemberTotals]]:
+    """所有成員依加入順序, 後面接著已經離開、但有紀錄的人。
+
+    有紀錄的人在結帳前不能離開, 結帳後可以 (見 docs/features/travel-wallet.md〈封存〉),
+    金額照樣要算進去。
+    """
+    member_ids = [member["user_id"] for member in await WalletMemberTable.list_members(wallet_id)]
+    totals = await TravelExpenseTable.totals(wallet_id)
+    members = set(member_ids)
+    people = [*member_ids, *(user_id for user_id in totals if user_id not in members)]
+    return [(user_id, totals.get(user_id, {"paid": 0, "owed": 0})) for user_id in people]
+
+
+async def net_amounts(wallet_id: str) -> list[tuple[str, int]]:
+    """每人的淨額, 順序同 `totals_by_person`。給結算算清償方案。"""
+    return [(user_id, t["paid"] - t["owed"]) for user_id, t in await totals_by_person(wallet_id)]
