@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
-  groupMenuItems, groupWallets, landingGroupId, moveTargets, navGroups, navTarget,
+  groupMenuItems, groupWallets, landingGroupId, moveTargets, navGroups, navSections,
   walletSettingsSections,
 } from "@/modules/wallets/groups"
 import type { WalletGroupInfo, WalletInfo } from "@/modules/wallets/types"
@@ -116,17 +116,20 @@ describe("navGroups", () => {
   })
 })
 
-describe("navTarget", () => {
-  it("兩個以上可以選時要選群組", () => {
-    expect(navTarget([FILLED_DEFAULT, YEN], "general")).toEqual({ pick: [FILLED_DEFAULT, YEN] })
+describe("navSections", () => {
+  it("一般、旅遊各一段，各自列出能選的群組", () => {
+    const sections = navSections([YEN, FILLED_DEFAULT, FILLED_TRAVEL, EMPTY_TRAVEL_DEFAULT])
+
+    expect(sections.map((s) => [s.kind, s.groups.map((g) => g.id)])).toEqual([
+      ["general", ["g-yen", "g-default"]],
+      ["travel", ["g-japan"]],
+    ])
   })
 
-  it("只有一個可以選時直接進去", () => {
-    expect(navTarget([YEN, EMPTY_DEFAULT], "general")).toEqual({ go: "g-yen" })
-  })
+  it("一種都沒有能選的群組時，那一段列出它的預設群組", () => {
+    const sections = navSections([EMPTY_DEFAULT, EMPTY_TRAVEL_DEFAULT])
 
-  it("一個都沒有時進到那種類型的預設群組", () => {
-    expect(navTarget([YEN, EMPTY_DEFAULT, EMPTY_TRAVEL_DEFAULT], "travel")).toEqual({ go: "g-travel" })
+    expect(sections.map((s) => s.groups.map((g) => g.id))).toEqual([["g-default"], ["g-travel"]])
   })
 })
 

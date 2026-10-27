@@ -124,8 +124,13 @@ test("群組頁只列顯示中的錢包，總額只算顯示中的錢包", async
   // 上一個測試把錢包移進「日圓」並設為不顯示: 沒有任何顯示中的錢包, 進到一般的預設群組。
   await expect(page.getByRole("heading", { name: "一般錢包（未選擇）" })).toBeVisible()
 
-  // 一般群組只剩「日圓」可以選 (預設群組裡沒有顯示中的錢包), 點了直接進去。
-  await page.getByRole("button", { name: "一般錢包" }).first().click()
+  // 在群組頁時側欄的「錢包」預設展開; 一般錢包那段只剩「日圓」(預設群組裡沒有顯示中的錢包)。
+  const sidebar = page.getByRole("navigation", { name: "主要導覽" })
+  await expect(sidebar.getByRole("button", { name: "錢包", exact: true }))
+    .toHaveAttribute("aria-expanded", "true")
+  const generalSection = sidebar.getByRole("group", { name: "一般錢包" })
+  await expect(generalSection.getByRole("link")).toHaveCount(1)
+  await generalSection.getByRole("link", { name: /日圓/ }).click()
   await expect(page.getByRole("heading", { name: "日圓" })).toBeVisible()
   await expect(page.getByText(walletName)).toBeHidden()
 

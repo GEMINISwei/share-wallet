@@ -10,4 +10,4 @@ export { invitePath, parseInviteToken, withInvite } from "./invite-link"
 export { AddEntryNavButton, AddEntryProvider } from "./ui/AddEntryNav"
 
 /** 外殼導覽的「一般錢包」「旅遊錢包」: 依自己的錢包群組選群組進去。 */
-export { WalletKindNav, WalletNavProvider } from "./ui/WalletNav"
+export { WalletNavItem, WalletNavProvider } from "./ui/WalletNav"

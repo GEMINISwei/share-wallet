@@ -49,13 +49,18 @@ export function navGroups(groups: readonly WalletGroupInfo[], kind: WalletKind) 
   )
 }
 
-/** 點導覽的「一般錢包」「旅遊錢包」: 兩個以上能選時要選, 否則直接進去。 */
-export function navTarget(
-  groups: readonly WalletGroupInfo[], kind: WalletKind,
-): { go: string } | { pick: WalletGroupInfo[] } {
-  const choices = navGroups(groups, kind)
-  if (choices.length > 1) return { pick: choices }
-  return { go: choices[0]?.id ?? defaultGroupId(groups, kind) }
+export type NavSection = { kind: WalletKind; groups: WalletGroupInfo[] }
+
+/**
+ * 導覽的「錢包」展開後的兩段: 一般、旅遊各自能選的群組。一種都沒有時列出它的預設群組,
+ * 才進得去建立那種錢包。
+ */
+export function navSections(groups: readonly WalletGroupInfo[]): NavSection[] {
+  return (["general", "travel"] as const).map((kind) => {
+    const choices = navGroups(groups, kind)
+    const fallback = groups.filter((group) => group.kind === kind && group.is_default)
+    return { kind, groups: choices.length > 0 ? choices : fallback }
+  })
 }
 
 function defaultGroupId(groups: readonly WalletGroupInfo[], kind: WalletKind) {

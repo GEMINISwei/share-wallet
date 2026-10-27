@@ -14,7 +14,7 @@ import { appMessages } from "@/config/i18n"
 import { logout } from "@/config/session-actions"
 import { navRoutes } from "@/config/routes"
 import {
-  AddEntryNavButton, AddEntryProvider, WalletKindNav, WalletNavProvider,
+  AddEntryNavButton, AddEntryProvider, WalletNavItem, WalletNavProvider,
 } from "@/modules/wallets/public.client"
 import type { RouteArea } from "@/shared/module"
 import { type AccountMenuEntry, type AccountMenuLabel, getAccountMenuEntries } from "./account-menu"
@@ -47,14 +47,12 @@ function NavLink({ href, icon, label, variant }: NavLinkProps) {
   )
 }
 
-/** 使用者區導覽的「一般錢包」「旅遊錢包」: 元件在錢包模組, 樣式跟其他導覽項目一樣。 */
-function WalletNavItem(
-  { variant, kind }: { variant: "sidebar" | "bottom"; kind: "general" | "travel" },
-) {
+/** 使用者區導覽的「錢包」: 元件在錢包模組, 樣式跟其他導覽項目一樣。 */
+function WalletsNav({ variant }: { variant: "sidebar" | "bottom" }) {
   const sidebar = variant === "sidebar"
   return (
-    <WalletKindNav
-      kind={kind} variant={variant}
+    <WalletNavItem
+      variant={variant}
       className={sidebar ? styles.navLink : styles.bottomNavItem}
       activeClassName={sidebar ? styles.navLinkActive : styles.bottomNavItemActive}
       labelClassName={sidebar ? styles.navLinkLabel : undefined}
@@ -149,8 +147,7 @@ export default function AppShell({
                   {t(area === "admin" ? "navSectionAdmin" : "navSection")}
                 </span>
               )}
-              {area === "user" && <WalletNavItem variant="sidebar" kind="general" />}
-              {area === "user" && <WalletNavItem variant="sidebar" kind="travel" />}
+              {area === "user" && <WalletsNav variant="sidebar" />}
               {renderNav("sidebar")}
             </nav>
 
@@ -181,10 +178,9 @@ export default function AppShell({
 
           <nav className={styles.bottomNavigation} aria-label={t("mobileNav")}>
             {renderNav("bottom")}
-            {/* 記一筆是使用者區最常用的操作, 放在兩種錢包的正中間; 後台沒有自己的帳, 不放。 */}
-            {area === "user" && <WalletNavItem variant="bottom" kind="general" />}
+            {/* 記一筆是使用者區最常用的操作, 放在三格的正中間; 後台沒有自己的帳, 不放。 */}
+            {area === "user" && <WalletsNav variant="bottom" />}
             {area === "user" && <AddEntryNavButton />}
-            {area === "user" && <WalletNavItem variant="bottom" kind="travel" />}
             {/* 手機沒有側欄: 切換區域、設定與登出都在這一格, 以底部面板呈現, 標題是使用者名稱。
                 不叫「更多」: 錢包頁標題列的「⋯」也叫更多, 同一個畫面上會有兩個。 */}
             <Menu

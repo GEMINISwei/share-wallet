@@ -1,13 +1,13 @@
 "use client"
 
 import Link from "next/link"
-import { Plane, Wallet } from "lucide-react"
+import { Wallet } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 import { createContext, useContext, useEffect, useState } from "react"
 import { Modal } from "@/shared/ui"
 import { useT } from "@/shared/i18n/context"
 import { loadMyGroups } from "../actions"
-import { navTarget } from "../groups"
+import { type NavSection, navSections } from "../groups"
 import { walletsMessages } from "../i18n"
 import { walletGroupPath, walletsListPath } from "../paths"
 import type { WalletGroupInfo, WalletKind } from "../types"
@@ -55,8 +55,7 @@ export function useActiveWalletKind(kind: WalletKind | null) {
   }, [setActiveKind, kind])
 }
 
-type WalletKindNavProps = {
-  kind: WalletKind
+type WalletNavItemProps = {
   variant: "sidebar" | "bottom"
   /** 外殼的導覽樣式: 這個元件在模組裡, 拿不到外殼的 CSS。 */
   className: string
@@ -66,23 +65,24 @@ type WalletKindNavProps = {
 }
 
 /**
- * 導覽的「一般錢包」「旅遊錢包」(見 docs/features.md〈錢包列表〉): 只有一個群組能選時直接進去,
- * 兩個以上時手機從底部滑出面板、桌機在側欄展開成群組清單。
+ * 導覽的「錢包」(見 docs/features.md〈錢包列表〉): 一般、旅遊合成一項, 點了之後手機從底部
+ * 滑出面板、桌機在側欄展開, 兩種各一段列出能選的群組。
  */
-export function WalletKindNav({
-  kind, variant, className, activeClassName, labelClassName, iconSize,
-}: WalletKindNavProps) {
+export function WalletNavItem({
+  variant, className, activeClassName, labelClassName, iconSize,
+}: WalletNavItemProps) {
   const t = useT(walletsMessages)
   const router = useRouter()
+  const nav = useContext(WalletNavContext)
   const [picking, setPicking] = useState(false)
   const [toggled, setToggled] = useState<boolean | null>(null)
-  const { label, Icon, active, target, choices } = useKindNav(kind)
-  // 側欄: 所在的那一項預設展開, 點了再收合或展開。
-  const expanded = variant === "sidebar" && choices.length > 0 && (toggled ?? active)
+  const sections = nav?.groups ? navSections(nav.groups) : null
+  const active = Boolean(nav?.activeKind)
+  // 側欄: 在群組頁或錢包頁時預設展開, 點了再收合或展開。
+  const expanded = variant === "sidebar" && sections !== null && (toggled ?? active)
 
   function handleClick() {
-    if (!target) router.push(walletsListPath("user", kind))
-    else if ("go" in target) router.push(walletGroupPath(target.go))
+    if (!sections) router.push(walletsListPath("user"))
     else if (variant === "bottom") setPicking(true)
     else setToggled(!expanded)
   }
@@ -91,34 +91,49 @@ export function WalletKindNav({
     <>
       <button
         type="button" className={`${className} ${active ? activeClassName : ""}`}
-        aria-expanded={variant === "sidebar" && choices.length > 0 ? expanded : undefined}
+        aria-expanded={variant === "sidebar" && sections ? expanded : undefined}
         onClick={handleClick}
       >
-        <Icon size={iconSize} aria-hidden="true" />
-        <span className={labelClassName}>{label}</span>
+        <Wallet size={iconSize} aria-hidden="true" />
+        <span className={labelClassName}>{t("navWallets")}</span>
       </button>
-      {expanded && <GroupLinks groups={choices} className={styles.navGroups} />}
+      {expanded && sections && <NavSections sections={sections} variant="sidebar" />}
       {variant === "bottom" && (
         <Modal title={t("pickGroup")} open={picking} onOpenChange={setPicking}>
-          <GroupLinks groups={choices} className={styles.list} onPicked={() => setPicking(false)} />
+          <NavSections sections={sections ?? []} variant="bottom" onPicked={() => setPicking(false)} />
         </Modal>
       )}
     </>
   )
 }
 
-/** 一種錢包在導覽上的狀態: 文字、圖示、是不是所在的那一項, 以及點了要去哪。 */
-function useKindNav(kind: WalletKind) {
+type NavSectionsProps = {
+  sections: NavSection[]
+  variant: "sidebar" | "bottom"
+  onPicked?: () => void
+}
+
+function NavSections({ sections, variant, onPicked }: NavSectionsProps) {
   const t = useT(walletsMessages)
-  const nav = useContext(WalletNavContext)
-  const target = nav?.groups ? navTarget(nav.groups, kind) : null
-  return {
-    label: kind === "travel" ? t("navTravel") : t("navGeneral"),
-    Icon: kind === "travel" ? Plane : Wallet,
-    active: nav?.activeKind === kind,
-    target,
-    choices: target && "pick" in target ? target.pick : [],
-  }
+  const sidebar = variant === "sidebar"
+  return (
+    <div className={sidebar ? styles.navSections : styles.content}>
+      {sections.map(({ kind, groups }) => {
+        const titleId = `wallet-nav-${variant}-${kind}`
+        return (
+          <div key={kind} role="group" aria-labelledby={titleId}>
+            <span id={titleId} className={styles.navSectionTitle}>
+              {kind === "travel" ? t("navTravel") : t("navGeneral")}
+            </span>
+            <GroupLinks
+              groups={groups} className={sidebar ? styles.navGroups : styles.list}
+              onPicked={onPicked}
+            />
+          </div>
+        )
+      })}
+    </div>
+  )
 }
 
 type GroupLinksProps = { groups: WalletGroupInfo[]; className: string; onPicked?: () => void }
