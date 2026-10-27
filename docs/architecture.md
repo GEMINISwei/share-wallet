@@ -75,7 +75,9 @@ app（組裝層） → modules（垂直功能） → shared（平台能力）
 6. 前端 client 檔不可引用 `.server.ts(x)`，`"use server"` 的 Server Action 除外。
 7. 前端 module 內部一律**相對路徑**，`@/` 只用來跨層。
 8. 前端 UI kit 只有 `@/shared/ui` 一個入口，不可指進子路徑。唯一例外是文件根（`app/layout.tsx`、
-   `app/global-error.tsx`）載入的全域樣式表 `shared/ui/styles/{tokens,base,message-page}.css`。
+   `app/global-error.tsx`）載入的全域樣式表 `shared/ui/styles/{base,message-page}.css`。
+   `tokens.css` 由 `app/theme.css` 以 `@import` 帶入，文件根只 import `theme.css`，順序才有保證
+   （`tests/app/theme.test.ts` 擋）。
 9. 後端不得有 `api`／`core`／`services`／`repositories` 這類**水平分層**的頂層套件。
 
 違反就紅燈（`make check`），各條由現成工具執行，都涵蓋 re-export、動態 `import()` 與相對 import：
@@ -151,7 +153,7 @@ app/
 |---|---|
 | `page.tsx` | 只有 import、Next 特有 export 的轉接、回傳單一 JSX（測試強制） |
 | `layout.tsx` | session 讀取、`redirect()`、粗略的權限篩選、組裝外殼。**不可有業務規則** |
-| `error`／`global-error`／`not-found`／`loading` | 用 `shared/ui` 的 `MessagePage`／`RouteLoading` 填文案 |
+| `error`／`global-error`／`not-found`／`loading` | 用 `shared/ui` 的 `MessagePage`／`RouteLoading` 填文案。`global-error` 取代整個 root layout，要自己再載入 layout 的那組樣式表 |
 | `route.ts` | 不依賴模組、session 或後端的常數回應（目前只有 `healthz`） |
 
 **`<main>` 地標由外框的擁有者提供**：`(protected)` 兩區是外殼（`config/shell/AreaLayout.tsx`），
@@ -192,6 +194,9 @@ modules/products/
 - **service 長大了就依授權模型拆檔**，不要開 `services/` 子目錄。例：`modules/users/` 的
   `service.py`（管理者對任意使用者）、`account.py`（使用者對自己的帳號）、`superuser.py`
   （建立超級管理者，只給 CLI 用），共用的錯誤在 `errors.py`。
+- **service 對外的函式回傳 pydantic model**（`tests/test_service_returns.py` 擋）。同一個模組裡多支 service
+  共用、回傳內部型別的輔助函式，放進 `access.py`（授權）、`ledger.py`（共用的寫入步驟）、
+  `rules.py`（不碰資料庫的計算）、`defaults.py`（預設值），這幾個檔名不受這條限制。例：`modules/wallets/`。
 - 與業務無關的能力（密碼雜湊、token、權限展開）用 `shared/auth/`，不要在模組裡再寫一份。
 - `app/registry.py` 的 `ENABLED_MODULES` 是唯一啟用清單。重複的 module 名稱、router prefix、
   資料表名稱會在啟動時被拒絕（規則在 `shared/module.py`）。測試可用 `create_app(modules=...)`

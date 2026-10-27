@@ -3,9 +3,7 @@ import type { ReactNode } from "react"
 
 // 全頁訊息 (錯誤、404) 的共用外觀。樣式由 root layout 載入, 避免 Next.js dev
 // 將共用 CSS 拆成 error/not-found 專屬 preload chunk。
-//
-// 註: app/global-error.tsx 刻意**不**使用這個元件。那支會取代整個 root layout (含 html/body),
-// 執行當下不保證 CSS 已經載入, 所以它必須維持自帶 inline style。
+// app/global-error.tsx 取代整個 root layout, 拿不到 layout 的 CSS, 所以它自己再載一次同一組樣式表。
 
 type MessagePageProps = {
   title: string

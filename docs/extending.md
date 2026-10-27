@@ -13,8 +13,8 @@ users：關聯表與篩選（`model.py`）、依授權模型拆檔（`service.py
 
 ### 1. 後端模組
 
-1. 複製 `apps/api/modules/roles/` 為 `modules/products/`，改成自己的 router、schema、service、
-   `ProductTable` 與 `permissions.py`。
+1. 複製 `apps/api/modules/roles/` 為 `modules/products/`，改成自己的 router、schema、service 與
+   `ProductTable`。roles 沒有 `permissions.py`（後台只開放給超級管理者），照〈[2. 權限](#2-權限)〉新增。
 2. 在 `manifest.py` 宣告 routers、tables 與 permissions，再加進 `app/registry.py` 的
    `ENABLED_MODULES`。
 3. 照 `modules/roles/` 的慣例寫：
@@ -51,6 +51,32 @@ users：關聯表與篩選（`model.py`）、依授權模型拆檔（`service.py
    這是刻意中央化的清單，理由見 [`architecture.md`](architecture.md#兩份刻意中央化的清單)。
 2. label（動作，例「查看」）、category（分類，例「商品」）、dependencies、assignable 寫在
    `modules/products/permissions.py`，由 manifest 註冊；宣告順序就是角色畫面上的順序。
+   欄位的意思見 `shared/module.py` 的 `PermissionSpec`：
+
+   ```python
+   # modules/products/permissions.py
+   from app.permissions import Permission
+   from shared.http.errors import LangText
+   from shared.module import PermissionSpec
+
+   CATEGORY = LangText(zh="商品", en="Products")
+
+   PERMISSIONS = (
+       PermissionSpec(Permission.PRODUCT_READ, LangText(zh="查看", en="View"), CATEGORY),
+       PermissionSpec(
+           Permission.PRODUCT_UPDATE,
+           LangText(zh="修改", en="Edit"),
+           CATEGORY,
+           dependencies=frozenset({Permission.PRODUCT_READ}),  # 能改就要能看
+       ),
+   )
+
+   # modules/products/manifest.py
+   MODULE = ModuleManifest(
+       name="products", routers=(router,), tables=(ProductTable,), permissions=PERMISSIONS,
+   )
+   ```
+
    enum 與 metadata 對不上時，api 會在啟動時直接失敗。
    角色編輯畫面直接用後端給的標籤與分類（`GET /roles/permission-options`），**前端不必改**。
 
@@ -213,8 +239,6 @@ autogenerate 固定會漏三件事，產出一定要讀：
 | 改名會被看成「drop 一個、add 一個」 | 改寫成 `op.alter_column(..., new_column_name=...)` |
 | 不能在交易裡跑的 DDL（`CREATE INDEX CONCURRENTLY`） | 當成獨立的維運操作 |
 
-- **migration 只往前**：已發版的 migration 不可修改或刪除（`make check migrate` 和最近的 release tag
-  比對），要改結構就新增一支。發 0.0.1 之前沒有 tag，可以直接改初始 migration。
 - **兩版之間多了 migration 就不能回滾**，部署前的檢查會拒絕（見
   [`operations.md`](operations.md#回滾與-migration)）。
 - 改名與刪除仍建議拆成兩次發版（先加新的、兩邊並存，下一版才刪舊的）：部署時 migrate 先跑、
@@ -222,6 +246,23 @@ autogenerate 固定會漏三件事，產出一定要讀：
 - 保持**一個 head**（`tests/test_migrations.py` 守），分岔了用 `alembic merge`。
 - migration 裡**不要 import model**，用 `sa` 與 `op`；不要自己開交易或 `COMMIT`。
 - 資料回填寫在 migration，不要寫進 `shared/platform.py` 的 lifespan。
+
+### 發版之前可以整理
+
+部署只認 release（[`operations.md`](operations.md#自動部署)），所以還沒發布的 migration 不在任何主機上。
+`make check migrate` 以**最近的 `v*` tag** 為界（prerelease 的 `v0.2.0-rc.1` 也算）：
+
+| migration | 可以怎麼改 |
+|---|---|
+| 還沒有任何 tag（發 0.0.1 之前） | 全部都能改，結構變更直接併回初始 migration |
+| 最近的 tag 之後才新增 | 合併、改寫、刪除都可以：同一個功能開發中途改了幾次結構，發版前併成一支 |
+| 最近的 tag 之前就有 | **只往前**，不可修改或刪除，要改結構就新增一支 |
+
+整理的步驟：把要合併的幾支改寫成一支（`down_revision` 接回 tag 時的 head），刪掉其餘的，
+再 `make db reset` 重建本機資料庫，最後 `make check integration`（`alembic check` 確認與 model 一致）。
+
+- **一起開發的人也要 `make db reset`**：他們的資料庫可能停在被刪掉的 revision，`migrate` 會找不到它而失敗。
+- **prerelease 發出去之後就不能再整理**：它會部署到 staging，那裡的資料庫已經跑過這些 migration。
 
 ## 初始資料（Seed）
 

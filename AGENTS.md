@@ -35,8 +35,10 @@
 13. **`apps/web/proxy.ts` 留在原位**：放錯位置 Next 照樣 build 成功、路由保護整層消失
     （`make check build` 確認輸出有 `ƒ Proxy (Middleware)`）。
 14. **compose 旗標不要自己組**，一律用 `scripts/lib/compose.sh`。
-15. **migration 只往前**：已發版的 migration 不可修改或刪除，要改結構就新增一支（`make check migrate`）。
-    兩版之間多了 migration 就不能回滾，部署前的檢查會拒絕（[說明](docs/operations.md#回滾與-migration)）。
+15. **migration 以最近的 `v*` tag 為界**（含 prerelease）：tag 之前的只往前，不可修改或刪除，要改結構就新增一支
+    （`make check migrate`）；tag 之後新增的還沒跑在任何主機上，同一個功能的可以併成一支，再 `make db reset`
+    （[說明](docs/extending.md#發版之前可以整理)）。兩版之間多了 migration 就不能回滾，部署前的檢查會拒絕
+    （[說明](docs/operations.md#回滾與-migration)）。
 
 各條由哪個工具或測試擋，見 [`development.md`](docs/development.md#架構本身也有測試)。
 完整規則見 [`architecture.md`](docs/architecture.md#強制依賴規則)。
@@ -74,7 +76,7 @@
 | 改了什麼 | 要做 |
 |---|---|
 | 任何程式碼 | `make check` |
-| model 的欄位、索引、約束 | `make db migration "說明"`，讀過產出，再 `make check integration` |
+| model 的欄位、索引、約束 | `make db migration "說明"`（或併進上次發版後新增、同一個功能的那支），讀過產出，再 `make check integration` |
 | 跟資料庫互動的後端程式 | `make check integration`（`make check` 裡 integration 會 skip） |
 | 登入、導向、權限、cookie、nginx、compose | `make check e2e`（`make check` 不含它） |
 | 後端 schema、權限、語系 | `make gen-types`，兩份產出一起 commit |

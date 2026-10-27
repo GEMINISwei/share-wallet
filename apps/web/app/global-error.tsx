@@ -1,13 +1,16 @@
 "use client"
 
+import { MessagePage, MessagePageButton } from "@/shared/ui"
 import { translate } from "@/shared/i18n/dictionary"
 import { useLocaleFromCookie } from "@/shared/i18n/context"
 import { HTML_LANG } from "@/shared/i18n/locale"
 import { appMessages } from "@/config/i18n"
-// 設計變數要在這裡再載一次。這一頁**取代** root layout, 所以 layout.tsx 的 CSS import
-// 不會出現在它的文件裡 —— 少了這一行, 底下每一個 `var(--…)` 都解不出來, 錯誤頁會退回
-// 瀏覽器預設樣式。theme.css 會自己帶上 tokens.css 的預設值。
+// 樣式要在這裡再載一次, 順序同 layout.tsx。這一頁**取代** root layout, 所以 layout.tsx 的
+// CSS import 不會出現在它的文件裡 —— 少了這幾行, `var(--…)` 解不出來、MessagePage 的 class
+// 也沒有規則, 錯誤頁會退回瀏覽器預設樣式。
 import "./theme.css"
+import "@/shared/ui/styles/base.css"
+import "@/shared/ui/styles/message-page.css"
 
 type GlobalErrorProps = {
   error: Error & { digest?: string }
@@ -21,75 +24,10 @@ export default function GlobalError({ reset }: GlobalErrorProps) {
 
   return (
     <html lang={HTML_LANG[locale]}>
-      <body
-        style={{
-          margin: 0,
-          minHeight: "100vh",
-          backgroundColor: "var(--color-bg-app)",
-          backgroundImage: "var(--bg-app-image)",
-          color: "var(--color-text-body)",
-          fontFamily: "var(--font-sans)",
-        }}
-      >
-        <main
-          style={{
-            minHeight: "100vh",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "var(--space-6)",
-          }}
-        >
-          <section
-            style={{
-              width: "100%",
-              maxWidth: "var(--container-narrow)",
-              textAlign: "center",
-            }}
-          >
-            <h1
-              style={{
-                margin: 0,
-                color: "var(--color-text-heading)",
-                fontFamily: "var(--font-heading)",
-                fontSize: "var(--fs-h1)",
-                fontWeight: "var(--fw-medium)",
-                lineHeight: "var(--lh-tight)",
-              }}
-            >
-              {t("errorTitle")}
-            </h1>
-            <p
-              style={{
-                margin: "var(--space-4) 0 var(--space-6)",
-                color: "var(--color-text-secondary)",
-                fontSize: "var(--fs-base)",
-                lineHeight: "var(--lh-normal)",
-              }}
-            >
-              {t("errorDescription")}
-            </p>
-            <button
-              type="button"
-              onClick={reset}
-              style={{
-                minHeight: "var(--control-height-md)",
-                padding: "0 var(--space-5)",
-                border: "var(--border-width-hairline) solid var(--color-action-primary)",
-                borderRadius: "var(--radius-md)",
-                background: "var(--color-action-primary)",
-                color: "var(--color-text-on-primary)",
-                boxShadow: "var(--shadow-sm)",
-                cursor: "pointer",
-                fontFamily: "var(--font-sans)",
-                fontSize: "var(--fs-sm)",
-                fontWeight: "var(--fw-semibold)",
-              }}
-            >
-              {t("retry")}
-            </button>
-          </section>
-        </main>
+      <body>
+        <MessagePage title={t("errorTitle")} description={t("errorDescription")}>
+          <MessagePageButton onClick={reset}>{t("retry")}</MessagePageButton>
+        </MessagePage>
       </body>
     </html>
   )
