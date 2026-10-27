@@ -137,6 +137,32 @@ describe("Modal", () => {
     expect(dialog.contains(document.activeElement)).toBe(true)
   })
 
+  it("桌機開啟時焦點落在標了 autoFocus 的欄位", () => {
+    render(
+      <Modal title="測試" open onOpenChange={() => {}}>
+        <TextInput label="名稱" autoFocus />
+      </Modal>,
+    )
+
+    expect(screen.getByLabelText("名稱")).toHaveFocus()
+  })
+
+  it("觸控裝置開啟時焦點停在對話框本身，不叫出鍵盤", () => {
+    vi.stubGlobal("matchMedia", (query: string) => ({ matches: query === "(pointer: coarse)" }))
+    try {
+      render(
+        <Modal title="測試" open onOpenChange={() => {}}>
+          <TextInput label="名稱" autoFocus />
+        </Modal>,
+      )
+
+      expect(screen.getByLabelText("名稱")).not.toHaveFocus()
+      expect(screen.getByRole("dialog")).toHaveFocus()
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
   it("Modal 掛在 body 底下，遮罩不會被外層的 filter 或 transform 限制在外層範圍", () => {
     render(
       <nav data-testid="outer">
