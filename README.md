@@ -49,17 +49,3 @@
 統計圖表、預算、排程交易（房租、訂閱）、匯出 CSV、即時同步（別人記的帳要下拉重新整理才看到）、收據附件。
 
 完整的產品規則見 [`docs/features/`](docs/features/README.md)。
-
-## 開發
-
-需要 Docker Desktop、`make`、`openssl`、`uv` 與 Node（版本見 [`apps/web/.nvmrc`](apps/web/.nvmrc)）。
-
-```bash
-make init dev   # 產生 .env 並安裝相依
-make start      # 啟動開發環境
-```
-
-技術架構、開發流程與部署方式見 [`docs/`](docs/)：
-[`architecture.md`](docs/architecture.md)、[`development.md`](docs/development.md)、
-[`extending.md`](docs/extending.md)、[`operations.md`](docs/operations.md)、
-[`decisions/`](docs/decisions/README.md)；給 AI agent 的規則在 [`AGENTS.md`](AGENTS.md)。
