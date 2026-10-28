@@ -2,10 +2,13 @@
 
 產品規則的唯一來源：錢包怎麼運作、誰能做什麼、金額怎麼算，以及帳號、權限、Session 這些內建功能，
 一個主題一份。實作細節（模組怎麼切、資料表長怎樣）見 [`architecture.md`](../architecture.md)；
-要執行的指令與救援步驟在 [`operations.md`](../operations.md)，要加新功能見 [`extending.md`](../extending.md)。
+要執行的指令與救援步驟在 [`operations.md`](../operations.md)，要加新功能見 [`extending/`](../extending/README.md)。
 
 只寫讀程式碼推不出來的事：規則、刻意的限制、沒做的功能、跨模組的行為與它的代價。
-新增一份時照 [`_template.md`](_template.md) 的段落，並在下面加一行。
+新增一份時複製 [`_template.md`](_template.md)，並在下面加一行。
+
+每份的開頭與結尾是固定的（`apps/api/tests/test_doc_features.py` 會擋）：標題底下先用一段說明涵蓋範圍，
+最後一段是「程式與測試」，連到入口檔與至少一個測試。中間的段落依主題命名。
 
 ## 錢包
 
