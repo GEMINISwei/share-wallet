@@ -32,3 +32,6 @@
 | [0007](0007-seed-in-migrate-service.md) | 初始資料由 migrate 服務寫入，不用 Alembic 資料 migration | 採用 |
 | [0008](0008-no-built-in-error-tracking.md) | 不內建錯誤追蹤與告警 | 採用 |
 | [0009](0009-public-signup.md) | 開放一般使用者註冊，超級管理者仍只能用指令建立 | 採用 |
+| [0010](0010-make-and-bash-commands.md) | 指令介面用 Makefile 加 bash 腳本 | 採用 |
+| [0011](0011-full-repo-checkout-on-hosts.md) | 部署主機上 git clone 整份 repo | 採用 |
+| [0012](0012-e2e-required-in-ci.md) | Playwright E2E 是 CI 與部署的必要檢查 | 採用 |

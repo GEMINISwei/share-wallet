@@ -5,7 +5,7 @@
 要執行的指令與救援步驟在 [`operations.md`](../operations.md)，要加新功能見 [`extending/`](../extending/README.md)。
 
 只寫讀程式碼推不出來的事：規則、刻意的限制、沒做的功能、跨模組的行為與它的代價。
-驗收條件不寫在這裡，寫在 PR 的「驗證」段，合併後由測試名稱保留（[說明](../development.md#驗收條件與測試名稱)）。
+驗收條件不寫在這裡，寫在 PR 的「驗證」段，合併後由測試名稱保留（[說明](../testing.md#驗收條件與測試名稱)）。
 新增一份時複製 [`_template.md`](_template.md)，並在下面加一行。
 
 每份的開頭與結尾是固定的（`apps/api/tests/test_doc_features.py` 會擋）：標題底下先用一段說明涵蓋範圍，

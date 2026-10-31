@@ -30,12 +30,26 @@ deny_on_production "make check"
 
 step() { printf '\n── %s ──────────────────────────────────────────\n' "$1"; }
 
+# npm 一律 `--silent`: 不回顯 `> web@0.0.1 lint` 這類指令列 (巢狀的 npm run 也跟著安靜)。
+# 通過時的輸出越短越好, AI agent 一次任務會跑好幾次, 每次都要整段讀進上下文; 錯誤訊息不受影響。
+
 run_lint() {
     step "lint"
-    (cd apps/api && uv run ruff check . && uv run lint-imports)
-    (cd apps/web && npm run lint)
+    # .agents/hooks/ 的 hook 腳本不在 api 的 import root 裡, 但同樣是 Python, 套用 api 的 ruff 設定。
+    (cd apps/api && uv run ruff check . ../../.agents/hooks && uv run lint-imports)
+    (cd apps/web && npm run --silent lint)
     lint_shell
     lint_compose
+    warn_git_hooks
+}
+
+# .githooks/ 要 core.hooksPath 指過去才會生效, 沒設時 commit 照樣成功、不會有任何提示。
+# 只提醒不擋: 這是本機設定, CI 上本來就沒有。
+warn_git_hooks() {
+    [ -n "${CI:-}" ] && return
+    [ "$(git config --get core.hooksPath || true)" = ".githooks" ] && return
+    echo "⚠️  git hook 沒有啟用（.githooks/ 的 commit-msg 不會檢查）：重跑 make init dev，"
+    echo "   或 git config core.hooksPath .githooks。"
 }
 
 # 本機沒裝工具時只提醒、不擋 (`make check` 的承諾是不需要額外安裝); CI 上 (GitHub 會設
@@ -51,7 +65,8 @@ missing_tool() {
 lint_shell() {
     command -v shellcheck > /dev/null 2>&1 || { missing_tool shellcheck; return; }
     # -x: 跟著 `source` 進 lib/, 被引用的函式與變數才不會被當成未定義。
-    shellcheck -x scripts/*.sh scripts/lib/*.sh .github/scripts/*.sh
+    shellcheck -x scripts/*.sh scripts/lib/*.sh .github/scripts/*.sh .agents/skills/*/scripts/*.sh \
+        .githooks/*
 }
 
 # 用 .env.example 展開兩種 MODE 的 compose: 抓 YAML 與錨點寫錯, 也抓「compose 用了
@@ -84,7 +99,7 @@ run_migrate() {
 run_types() {
     step "types"
     (cd apps/api && uv run mypy)
-    (cd apps/web && npm run typecheck)
+    (cd apps/web && npm run --silent typecheck)
 }
 
 run_test() {
@@ -93,7 +108,7 @@ run_test() {
     local log
     log="$(mktemp)"
     (cd apps/api && uv run pytest tests/ -q --cov) | tee "${log}"
-    (cd apps/web && npm run test:coverage)
+    (cd apps/web && npm run --silent test:coverage)
 
     # skip 的 exit code 是 0, 不講的話「資料庫沒起來」跟「全部通過」看起來一樣。
     local skipped
@@ -110,7 +125,7 @@ run_build() {
     step "build"
     local log
     log="$(mktemp)"
-    (cd apps/web && npm run build) | tee "${log}"
+    (cd apps/web && npm run --silent build) | tee "${log}"
     # proxy.ts 放錯位置或匯出名稱不對時, Next 照樣 build 成功, 只是路由保護整層消失。
     if ! grep -q 'Proxy (Middleware)' "${log}"; then
         rm -f "${log}"
