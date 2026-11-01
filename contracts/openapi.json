@@ -2808,9 +2808,6 @@
       },
       "WalletGroupCreate": {
         "properties": {
-          "kind": {
-            "$ref": "#/components/schemas/WalletKind"
-          },
           "name": {
             "maxLength": 50,
             "minLength": 1,
@@ -2819,14 +2816,13 @@
           }
         },
         "required": [
-          "kind",
           "name"
         ],
         "title": "WalletGroupCreate",
         "type": "object"
       },
       "WalletGroupInfo": {
-        "description": "自己的一個錢包群組。",
+        "description": "自己的一個錢包群組。只有一般錢包分群組。",
         "properties": {
           "id": {
             "title": "Id",
@@ -2835,9 +2831,6 @@
           "is_default": {
             "title": "Is Default",
             "type": "boolean"
-          },
-          "kind": {
-            "$ref": "#/components/schemas/WalletKind"
           },
           "name": {
             "anyOf": [
@@ -2851,15 +2844,8 @@
             "title": "Name"
           },
           "total_balance": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Total Balance"
+            "title": "Total Balance",
+            "type": "integer"
           },
           "visible_count": {
             "title": "Visible Count",
@@ -2872,7 +2858,6 @@
         },
         "required": [
           "id",
-          "kind",
           "name",
           "is_default",
           "wallet_count",
@@ -2883,7 +2868,7 @@
         "type": "object"
       },
       "WalletGroupList": {
-        "description": "自己的錢包群組: 一般群組在前, 同類型裡依自己排的順序。",
+        "description": "自己的錢包群組, 依自己排的順序。",
         "properties": {
           "count": {
             "title": "Count",
@@ -2905,7 +2890,7 @@
         "type": "object"
       },
       "WalletGroupMove": {
-        "description": "跟同類型裡上一個或下一個群組交換位置; 已經在最前或最後時不變。",
+        "description": "跟上一個或下一個群組交換位置; 已經在最前或最後時不變。",
         "properties": {
           "direction": {
             "enum": [
@@ -2936,7 +2921,7 @@
         "type": "object"
       },
       "WalletGroupRename": {
-        "description": "群組只能改名, 類型建立後不能改。",
+        "description": "群組只能改名。",
         "properties": {
           "name": {
             "maxLength": 50,
@@ -2952,7 +2937,7 @@
         "type": "object"
       },
       "WalletGroupUpdate": {
-        "description": "要放進的群組, 必須是自己的、而且跟錢包同類型。",
+        "description": "要放進的群組, 必須是自己的; 只有一般錢包能放進群組。",
         "properties": {
           "group_id": {
             "title": "Group Id",

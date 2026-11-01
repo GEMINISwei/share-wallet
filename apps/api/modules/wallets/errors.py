@@ -15,16 +15,14 @@ class WalletError(BaseError):
     )
     GROUP_NOT_FOUND = LangText(zh="錢包群組不存在", en="Wallet Group Not Found")
     GROUP_NAME_EXISTS = LangText(
-        zh="同類型已有相同名稱的群組", en="Wallet Group Name Already Exists"
+        zh="已有相同名稱的群組", en="Wallet Group Name Already Exists"
     )
-    GROUP_LIMIT = LangText(
-        zh="每種類型最多 20 個群組", en="You can have at most 20 groups of each type"
-    )
+    GROUP_LIMIT = LangText(zh="最多 20 個群組", en="You can have at most 20 groups")
     DEFAULT_GROUP_FIXED = LangText(
         zh="預設群組不能改名或刪除", en="The default group cannot be renamed or deleted"
     )
-    GROUP_KIND_MISMATCH = LangText(
-        zh="錢包只能放進同類型的群組", en="A wallet can only go into a group of the same type"
+    TRAVEL_NOT_GROUPED = LangText(
+        zh="旅遊錢包不分群組", en="Travel wallets are not put into groups"
     )
     PLACEMENT_NOT_MEMBER = LangText(
         zh="只有錢包成員可以設定群組與顯示",

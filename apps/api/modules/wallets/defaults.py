@@ -27,11 +27,13 @@ def default_categories() -> list[tuple[CategoryType, str]]:
     return [(category_type, resolve_text(text)) for category_type, text in DEFAULT_CATEGORIES]
 
 
-async def default_group_id(user_id: str, kind: WalletKind) -> str:
-    """這個人某種類型的預設群組, 還沒有就先建。建立與加入錢包時用。"""
-    await WalletGroupTable.ensure_defaults(user_id)
-    group_id = await WalletGroupTable.find_default_id(user_id, kind)
-    # ensure_defaults 之後一定有; 真的沒有表示 user_id 不是合法的 uuid。
+async def default_group_id(user_id: str, kind: WalletKind) -> str | None:
+    """建立與加入錢包時放進的群組: 一般錢包是這個人的預設群組 (還沒有就先建), 旅遊錢包不分群組。"""
+    if kind is WalletKind.TRAVEL:
+        return None
+    await WalletGroupTable.ensure_default(user_id)
+    group_id = await WalletGroupTable.find_default_id(user_id)
+    # ensure_default 之後一定有; 真的沒有表示 user_id 不是合法的 uuid。
     if group_id is None:
         raise LangException(404, WalletError.GROUP_NOT_FOUND)
     return group_id

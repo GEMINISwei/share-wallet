@@ -128,7 +128,7 @@ class WalletInfo(BaseModel):
     can_manage: bool
     #: 自己有沒有把它設為最愛; 沒有加入時是 false。
     is_favorite: bool
-    #: 自己把它放在哪個錢包群組; 沒有加入時是 null。
+    #: 自己把它放在哪個錢包群組; 旅遊錢包與沒有加入時是 null。
     group_id: str | None
     #: 自己有沒有把它設為不顯示; 沒有加入時是 false。
     is_hidden: bool
@@ -139,7 +139,7 @@ class FavoriteUpdate(BaseModel):
 
 
 class WalletGroupUpdate(BaseModel):
-    """要放進的群組, 必須是自己的、而且跟錢包同類型。"""
+    """要放進的群組, 必須是自己的; 只有一般錢包能放進群組。"""
 
     group_id: UuidText
 
@@ -149,38 +149,36 @@ class VisibilityUpdate(BaseModel):
 
 
 class WalletGroupInfo(BaseModel):
-    """自己的一個錢包群組。"""
+    """自己的一個錢包群組。只有一般錢包分群組。"""
 
     id: str
-    kind: WalletKind
-    #: 預設群組是 null, 畫面依語系顯示「一般錢包 (未選擇)」「旅遊錢包 (未選擇)」。
+    #: 預設群組是 null, 畫面依語系顯示「未分組」。
     name: str | None
     is_default: bool
     #: 群組裡的錢包數, 含不顯示的。
     wallet_count: int
     #: 群組裡顯示中的錢包數。
     visible_count: int
-    #: 顯示中的錢包餘額的總和; 旅遊群組沒有餘額, 是 null。
-    total_balance: int | None
+    #: 顯示中的錢包餘額的總和。
+    total_balance: int
 
 
 class WalletGroupList(SimpleListResponse["WalletGroupInfo"]):
-    """自己的錢包群組: 一般群組在前, 同類型裡依自己排的順序。"""
+    """自己的錢包群組, 依自己排的順序。"""
 
 
 class WalletGroupCreate(BaseModel):
-    kind: WalletKind
     name: GroupName
 
 
 class WalletGroupRename(BaseModel):
-    """群組只能改名, 類型建立後不能改。"""
+    """群組只能改名。"""
 
     name: GroupName
 
 
 class WalletGroupMove(BaseModel):
-    """跟同類型裡上一個或下一個群組交換位置; 已經在最前或最後時不變。"""
+    """跟上一個或下一個群組交換位置; 已經在最前或最後時不變。"""
 
     direction: Literal["up", "down"]
 
