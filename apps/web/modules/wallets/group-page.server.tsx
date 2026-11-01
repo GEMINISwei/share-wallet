@@ -27,9 +27,6 @@ export default async function WalletGroupPage({ params }: WalletGroupPageProps) 
   // 刪掉的群組或別人的群組: 回到第一個該看的群組, 不另外做一頁「群組不存在」。
   const group = groupsRes.data.list_data.find((item) => item.id === groupId)
   if (!group) redirect(WALLETS_PATH)
-  return (
-    <WalletGroupPageView
-      group={group} wallets={groupWallets(walletsRes.data.list_data, group.id)} errorMessage=""
-    />
-  )
+  const wallets = groupWallets(walletsRes.data.list_data, group.id)
+  return <WalletGroupPageView page={{ kind: "general", group, wallets }} errorMessage="" />
 }

@@ -85,21 +85,24 @@ export function addEntryBlock(wallet: WalletInfo, ready: boolean): AddEntryBlock
 export type AddEntryPickerItem = { wallet: WalletInfo; block: AddEntryBlock | null }
 
 /**
- * 「＋」在錢包頁以外打開的選錢包面板: 依自己的群組分組, 群組照自己排的順序, 群組裡沿用列表
- * (後端已把最愛排前面)。不顯示的不列 (同列表); 已結帳的旅遊錢包也不列: 一趟趟旅程會越積越多,
- * 而且永遠不能再記。沒有錢包可以選的群組整組不列。
+ * 「＋」在錢包頁以外打開的選錢包面板: 一般錢包依自己的群組分組, 群組照自己排的順序; 旅遊錢包不分群組,
+ * 放在最後一組 (`group` 是 null)。各組沿用列表的順序。不顯示的不列 (同列表); 已結帳的旅遊錢包也不列:
+ * 一趟趟旅程會越積越多, 而且永遠不能再記。沒有錢包可以選的組整組不列。
  */
 export function addEntryPickerGroups(
   wallets: readonly WalletInfo[], groups: readonly WalletGroupInfo[],
 ) {
-  return groups
-    .map((group) => ({
-      group,
-      items: wallets
-        .filter((w) => w.group_id === group.id && !w.is_hidden && w.status !== "settled")
-        .map((wallet): AddEntryPickerItem => ({ wallet, block: addEntryBlock(wallet, true) })),
-    }))
-    .filter((section) => section.items.length > 0)
+  const pickable = wallets.filter((w) => !w.is_hidden && w.status !== "settled")
+  const toItem = (wallet: WalletInfo): AddEntryPickerItem => ({
+    wallet, block: addEntryBlock(wallet, true),
+  })
+  const sections: { group: WalletGroupInfo | null; items: AddEntryPickerItem[] }[] = [
+    ...groups.map((group) => ({
+      group, items: pickable.filter((w) => w.group_id === group.id).map(toItem),
+    })),
+    { group: null, items: pickable.filter((w) => w.kind === "travel").map(toItem) },
+  ]
+  return sections.filter((section) => section.items.length > 0)
 }
 
 /** 旅遊錢包摘要列的「我的淨額」。沒加入 (超級管理者) 或淨額載入失敗時沒有。 */

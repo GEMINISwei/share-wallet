@@ -151,7 +151,10 @@ function PickerBody({ state, onPicked }: { state: PickerState; onPicked: () => v
   return (
     <div className={styles.picker}>
       {state.groups.map(({ group, items }) => (
-        <PickerGroup key={group.id} label={groupLabel(group)} items={items} onPicked={onPicked} />
+        <PickerGroup
+          key={group?.id ?? "travel"} label={group ? groupLabel(group) : t("travelWallets")}
+          items={items} onPicked={onPicked}
+        />
       ))}
     </div>
   )

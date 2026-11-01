@@ -12,7 +12,7 @@ import { useT } from "@/shared/i18n/context"
 import { deleteWalletGroup, moveWalletGroup, setWalletVisibility } from "../actions"
 import { type GroupSection, groupMenuItems, moveTargets, walletSettingsSections } from "../groups"
 import { walletsMessages } from "../i18n"
-import type { WalletGroupInfo, WalletInfo, WalletKind } from "../types"
+import type { WalletGroupInfo, WalletInfo } from "../types"
 import ConfirmDialog from "./ConfirmDialog"
 import GroupDialog from "./GroupDialog"
 import MoveWalletDialog from "./MoveWalletDialog"
@@ -25,9 +25,13 @@ type WalletGroupsViewProps = {
   errorMessage: string
 }
 
-type Editing = { group: WalletGroupInfo | null; kind: WalletKind } | null
+/** 改名時是那個群組, 新增時是 null。 */
+type Editing = { group: WalletGroupInfo | null } | null
 
-/** 錢包設定: 自己的群組 (新增、改名、刪除、排序) 與每個錢包放在哪、要不要顯示。 */
+/**
+ * 錢包設定: 一般錢包的群組 (新增、改名、刪除、排序) 與每個錢包放在哪、要不要顯示;
+ * 旅遊錢包不分群組, 只有要不要顯示。
+ */
 export default function WalletGroupsView(
   { groups, wallets, errorMessage }: WalletGroupsViewProps,
 ) {
@@ -61,7 +65,7 @@ export default function WalletGroupsView(
     move: (group, direction) => run(
       () => moveWalletGroup(group.id, direction), t("groupMoved"), t("groupFailed"),
     ),
-    rename: (group) => setEditing({ group, kind: group.kind }),
+    rename: (group) => setEditing({ group }),
     remove: setDeleting,
     moveWallet: setMoving,
     toggleWallet: (wallet) => run(
@@ -72,11 +76,7 @@ export default function WalletGroupsView(
   }
 
   // 刪除後錢包移去的地方, 寫進確認訊息裡。
-  const fallback = groups.find((g) => g.kind === deleting?.kind && g.is_default)
-  const kinds: { kind: WalletKind; title: string }[] = [
-    { kind: "general", title: t("generalGroups") },
-    { kind: "travel", title: t("travelGroups") },
-  ]
+  const fallback = groups.find((g) => g.is_default)
 
   return (
     <Container size="lg" padded>
@@ -84,17 +84,20 @@ export default function WalletGroupsView(
       <div className={styles.content}>
         <p className={styles.hint}>{t("walletSettingsHint")}</p>
         {errorMessage && <ErrorState>{errorMessage}</ErrorState>}
-        {!errorMessage && kinds.map(({ kind, title }) => (
-          <KindSection
-            key={kind} title={title} sections={sections[kind]} actions={actions}
-            onAdd={() => setEditing({ group: null, kind })}
-          />
-        ))}
+        {!errorMessage && (
+          <>
+            <GeneralSection
+              sections={sections.general} actions={actions}
+              onAdd={() => setEditing({ group: null })}
+            />
+            <TravelSection wallets={sections.travel} actions={actions} />
+          </>
+        )}
       </div>
 
       <GroupDialog
-        key={editing ? `group-${editing.group?.id ?? "new"}-${editing.kind}` : "group-closed"}
-        group={editing?.group ?? null} kind={editing?.kind ?? "general"} open={editing !== null}
+        key={editing ? `group-${editing.group?.id ?? "new"}` : "group-closed"}
+        group={editing?.group ?? null} open={editing !== null}
         onClose={() => setEditing(null)} onSuccess={done} onError={notifyError}
       />
       <MoveWalletDialog
@@ -126,16 +129,12 @@ type GroupActions = {
   canMoveWallet: (wallet: WalletInfo) => boolean
 }
 
-type KindSectionProps = {
-  title: string
-  sections: GroupSection[]
-  actions: GroupActions
-  onAdd: () => void
-}
+type GeneralSectionProps = { sections: GroupSection[]; actions: GroupActions; onAdd: () => void }
 
-function KindSection({ title, sections, actions, onAdd }: KindSectionProps) {
+function GeneralSection({ sections, actions, onAdd }: GeneralSectionProps) {
   const t = useT(walletsMessages)
   const groupLabel = useGroupLabel()
+  const title = t("generalGroups")
   return (
     <section aria-label={title} className={styles.content}>
       <div className={styles.sectionHeader}>
@@ -181,33 +180,54 @@ function GroupBlock({ section, index, count, label, actions }: GroupBlockProps) 
         </span>
         <ActionMenu items={groupMenuItems(group, index, count).map((key) => menu[key])} />
       </div>
-      {wallets.length === 0 && (
-        <p className={`${styles.hint} ${styles.groupEmpty}`}>{t("noWalletsInGroup")}</p>
-      )}
-      {wallets.length > 0 && (
-        <ul className={styles.list}>
-          {wallets.map((wallet) => (
-            <li key={wallet.id} className={styles.row}>
-              <span className={`${styles.rowTitle} ${wallet.is_hidden ? styles.rowTitleMuted : ""}`}>
-                {wallet.name}
-              </span>
-              <span className={styles.rowEnd}>
-                {wallet.is_hidden && <StatusBadge label={t("hiddenBadge")} variant="muted" />}
-                <ActionMenu
-                  items={[
-                    actions.canMoveWallet(wallet)
-                      && { label: t("moveToGroup"), onClick: () => actions.moveWallet(wallet) },
-                    {
-                      label: wallet.is_hidden ? t("showWallet") : t("hideWallet"),
-                      onClick: () => actions.toggleWallet(wallet),
-                    },
-                  ]}
-                />
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
+      <WalletRows wallets={wallets} actions={actions} />
     </section>
+  )
+}
+
+/** 旅遊錢包不分群組: 一張卡片列出全部 (含不顯示與已結帳的), 只能切換顯示。 */
+function TravelSection({ wallets, actions }: { wallets: WalletInfo[]; actions: GroupActions }) {
+  const t = useT(walletsMessages)
+  const title = t("travelWallets")
+  return (
+    <section aria-label={title} className={styles.content}>
+      <div className={styles.sectionHeader}>
+        <h2 className={styles.sectionTitle}>{title}</h2>
+      </div>
+      <div className={styles.groupBlock}>
+        <WalletRows wallets={wallets} actions={actions} />
+      </div>
+    </section>
+  )
+}
+
+function WalletRows({ wallets, actions }: { wallets: WalletInfo[]; actions: GroupActions }) {
+  const t = useT(walletsMessages)
+  if (wallets.length === 0) {
+    return <p className={`${styles.hint} ${styles.groupEmpty}`}>{t("noWalletsInGroup")}</p>
+  }
+  return (
+    <ul className={styles.list}>
+      {wallets.map((wallet) => (
+        <li key={wallet.id} className={styles.row}>
+          <span className={`${styles.rowTitle} ${wallet.is_hidden ? styles.rowTitleMuted : ""}`}>
+            {wallet.name}
+          </span>
+          <span className={styles.rowEnd}>
+            {wallet.is_hidden && <StatusBadge label={t("hiddenBadge")} variant="muted" />}
+            <ActionMenu
+              items={[
+                actions.canMoveWallet(wallet)
+                  && { label: t("moveToGroup"), onClick: () => actions.moveWallet(wallet) },
+                {
+                  label: wallet.is_hidden ? t("showWallet") : t("hideWallet"),
+                  onClick: () => actions.toggleWallet(wallet),
+                },
+              ]}
+            />
+          </span>
+        </li>
+      ))}
+    </ul>
   )
 }

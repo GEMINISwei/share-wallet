@@ -5,12 +5,11 @@ import { FormDialog, TextInput, useActionSubmit } from "@/shared/ui"
 import { useT } from "@/shared/i18n/context"
 import { createWalletGroup, renameWalletGroup } from "../actions"
 import { walletsMessages } from "../i18n"
-import type { WalletGroupInfo, WalletKind } from "../types"
+import type { WalletGroupInfo } from "../types"
 
 type GroupDialogProps = {
-  /** 有值是改名, 沒有是在 `kind` 底下新增。類型建立後不能改, 所以不給選。 */
+  /** 有值是改名, 沒有是新增。 */
   group: WalletGroupInfo | null
-  kind: WalletKind
   open: boolean
   onClose: () => void
   onSuccess: (message: string) => void
@@ -18,7 +17,7 @@ type GroupDialogProps = {
 }
 
 export default function GroupDialog({
-  group, kind, open, onClose, onSuccess, onError,
+  group, open, onClose, onSuccess, onError,
 }: GroupDialogProps) {
   const t = useT(walletsMessages)
   const [name, setName] = useState(group?.name ?? "")
@@ -33,7 +32,7 @@ export default function GroupDialog({
     }
     const run = group
       ? () => renameWalletGroup(group.id, name.trim())
-      : () => createWalletGroup({ kind, name: name.trim() })
+      : () => createWalletGroup({ name: name.trim() })
     submit(run, {
       onSuccess: () => onSuccess(group ? t("groupRenamed") : t("groupCreated")),
       onError,
