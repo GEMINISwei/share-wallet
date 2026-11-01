@@ -65,9 +65,9 @@ class FakeStore:
     members: dict[tuple[str, str], MemberRole] = field(default_factory=dict)
     #: 設為最愛的 (wallet_id, user_id), 跟著成員紀錄存亡。
     favorites: set[tuple[str, str]] = field(default_factory=set)
-    #: 錢包群組, id → {id, user_id, kind, name, is_default, position}; 依建立順序。
+    #: 一般錢包的群組, id → {id, user_id, name, is_default, position}; 依建立順序。
     groups: dict[str, dict] = field(default_factory=dict)
-    #: 成員紀錄上的群組與顯示, (wallet_id, user_id) → {group_id, is_hidden}。
+    #: 成員紀錄上的群組與顯示, (wallet_id, user_id) → {group_id, is_hidden}; 旅遊錢包沒有群組。
     placements: dict[tuple[str, str], dict] = field(default_factory=dict)
     categories: dict[str, dict] = field(default_factory=dict)
     # wallet_id → 邀請 (每個錢包最多一條)。
@@ -109,65 +109,57 @@ class FakeStore:
         for user_id, role in (members or {ALICE: MemberRole.ADMIN}).items():
             self.members[(id, user_id)] = role
             self.placements[(id, user_id)] = {
-                "group_id": self.default_group(user_id, kind),
+                "group_id": None if travel else self.default_group(user_id),
                 "is_hidden": False,
             }
         return id
 
-    def ensure_defaults(self, user_id: str) -> None:
-        """比照 `WalletGroupTable.ensure_defaults`: 兩種類型各一個預設群組, 已經有就不動。"""
-        for kind in WalletKind:
-            if not any(
-                g["user_id"] == user_id and g["kind"] == kind and g["is_default"]
-                for g in self.groups.values()
-            ):
-                id = str(uuid.uuid4())
-                self.groups[id] = {
-                    "id": id,
-                    "user_id": user_id,
-                    "kind": kind,
-                    "name": None,
-                    "is_default": True,
-                    "position": 0,
-                }
+    def ensure_default(self, user_id: str) -> None:
+        """比照 `WalletGroupTable.ensure_default`: 一個預設群組 (未分組), 已經有就不動。"""
+        if not any(g["user_id"] == user_id and g["is_default"] for g in self.groups.values()):
+            id = str(uuid.uuid4())
+            self.groups[id] = {
+                "id": id,
+                "user_id": user_id,
+                "name": None,
+                "is_default": True,
+                "position": 0,
+            }
 
-    def default_group(self, user_id: str, kind: WalletKind = WalletKind.GENERAL) -> str:
-        self.ensure_defaults(user_id)
+    def default_group(self, user_id: str) -> str:
+        self.ensure_default(user_id)
         return next(
-            g["id"]
-            for g in self.groups.values()
-            if g["user_id"] == user_id and g["kind"] == kind and g["is_default"]
+            g["id"] for g in self.groups.values() if g["user_id"] == user_id and g["is_default"]
         )
 
-    def add_group(
-        self, user_id: str, name: str, kind: WalletKind = WalletKind.GENERAL
-    ) -> str:
-        """直接放一個自訂群組, 排在同類型的最後 (不經過 service, 所以不重新編號)。"""
-        self.ensure_defaults(user_id)
+    def add_group(self, user_id: str, name: str) -> str:
+        """直接放一個自訂群組, 排在最後 (不經過 service, 所以不重新編號)。"""
+        self.ensure_default(user_id)
         id = str(uuid.uuid4())
         self.groups[id] = {
             "id": id,
             "user_id": user_id,
-            "kind": kind,
             "name": name,
             "is_default": False,
-            "position": len(self.groups_of(user_id, kind)),
+            "position": len(self.groups_of(user_id)),
         }
         return id
 
-    def groups_of(self, user_id: str, kind: WalletKind) -> list[dict]:
-        """一個人某種類型的群組, 依顯示順序。"""
-        found = [g for g in self.groups.values() if g["user_id"] == user_id and g["kind"] == kind]
+    def groups_of(self, user_id: str) -> list[dict]:
+        """一個人的群組, 依顯示順序。"""
+        found = [g for g in self.groups.values() if g["user_id"] == user_id]
         return sorted(found, key=lambda g: g["position"])
 
-    def group_order(self, user_id: str, kind: WalletKind = WalletKind.GENERAL) -> list[str | None]:
+    def group_order(self, user_id: str) -> list[str | None]:
         """群組的名稱依顯示順序, 預設群組是 None。"""
-        return [g["name"] for g in self.groups_of(user_id, kind)]
+        return [g["name"] for g in self.groups_of(user_id)]
 
     def placement(self, wallet_id: str, user_id: str) -> dict:
         return self.placements[(wallet_id, user_id)]
 
-    def join(self, wallet_id: str, user_id: str, role: MemberRole, group_id: str) -> None:
+    def join(
+        self, wallet_id: str, user_id: str, role: MemberRole, group_id: str | None
+    ) -> None:
         """比照 `add_if_absent`: 已經是成員時角色與群組都不變。"""
         key = (wallet_id, user_id)
         self.members.setdefault(key, role)
@@ -481,26 +473,18 @@ def _install_favorites(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -> Non
 
 
 def _install_groups(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -> None:
-    async def ensure_defaults(user_id):
-        store.ensure_defaults(user_id)
+    async def ensure_default(user_id):
+        store.ensure_default(user_id)
 
     async def list_for_user(user_id, lock=False):
-        return [
-            dict(g)
-            for kind in WalletKind
-            for g in store.groups_of(user_id, kind)
-        ]
+        return [dict(g) for g in store.groups_of(user_id)]
 
-    async def find_default_id(user_id, kind):
-        found = [
-            g["id"]
-            for g in store.groups_of(user_id, kind)
-            if g["is_default"]
-        ]
+    async def find_default_id(user_id):
+        found = [g["id"] for g in store.groups_of(user_id) if g["is_default"]]
         return found[0] if found else None
 
-    async def name_taken(user_id, kind, name, exclude_id=None):
-        return name in [g["name"] for g in store.groups_of(user_id, kind) if g["id"] != exclude_id]
+    async def name_taken(user_id, name, exclude_id=None):
+        return name in [g["name"] for g in store.groups_of(user_id) if g["id"] != exclude_id]
 
     async def set_positions(positions):
         moved = {id: {**store.groups[id], "position": p} for id, p in positions.items()}
@@ -519,7 +503,7 @@ def _install_groups(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -> None:
         del store.groups[id]
 
     for name, fake in {
-        "ensure_defaults": ensure_defaults,
+        "ensure_default": ensure_default,
         "list_for_user": list_for_user,
         "find_default_id": find_default_id,
         "name_taken": name_taken,

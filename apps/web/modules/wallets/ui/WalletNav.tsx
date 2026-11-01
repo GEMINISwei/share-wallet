@@ -6,18 +6,18 @@ import { usePathname, useRouter } from "next/navigation"
 import { createContext, useContext, useEffect, useState } from "react"
 import { Modal } from "@/shared/ui"
 import { useT } from "@/shared/i18n/context"
-import { loadMyGroups } from "../actions"
+import { loadMyGroups, loadMyWallets } from "../actions"
 import { type NavSection, navSections } from "../groups"
 import { walletsMessages } from "../i18n"
 import { walletGroupPath, walletsListPath } from "../paths"
-import type { WalletGroupInfo, WalletKind } from "../types"
+import type { WalletKind } from "../types"
 import Amount from "./Amount"
 import { useGroupLabel } from "./useGroupLabel"
 import styles from "./wallets.module.css"
 
 type WalletNavState = {
-  /** 還沒載入或載入失敗時是 null, 點了就交給 `/wallets` 決定去哪。 */
-  groups: WalletGroupInfo[] | null
+  /** 群組與錢包 (看有沒有顯示中的旅遊錢包)。還沒載入或載入失敗時是 null, 點了就交給 `/wallets` 決定去哪。 */
+  sections: NavSection[] | null
   /** 目前這一頁屬於哪種錢包 (群組頁、錢包頁), 導覽據此標出所在的那一項。 */
   activeKind: WalletKind | null
   setActiveKind: (kind: WalletKind | null) => void
@@ -26,20 +26,22 @@ type WalletNavState = {
 const WalletNavContext = createContext<WalletNavState | null>(null)
 
 /**
- * 包住外殼: 導覽的「一般錢包」「旅遊錢包」與頁面都要在裡面。群組在換頁時重新取一次:
+ * 包住外殼: 導覽的「一般錢包」「旅遊錢包」與頁面都要在裡面。群組與錢包在換頁時重新取一次:
  * 錢包設定改了群組、錢包設為不顯示之後, 導覽的清單跟著變。
  */
 export function WalletNavProvider({ children }: { children: React.ReactNode }) {
-  const [groups, setGroups] = useState<WalletGroupInfo[] | null>(null)
+  const [sections, setSections] = useState<NavSection[] | null>(null)
   const [activeKind, setActiveKind] = useState<WalletKind | null>(null)
   const pathname = usePathname()
   useEffect(() => {
-    void loadMyGroups().then((res) => {
-      if (res.status === "success") setGroups(res.data.list_data)
+    void Promise.all([loadMyGroups(), loadMyWallets()]).then(([groups, wallets]) => {
+      if (groups.status === "success" && wallets.status === "success") {
+        setSections(navSections(groups.data.list_data, wallets.data.list_data))
+      }
     })
   }, [pathname])
   return (
-    <WalletNavContext.Provider value={{ groups, activeKind, setActiveKind }}>
+    <WalletNavContext.Provider value={{ sections, activeKind, setActiveKind }}>
       {children}
     </WalletNavContext.Provider>
   )
@@ -66,7 +68,7 @@ type WalletNavItemProps = {
 
 /**
  * 導覽的「錢包」(見 docs/features/wallets.md〈錢包列表〉): 一般、旅遊合成一項, 點了之後手機從底部
- * 滑出面板、桌機在側欄展開, 兩種各一段列出能選的群組。
+ * 滑出面板、桌機在側欄展開: 一般錢包一段列出能選的群組, 旅遊錢包只有一項。
  */
 export function WalletNavItem({
   variant, className, activeClassName, labelClassName, iconSize,
@@ -76,9 +78,8 @@ export function WalletNavItem({
   const nav = useContext(WalletNavContext)
   const [picking, setPicking] = useState(false)
   const [toggled, setToggled] = useState<boolean | null>(null)
-  // 一個錢包都沒有 (例如剛註冊) 時沒有群組可選, 跟還沒載入一樣直接交給 `/wallets`。
-  const choices = nav?.groups ? navSections(nav.groups) : []
-  const sections = choices.length > 0 ? choices : null
+  // 一個錢包都沒有 (例如剛註冊) 時沒有東西可選, 跟還沒載入一樣直接交給 `/wallets`。
+  const sections = nav?.sections?.length ? nav.sections : null
   const active = Boolean(nav?.activeKind)
   // 側欄: 在群組頁或錢包頁時預設展開, 點了再收合或展開。
   const expanded = variant === "sidebar" && sections !== null && (toggled ?? active)
@@ -117,20 +118,34 @@ type NavSectionsProps = {
 
 function NavSections({ sections, variant, onPicked }: NavSectionsProps) {
   const t = useT(walletsMessages)
+  const groupLabel = useGroupLabel()
   const sidebar = variant === "sidebar"
+  const className = sidebar ? styles.navGroups : styles.list
   return (
     <div className={sidebar ? styles.navSections : styles.content}>
-      {sections.map(({ kind, groups }) => {
-        const titleId = `wallet-nav-${variant}-${kind}`
+      {sections.map((section) => {
+        // 旅遊錢包不分群組: 不另外放段落標題, 那一項本身就是「旅遊錢包」。
+        if (section.kind === "travel") {
+          return (
+            <ul key="travel" className={className}>
+              <NavLink href={walletsListPath("user", "travel")} onPicked={onPicked}>
+                <span className={styles.rowTitle}>{t("navTravel")}</span>
+              </NavLink>
+            </ul>
+          )
+        }
+        const titleId = `wallet-nav-${variant}-general`
         return (
-          <div key={kind} role="group" aria-labelledby={titleId}>
-            <span id={titleId} className={styles.navSectionTitle}>
-              {kind === "travel" ? t("navTravel") : t("navGeneral")}
-            </span>
-            <GroupLinks
-              groups={groups} className={sidebar ? styles.navGroups : styles.list}
-              onPicked={onPicked}
-            />
+          <div key="general" role="group" aria-labelledby={titleId}>
+            <span id={titleId} className={styles.navSectionTitle}>{t("navGeneral")}</span>
+            <ul className={className}>
+              {section.groups.map((group) => (
+                <NavLink key={group.id} href={walletGroupPath(group.id)} onPicked={onPicked}>
+                  <span className={styles.rowTitle}>{groupLabel(group)}</span>
+                  <Amount value={group.total_balance} className={styles.rowMeta} />
+                </NavLink>
+              ))}
+            </ul>
           </div>
         )
       })}
@@ -138,30 +153,19 @@ function NavSections({ sections, variant, onPicked }: NavSectionsProps) {
   )
 }
 
-type GroupLinksProps = { groups: WalletGroupInfo[]; className: string; onPicked?: () => void }
+type NavLinkProps = { href: string; onPicked?: () => void; children: React.ReactNode }
 
-function GroupLinks({ groups, className, onPicked }: GroupLinksProps) {
+function NavLink({ href, onPicked, children }: NavLinkProps) {
   const pathname = usePathname()
-  const groupLabel = useGroupLabel()
   return (
-    <ul className={className}>
-      {groups.map((group) => {
-        const href = walletGroupPath(group.id)
-        return (
-          <li key={group.id}>
-            <Link
-              href={href} prefetch={false} onClick={onPicked}
-              className={`${styles.pickerItem} ${pathname === href ? styles.navGroupActive : ""}`}
-              aria-current={pathname === href ? "page" : undefined}
-            >
-              <span className={styles.rowTitle}>{groupLabel(group)}</span>
-              {group.total_balance !== null && (
-                <Amount value={group.total_balance} className={styles.rowMeta} />
-              )}
-            </Link>
-          </li>
-        )
-      })}
-    </ul>
+    <li>
+      <Link
+        href={href} prefetch={false} onClick={onPicked}
+        className={`${styles.pickerItem} ${pathname === href ? styles.navGroupActive : ""}`}
+        aria-current={pathname === href ? "page" : undefined}
+      >
+        {children}
+      </Link>
+    </li>
   )
 }

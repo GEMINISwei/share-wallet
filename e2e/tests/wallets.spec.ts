@@ -104,7 +104,7 @@ test("從帳號選單進入錢包設定，新增群組、把錢包移進去並�
 
   const yen = page.getByRole("region", { name: "日圓" })
   await expect(yen).toBeVisible()
-  const unsorted = page.getByRole("region", { name: "一般錢包（未選擇）" })
+  const unsorted = page.getByRole("region", { name: "未分組" })
   const row = unsorted.getByRole("listitem").filter({ hasText: walletName })
   await row.getByRole("button", { name: "操作選單" }).click()
   await page.getByRole("menuitem", { name: "移到其他群組" }).click()
@@ -129,8 +129,8 @@ test("從帳號選單進入錢包設定，新增群組、把錢包移進去並�
 
 test("群組頁只列顯示中的錢包，總額只算顯示中的錢包", async ({ page }) => {
   await loginAs(page, owner)
-  // 上一個測試把錢包移進「日圓」並設為不顯示: 沒有任何顯示中的錢包, 進到一般的預設群組。
-  await expect(page.getByRole("heading", { name: "一般錢包（未選擇）" })).toBeVisible()
+  // 上一個測試把錢包移進「日圓」並設為不顯示: 沒有任何顯示中的錢包, 進到未分組。
+  await expect(page.getByRole("heading", { name: "未分組" })).toBeVisible()
 
   // 沒有任何群組有顯示中的錢包: 側欄的「錢包」不展開, 一段都不列。
   const sidebar = page.getByRole("navigation", { name: "主要導覽" })
@@ -187,6 +187,27 @@ test("新增旅遊帳時同步到一般錢包，一般錢包餘額減少全額�
   await page.goto(walletUrl)
   await expect(page.getByText("壽司晚餐")).toBeVisible()
   await expect(page.getByText("6,500").first()).toBeVisible()
+})
+
+test("旅遊錢包不分群組：導覽進到旅遊錢包頁列出全部，設為不顯示後不列", async ({ page }) => {
+  await loginAs(page, owner)
+  const sidebar = page.getByRole("navigation", { name: "主要導覽" })
+  await sidebar.getByRole("link", { name: "旅遊錢包", exact: true }).click()
+  await expect(page).toHaveURL("/wallets/travel")
+  await expect(page.getByRole("heading", { name: "旅遊錢包", exact: true })).toBeVisible()
+  await expect(page.getByRole("link", { name: /E2E 東京/ })).toBeVisible()
+
+  await page.goto("/wallets/settings")
+  const travel = page.getByRole("region", { name: "旅遊錢包" })
+  const row = travel.getByRole("listitem").filter({ hasText: "E2E 東京" })
+  await row.getByRole("button", { name: "操作選單" }).click()
+  await expect(page.getByRole("menuitem", { name: "移到其他群組" })).toHaveCount(0)
+  await page.getByRole("menuitem", { name: "設為不顯示" }).click()
+  await expect(row.getByText("不顯示", { exact: true })).toBeVisible()
+
+  await page.goto("/wallets/travel")
+  await expect(page.getByRole("link", { name: /E2E 東京/ })).toHaveCount(0)
+  await expect(sidebar.getByRole("link", { name: "旅遊錢包", exact: true })).toHaveCount(0)
 })
 
 test("手機版點重整按鈕後顯示最新的帳", async ({ page, browser }) => {

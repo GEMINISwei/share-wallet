@@ -17,36 +17,41 @@ import { useGroupLabel } from "./useGroupLabel"
 import WalletStatusBadge from "./WalletStatusBadge"
 import styles from "./wallets.module.css"
 
-type WalletGroupPageViewProps =
-  | { group: WalletGroupInfo; wallets: WalletInfo[]; errorMessage: "" }
-  | { group?: undefined; wallets?: undefined; errorMessage: string }
+/** 一般錢包的一個群組, 或旅遊錢包頁 (旅遊錢包不分群組, 一頁列出全部)。 */
+export type WalletListPage =
+  | { kind: "general"; group: WalletGroupInfo; wallets: WalletInfo[] }
+  | { kind: "travel"; wallets: WalletInfo[] }
 
-/** 一個錢包群組的頁面 (見 docs/features/wallets.md〈錢包列表〉)。載入失敗時只有錯誤訊息。 */
-export default function WalletGroupPageView(
-  { group, wallets, errorMessage }: WalletGroupPageViewProps,
-) {
+type WalletGroupPageViewProps =
+  | { page: WalletListPage; errorMessage: "" }
+  | { page?: undefined; errorMessage: string }
+
+/** 錢包列表的一頁 (見 docs/features/wallets.md〈錢包列表〉)。載入失敗時只有錯誤訊息。 */
+export default function WalletGroupPageView({ page, errorMessage }: WalletGroupPageViewProps) {
   const t = useT(walletsMessages)
   const groupLabel = useGroupLabel()
   const [creating, setCreating] = useState(false)
   const { notify, notifyError, closeNotify } = useNotify()
   const openCreate = () => setCreating(true)
-  useActiveWalletKind(group?.kind ?? null)
+  useActiveWalletKind(page?.kind ?? null)
+  const title = !page ? t("pageTitle")
+    : page.kind === "travel" ? t("travelWallets") : groupLabel(page.group)
 
   return (
     <Container size="lg" padded>
       <PageHeader
-        title={group ? groupLabel(group) : t("pageTitle")}
+        title={title}
         actions={<Button icon={<Plus size={ICON_SIZE.sm} />} onClick={openCreate}>{t("create")}</Button>}
         mobileActions={[{ icon: <Plus size={ICON_SIZE.sm} />, label: t("create"), onClick: openCreate }]}
       />
       <div className={styles.content}>
         {errorMessage && <ErrorState>{errorMessage}</ErrorState>}
-        {group && <GroupBody group={group} wallets={wallets} />}
+        {page && <PageBody page={page} />}
       </div>
 
-      {/* 新的錢包放進預設群組; 建立後直接進到錢包頁。 */}
+      {/* 新的一般錢包放進未分組; 建立後直接進到錢包頁。 */}
       <CreateWalletDialog
-        key={group?.kind ?? "general"} open={creating} defaultKind={group?.kind ?? "general"}
+        key={page?.kind ?? "general"} open={creating} defaultKind={page?.kind ?? "general"}
         onClose={() => setCreating(false)} onError={notifyError}
       />
       <Notify {...notify} onOpenChange={(open) => { if (!open) closeNotify() }} />
@@ -54,15 +59,16 @@ export default function WalletGroupPageView(
   )
 }
 
-/** 一般群組的總額卡片與顯示中的錢包; 旅遊群組沒有總額。 */
-function GroupBody({ group, wallets }: { group: WalletGroupInfo; wallets: WalletInfo[] }) {
+/** 一般群組的總額卡片與顯示中的錢包; 旅遊錢包沒有餘額, 不顯示總額。 */
+function PageBody({ page }: { page: WalletListPage }) {
   const t = useT(walletsMessages)
+  const { wallets } = page
   return (
     <>
-      {group.total_balance !== null && (
+      {page.kind === "general" && (
         <section className={styles.totalCard}>
           <span className={styles.totalLabel}>{t("totalBalance")}</span>
-          <Amount value={group.total_balance} className={styles.totalValue} />
+          <Amount value={page.group.total_balance} className={styles.totalValue} />
         </section>
       )}
       {wallets.length === 0 && <p className={styles.hint}>{t("emptyGroup")}</p>}
@@ -81,7 +87,7 @@ function GroupBody({ group, wallets }: { group: WalletGroupInfo; wallets: Wallet
 
 function WalletRow({ wallet }: { wallet: WalletInfo }) {
   const t = useT(walletsMessages)
-  // 群組只放一種類型, 一般錢包不再標類型; 旅遊錢包標目的地與日期。
+  // 一頁只有一種類型, 一般錢包不再標類型; 旅遊錢包標目的地與日期。
   const meta = wallet.kind === "travel"
     ? `${wallet.destination} · ${t("dateRange", { start: wallet.start_date ?? "", end: wallet.end_date ?? "" })}`
     : null

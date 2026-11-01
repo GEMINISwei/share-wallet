@@ -2280,24 +2280,22 @@ export interface components {
         };
         /** WalletGroupCreate */
         WalletGroupCreate: {
-            kind: components["schemas"]["WalletKind"];
             /** Name */
             name: string;
         };
         /**
          * WalletGroupInfo
-         * @description 自己的一個錢包群組。
+         * @description 自己的一個錢包群組。只有一般錢包分群組。
          */
         WalletGroupInfo: {
             /** Id */
             id: string;
             /** Is Default */
             is_default: boolean;
-            kind: components["schemas"]["WalletKind"];
             /** Name */
             name: string | null;
             /** Total Balance */
-            total_balance: number | null;
+            total_balance: number;
             /** Visible Count */
             visible_count: number;
             /** Wallet Count */
@@ -2305,7 +2303,7 @@ export interface components {
         };
         /**
          * WalletGroupList
-         * @description 自己的錢包群組: 一般群組在前, 同類型裡依自己排的順序。
+         * @description 自己的錢包群組, 依自己排的順序。
          */
         WalletGroupList: {
             /** Count */
@@ -2315,7 +2313,7 @@ export interface components {
         };
         /**
          * WalletGroupMove
-         * @description 跟同類型裡上一個或下一個群組交換位置; 已經在最前或最後時不變。
+         * @description 跟上一個或下一個群組交換位置; 已經在最前或最後時不變。
          */
         WalletGroupMove: {
             /**
@@ -2331,7 +2329,7 @@ export interface components {
         };
         /**
          * WalletGroupRename
-         * @description 群組只能改名, 類型建立後不能改。
+         * @description 群組只能改名。
          */
         WalletGroupRename: {
             /** Name */
@@ -2339,7 +2337,7 @@ export interface components {
         };
         /**
          * WalletGroupUpdate
-         * @description 要放進的群組, 必須是自己的、而且跟錢包同類型。
+         * @description 要放進的群組, 必須是自己的; 只有一般錢包能放進群組。
          */
         WalletGroupUpdate: {
             /** Group Id */

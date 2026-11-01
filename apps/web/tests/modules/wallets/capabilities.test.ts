@@ -693,37 +693,34 @@ describe("addEntryBlock", () => {
 })
 
 describe("addEntryPickerGroups", () => {
-  const group = (id: string, kind: WalletInfo["kind"] = "general") => ({
-    id, kind, name: id, is_default: false, wallet_count: 0, visible_count: 0, total_balance: null,
+  const group = (id: string) => ({
+    id, name: id, is_default: false, wallet_count: 0, visible_count: 0, total_balance: 0,
   })
+  const trip = (overrides: Partial<WalletInfo>) => wallet({ kind: "travel", group_id: null, ...overrides })
 
-  it("依自己的群組分組，群組照自己排的順序，群組裡保留列表的順序", () => {
+  it("一般錢包依自己的群組分組，旅遊錢包放在最後一組，各組保留列表的順序", () => {
     const list = [
-      wallet({ id: "t1", kind: "travel", group_id: "trip" }), wallet({ id: "g1", group_id: "b" }),
-      wallet({ id: "g2", group_id: "a" }), wallet({ id: "g3", group_id: "b" }),
+      trip({ id: "t1" }), wallet({ id: "g1", group_id: "b" }),
+      wallet({ id: "g2", group_id: "a" }), trip({ id: "t2" }), wallet({ id: "g3", group_id: "b" }),
     ]
-    const sections = addEntryPickerGroups(list, [group("a"), group("b"), group("trip", "travel")])
-    expect(sections.map((s) => [s.group.id, s.items.map((item) => item.wallet.id)])).toEqual([
-      ["a", ["g2"]], ["b", ["g1", "g3"]], ["trip", ["t1"]],
-    ])
+    const sections = addEntryPickerGroups(list, [group("a"), group("b")])
+    expect(sections.map((s) => [s.group?.id ?? "travel", s.items.map((item) => item.wallet.id)]))
+      .toEqual([["a", ["g2"]], ["b", ["g1", "g3"]], ["travel", ["t1", "t2"]]])
   })
 
-  it("不顯示與已結帳的錢包不列，沒有錢包可以選的群組也不列", () => {
+  it("不顯示與已結帳的錢包不列，沒有錢包可以選的組也不列", () => {
     const list = [
       wallet({ id: "hidden", group_id: "a", is_hidden: true }),
-      wallet({ id: "t1", kind: "travel", status: "settled", group_id: "trip" }),
+      trip({ id: "t1", status: "settled" }), trip({ id: "t2", is_hidden: true }),
       wallet({ id: "g1", group_id: "b" }),
     ]
-    const sections = addEntryPickerGroups(list, [group("a"), group("b"), group("trip", "travel")])
-    expect(sections.map((s) => s.group.id)).toEqual(["b"])
+    const sections = addEntryPickerGroups(list, [group("a"), group("b")])
+    expect(sections.map((s) => s.group?.id ?? "travel")).toEqual(["b"])
   })
 
   it("結算中的旅遊錢包列出, 但標上不能記帳的原因", () => {
-    const list = [
-      wallet({ id: "t1", kind: "travel", status: "settling", group_id: "trip" }),
-      wallet({ id: "g1", group_id: "a" }),
-    ]
-    const sections = addEntryPickerGroups(list, [group("a"), group("trip", "travel")])
+    const list = [trip({ id: "t1", status: "settling" }), wallet({ id: "g1", group_id: "a" })]
+    const sections = addEntryPickerGroups(list, [group("a")])
     expect(sections.map((s) => s.items[0].block)).toEqual([null, "settling"])
   })
 })

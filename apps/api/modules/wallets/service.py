@@ -29,6 +29,9 @@ from .schema import (
     WalletUpdate,
 )
 
+# 列表依生命週期的先後排: 進行中、結算中、已結帳 (就是 enum 定義的順序)。
+_STATUS_ORDER = list(WalletStatus)
+
 
 async def create_wallet(
     form_data: GeneralWalletCreate | TravelWalletCreate, current_user: CurrentUser
@@ -97,7 +100,8 @@ def _to_info(
 async def list_wallets(current_user: CurrentUser) -> WalletList:
     """只列自己加入的錢包, 超級管理者也一樣 (所有錢包在後台看)。
 
-    最愛的在前, 已結帳的不論是不是最愛都排在最後 (見 docs/features/wallets.md〈錢包列表〉)。
+    先依狀態 (進行中、結算中、已結帳), 同狀態裡最愛的在前
+    (見 docs/features/wallets.md〈錢包列表〉)。
     """
     joined = await WalletTable.find_joined(current_user["id"])
     infos = [
@@ -112,8 +116,7 @@ async def list_wallets(current_user: CurrentUser) -> WalletList:
     ]
     # sorted 是穩定的: 其他的維持加入的先後。
     wallets = sorted(
-        infos,
-        key=lambda wallet: (wallet.status is WalletStatus.SETTLED, not wallet.is_favorite),
+        infos, key=lambda wallet: (_STATUS_ORDER.index(wallet.status), not wallet.is_favorite)
     )
     return WalletList(list_data=wallets, count=len(wallets))
 

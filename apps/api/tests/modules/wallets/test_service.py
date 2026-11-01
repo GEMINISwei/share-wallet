@@ -276,6 +276,21 @@ async def test_list_wallets_keeps_settled_last_even_if_favorite(
 
 
 @pytest.mark.asyncio
+async def test_list_wallets_orders_by_status_then_favorite(client: AsyncClient, store: FakeStore):
+    travel = WalletKind.TRAVEL
+    settled = store.add_wallet(kind=travel, status=WalletStatus.SETTLED)
+    settling = store.add_wallet(kind=travel, status=WalletStatus.SETTLING)
+    active = store.add_wallet(kind=travel)
+    favorite = store.add_wallet(kind=travel)
+    store.favorites.update({(settling, ALICE), (favorite, ALICE)})
+    authenticate(client, "alice")
+
+    body = (await client.get("/api/wallets/")).json()
+
+    assert [wallet["id"] for wallet in body["list_data"]] == [favorite, active, settling, settled]
+
+
+@pytest.mark.asyncio
 async def test_update_general_wallet_changes_name(client: AsyncClient, store):
     wallet_id = store.add_wallet(name="家用")
     authenticate(client, "alice")

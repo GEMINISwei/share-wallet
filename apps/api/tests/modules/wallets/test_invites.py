@@ -240,19 +240,30 @@ async def test_accept_invite_after_removal_rejoins_as_member(client: AsyncClient
 
 
 @pytest.mark.asyncio
-async def test_accept_invite_places_wallet_in_the_default_group_of_its_kind(
+async def test_accept_invite_places_general_wallet_in_the_default_group(
     client: AsyncClient, store: FakeStore
 ):
-    wallet_id = store.add_wallet(kind=WalletKind.TRAVEL)
+    wallet_id = store.add_wallet()
     token = await _create(client, wallet_id)
     authenticate(client, "bob")
 
     await client.post(f"/api/invites/{token}/accept")
 
     assert store.placement(wallet_id, BOB) == {
-        "group_id": store.default_group(BOB, WalletKind.TRAVEL),
+        "group_id": store.default_group(BOB),
         "is_hidden": False,
     }
+
+
+@pytest.mark.asyncio
+async def test_accept_invite_to_travel_wallet_has_no_group(client: AsyncClient, store: FakeStore):
+    wallet_id = store.add_wallet(kind=WalletKind.TRAVEL)
+    token = await _create(client, wallet_id)
+    authenticate(client, "bob")
+
+    await client.post(f"/api/invites/{token}/accept")
+
+    assert store.placement(wallet_id, BOB) == {"group_id": None, "is_hidden": False}
 
 
 @pytest.mark.asyncio
