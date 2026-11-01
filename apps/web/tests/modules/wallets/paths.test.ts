@@ -20,9 +20,8 @@ describe("錢包網址", () => {
 })
 
 describe("walletsListPath", () => {
-  it("旅遊錢包帶上類型, 進到第一個旅遊群組", () => {
-    expect(walletsListPath("user", "travel")).toBe("/wallets?kind=travel")
-    // 一般是預設, 不帶參數。
+  it("旅遊錢包進旅遊錢包頁, 一般錢包進第一個該看的群組", () => {
+    expect(walletsListPath("user", "travel")).toBe("/wallets/travel")
     expect(walletsListPath("user", "general")).toBe("/wallets")
   })
 
@@ -46,9 +45,12 @@ describe("walletBackPath", () => {
     expect(walletBackPath(wallet({}), "user")).toBe("/wallets/groups/g1")
   })
 
-  it("沒加入的錢包 (超級管理者) 沒有群組, 回到同類型的第一個群組", () => {
-    expect(walletBackPath(wallet({ kind: "travel", group_id: null }), "user"))
-      .toBe("/wallets?kind=travel")
+  it("旅遊錢包回到旅遊錢包頁", () => {
+    expect(walletBackPath(wallet({ kind: "travel", group_id: null }), "user")).toBe("/wallets/travel")
+  })
+
+  it("沒加入的一般錢包 (超級管理者) 沒有群組, 回到第一個該看的群組", () => {
+    expect(walletBackPath(wallet({ group_id: null }), "user")).toBe("/wallets")
   })
 
   it("後台一律回到後台的列表", () => {

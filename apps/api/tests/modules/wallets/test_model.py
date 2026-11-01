@@ -58,9 +58,9 @@ async def _user(username: str) -> str:
     return created["id"]
 
 
-async def _default_group(user_id: str, kind: WalletKind = WalletKind.GENERAL) -> str:
-    await WalletGroupTable.ensure_defaults(user_id)
-    group_id = await WalletGroupTable.find_default_id(user_id, kind)
+async def _default_group(user_id: str) -> str:
+    await WalletGroupTable.ensure_default(user_id)
+    group_id = await WalletGroupTable.find_default_id(user_id)
     assert group_id is not None
     return group_id
 
@@ -68,13 +68,14 @@ async def _default_group(user_id: str, kind: WalletKind = WalletKind.GENERAL) ->
 async def _join(
     wallet_id: str, user_id: str, role: MemberRole, kind: WalletKind = WalletKind.GENERAL
 ) -> None:
-    """成員紀錄一定屬於一個群組, 放進那個人同類型的預設群組。"""
+    """一般錢包放進那個人的預設群組, 旅遊錢包沒有群組。"""
+    general = kind is WalletKind.GENERAL
     await WalletMemberTable.create(
         data={
             "wallet_id": wallet_id,
             "user_id": user_id,
             "role": role,
-            "group_id": await _default_group(user_id, kind),
+            "group_id": await _default_group(user_id) if general else None,
         }
     )
 
@@ -317,47 +318,41 @@ async def test_add_member_if_absent_ignores_existing(db):
 # ── 錢包群組 ──────────────────────────────────────────────────────────────
 
 
-async def _group(user_id: str, name: str, kind: WalletKind = WalletKind.GENERAL) -> str:
-    created = await WalletGroupTable.create(
-        data={"user_id": user_id, "kind": kind, "name": name, "position": 9}
-    )
+async def _group(user_id: str, name: str) -> str:
+    created = await WalletGroupTable.create(data={"user_id": user_id, "name": name, "position": 9})
     return created["id"]
 
 
-async def test_ensure_defaults_creates_one_default_per_kind_once(db):
+async def test_ensure_default_creates_one_default_once(db):
     alice = await _user("alice")
 
-    await WalletGroupTable.ensure_defaults(alice)
-    await WalletGroupTable.ensure_defaults(alice)
+    await WalletGroupTable.ensure_default(alice)
+    await WalletGroupTable.ensure_default(alice)
 
     groups = await WalletGroupTable.list_for_user(alice)
-    assert [(g["kind"], g["name"], g["is_default"]) for g in groups] == [
-        (WalletKind.GENERAL, None, True),
-        (WalletKind.TRAVEL, None, True),
-    ]
+    assert [(g["name"], g["is_default"]) for g in groups] == [(None, True)]
     assert_covers(GroupDetail, groups[0], "GroupDetail")
 
 
-async def test_list_for_user_orders_by_kind_then_position_and_skips_others(db):
+async def test_list_for_user_orders_by_position_and_skips_others(db):
     alice, bob = await _user("alice"), await _user("bob")
-    await WalletGroupTable.ensure_defaults(alice)
-    travel = await _group(alice, "日本", WalletKind.TRAVEL)
+    await WalletGroupTable.ensure_default(alice)
+    last = await _group(alice, "日圓")
     first = await _group(alice, "台幣")
     await _group(bob, "別人的")
-    await WalletGroupTable.set_positions({first: -1, travel: 5})
+    await WalletGroupTable.set_positions({first: -1, last: 5})
 
     groups = await WalletGroupTable.list_for_user(alice, lock=True)
 
-    assert [g["name"] for g in groups] == ["台幣", None, None, "日本"]
+    assert [g["name"] for g in groups] == ["台幣", None, "日圓"]
 
 
-async def test_custom_group_name_is_unique_per_user_and_kind(db):
+async def test_custom_group_name_is_unique_per_user(db):
     alice, bob = await _user("alice"), await _user("bob")
     await _group(alice, "日本")
-    await _group(alice, "日本", WalletKind.TRAVEL)
     await _group(bob, "日本")
 
-    assert await WalletGroupTable.name_taken(alice, WalletKind.GENERAL, "日本") is True
+    assert await WalletGroupTable.name_taken(alice, "日本") is True
     with pytest.raises(IntegrityError):
         async with transaction():
             await _group(alice, "日本")
@@ -371,7 +366,6 @@ async def test_default_group_has_no_name(db):
             await WalletGroupTable.create(
                 data={
                     "user_id": alice,
-                    "kind": WalletKind.GENERAL,
                     "name": "主要",
                     "is_default": True,
                     "position": 0,
@@ -392,6 +386,22 @@ async def test_find_joined_includes_group_and_visibility(db):
     assert await WalletMemberTable.find_placement(wallet_id, alice) == {
         "group_id": group_id,
         "is_hidden": True,
+    }
+
+
+async def test_travel_member_has_no_group(db):
+    alice = await _user("alice")
+    created = await WalletTable.create(
+        data={"kind": "travel", "name": "東京", "destination": "日本",
+              "start_date": date(2026, 11, 1), "end_date": date(2026, 11, 5)}
+    )
+    await _join(created["id"], alice, MemberRole.ADMIN, WalletKind.TRAVEL)
+
+    [joined] = await WalletTable.find_joined(alice)
+    assert (joined["group_id"], joined["is_hidden"]) == (None, False)
+    assert await WalletMemberTable.find_placement(created["id"], alice) == {
+        "group_id": None,
+        "is_hidden": False,
     }
 
 

@@ -1,6 +1,6 @@
 """錢包群組 (`modules/wallets/groups.py`): 每個人自己的分組、排序與顯示。
 
-規則見 docs/features/wallets.md〈錢包群組〉。
+只有一般錢包分群組, 旅遊錢包沒有群組、只有顯示。規則見 docs/features/wallets.md〈錢包群組〉。
 """
 
 import pytest
@@ -11,7 +11,6 @@ from modules.wallets.model import MemberRole, WalletKind
 from ..helpers import authenticate
 from .conftest import ALICE, BOB, FakeStore
 
-GENERAL = WalletKind.GENERAL
 TRAVEL = WalletKind.TRAVEL
 
 
@@ -27,7 +26,7 @@ async def test_group_routes_without_token_return_401(client: AsyncClient, store:
     wallet_id = store.add_wallet()
     routes: list[tuple[str, str, dict | None]] = [
         ("GET", "/api/wallet-groups/", None),
-        ("POST", "/api/wallet-groups/", {"kind": "general", "name": "台幣"}),
+        ("POST", "/api/wallet-groups/", {"name": "台幣"}),
         ("PATCH", f"/api/wallet-groups/{group_id}", {"name": "日圓"}),
         ("DELETE", f"/api/wallet-groups/{group_id}", None),
         ("POST", f"/api/wallet-groups/{group_id}/move", {"direction": "up"}),
@@ -41,30 +40,26 @@ async def test_group_routes_without_token_return_401(client: AsyncClient, store:
 
 
 @pytest.mark.asyncio
-async def test_list_groups_creates_both_defaults_for_a_new_user(
+async def test_list_groups_creates_the_default_group_for_a_new_user(
     client: AsyncClient, store: FakeStore
 ):
     authenticate(client, "bob")
 
     groups = await _groups(client)
 
-    assert [(g["kind"], g["name"], g["is_default"]) for g in groups] == [
-        ("general", None, True),
-        ("travel", None, True),
-    ]
+    assert [(g["name"], g["is_default"]) for g in groups] == [(None, True)]
+    assert "kind" not in groups[0]
 
 
 @pytest.mark.asyncio
-async def test_list_groups_orders_general_first_then_by_position(
-    client: AsyncClient, store: FakeStore
-):
-    store.add_group(ALICE, "日本", TRAVEL)
+async def test_list_groups_orders_by_position(client: AsyncClient, store: FakeStore):
     store.add_group(ALICE, "台幣")
+    store.add_group(ALICE, "日圓")
     authenticate(client, "alice")
 
     groups = await _groups(client)
 
-    assert [g["name"] for g in groups] == [None, "台幣", None, "日本"]
+    assert [g["name"] for g in groups] == [None, "台幣", "日圓"]
 
 
 @pytest.mark.asyncio
@@ -85,28 +80,28 @@ async def test_list_groups_totals_only_visible_general_wallets(
 
 
 @pytest.mark.asyncio
-async def test_list_groups_has_no_total_for_travel_groups(client: AsyncClient, store: FakeStore):
+async def test_list_groups_does_not_count_travel_wallets(client: AsyncClient, store: FakeStore):
     store.add_wallet(kind=TRAVEL)
     authenticate(client, "alice")
 
-    travel = (await _groups(client))[1]
+    groups = await _groups(client)
 
-    assert travel["visible_count"] == 1
-    assert travel["total_balance"] is None
+    assert [(g["wallet_count"], g["visible_count"], g["total_balance"]) for g in groups] == [
+        (0, 0, 0)
+    ]
 
 
 @pytest.mark.asyncio
-async def test_create_group_is_placed_before_the_default_of_the_same_kind(
+async def test_create_group_is_placed_before_the_default_group(
     client: AsyncClient, store: FakeStore
 ):
     authenticate(client, "alice")
 
-    response = await client.post("/api/wallet-groups/", json={"kind": "general", "name": " 日圓 "})
+    response = await client.post("/api/wallet-groups/", json={"name": " 日圓 "})
 
     assert response.status_code == 200
     assert store.groups[response.json()["id"]]["name"] == "日圓"
     assert store.group_order(ALICE) == ["日圓", None]
-    assert store.group_order(ALICE, TRAVEL) == [None]
 
 
 @pytest.mark.asyncio
@@ -117,33 +112,19 @@ async def test_create_group_goes_right_before_a_default_moved_to_the_top(
     store.add_group(ALICE, "台幣")
     authenticate(client, "alice")
 
-    await client.post("/api/wallet-groups/", json={"kind": "general", "name": "日圓"})
+    await client.post("/api/wallet-groups/", json={"name": "日圓"})
 
     assert store.group_order(ALICE) == ["日圓", None, "台幣"]
 
 
 @pytest.mark.asyncio
-async def test_create_group_with_a_name_taken_in_the_same_kind_returns_409(
-    client: AsyncClient, store: FakeStore
-):
+async def test_create_group_with_a_taken_name_returns_409(client: AsyncClient, store: FakeStore):
     store.add_group(ALICE, "日本")
     authenticate(client, "alice")
 
-    response = await client.post("/api/wallet-groups/", json={"kind": "general", "name": "日本"})
+    response = await client.post("/api/wallet-groups/", json={"name": "日本"})
 
     assert response.status_code == 409
-
-
-@pytest.mark.asyncio
-async def test_create_group_allows_the_same_name_in_the_other_kind(
-    client: AsyncClient, store: FakeStore
-):
-    store.add_group(ALICE, "日本")
-    authenticate(client, "alice")
-
-    response = await client.post("/api/wallet-groups/", json={"kind": "travel", "name": "日本"})
-
-    assert response.status_code == 200
 
 
 @pytest.mark.asyncio
@@ -153,25 +134,23 @@ async def test_create_group_allows_a_name_another_user_already_uses(
     store.add_group(BOB, "日本")
     authenticate(client, "alice")
 
-    response = await client.post("/api/wallet-groups/", json={"kind": "general", "name": "日本"})
+    response = await client.post("/api/wallet-groups/", json={"name": "日本"})
 
     assert response.status_code == 200
 
 
 @pytest.mark.asyncio
-async def test_create_group_beyond_twenty_per_kind_returns_409(
-    client: AsyncClient, store: FakeStore
-):
+async def test_create_group_beyond_twenty_returns_409(client: AsyncClient, store: FakeStore):
     # 預設群組也算在 20 個裡面。
-    for index in range(19):
+    for index in range(18):
         store.add_group(ALICE, f"群組{index}")
     authenticate(client, "alice")
 
-    full = await client.post("/api/wallet-groups/", json={"kind": "general", "name": "再一個"})
-    other_kind = await client.post("/api/wallet-groups/", json={"kind": "travel", "name": "再一個"})
+    last = await client.post("/api/wallet-groups/", json={"name": "第二十個"})
+    full = await client.post("/api/wallet-groups/", json={"name": "再一個"})
 
+    assert last.status_code == 200
     assert full.status_code == 409
-    assert other_kind.status_code == 200
 
 
 @pytest.mark.asyncio
@@ -249,19 +228,15 @@ async def test_delete_default_group_returns_400(client: AsyncClient, store: Fake
 
 
 @pytest.mark.asyncio
-async def test_move_group_swaps_with_the_neighbour_of_the_same_kind(
-    client: AsyncClient, store: FakeStore
-):
+async def test_move_group_swaps_with_the_neighbour(client: AsyncClient, store: FakeStore):
     store.add_group(ALICE, "台幣")
     japan = store.add_group(ALICE, "日圓")
-    store.add_group(ALICE, "旅行", TRAVEL)
     authenticate(client, "alice")
 
     response = await client.post(f"/api/wallet-groups/{japan}/move", json={"direction": "up"})
 
     assert response.status_code == 200
     assert store.group_order(ALICE) == [None, "日圓", "台幣"]
-    assert store.group_order(ALICE, TRAVEL) == [None, "旅行"]
 
 
 @pytest.mark.asyncio
@@ -302,9 +277,38 @@ async def test_create_wallet_goes_to_the_default_group_and_is_shown(
 
 
 @pytest.mark.asyncio
+async def test_create_travel_wallet_has_no_group_and_is_shown(
+    client: AsyncClient, store: FakeStore
+):
+    authenticate(client, "bob")
+
+    response = await client.post(
+        "/api/wallets/",
+        json={"kind": "travel", "name": "東京", "destination": "日本",
+              "start_date": "2026-11-01", "end_date": "2026-11-05"},
+    )
+
+    placement = store.placement(response.json()["id"], BOB)
+    assert placement == {"group_id": None, "is_hidden": False}
+
+
+@pytest.mark.asyncio
 async def test_admin_created_wallet_goes_to_the_default_group_of_the_chosen_admin(
     client: AsyncClient, store: FakeStore
 ):
+    authenticate(client, "super")
+
+    response = await client.post(
+        "/api/admin/wallets/",
+        json={"kind": "general", "name": "家用", "admin_user_id": BOB},
+    )
+
+    placement = store.placement(response.json()["id"], BOB)
+    assert placement["group_id"] == store.default_group(BOB)
+
+
+@pytest.mark.asyncio
+async def test_admin_created_travel_wallet_has_no_group(client: AsyncClient, store: FakeStore):
     authenticate(client, "super")
 
     response = await client.post(
@@ -313,8 +317,7 @@ async def test_admin_created_wallet_goes_to_the_default_group_of_the_chosen_admi
               "start_date": "2026-11-01", "end_date": "2026-11-05", "admin_user_id": BOB},
     )
 
-    placement = store.placement(response.json()["id"], BOB)
-    assert placement["group_id"] == store.default_group(BOB, TRAVEL)
+    assert store.placement(response.json()["id"], BOB)["group_id"] is None
 
 
 @pytest.mark.asyncio
@@ -342,7 +345,7 @@ async def test_get_wallet_as_non_member_super_admin_has_no_group(
 
 
 @pytest.mark.asyncio
-async def test_set_wallet_group_moves_it_into_own_group_of_the_same_kind(
+async def test_set_wallet_group_moves_it_into_own_group(
     client: AsyncClient, store: FakeStore
 ):
     group_id = store.add_group(BOB, "日本")
@@ -357,19 +360,15 @@ async def test_set_wallet_group_moves_it_into_own_group_of_the_same_kind(
 
 
 @pytest.mark.asyncio
-async def test_set_wallet_group_of_the_other_kind_returns_400(
-    client: AsyncClient, store: FakeStore
-):
-    travel_group = store.add_group(ALICE, "旅行", TRAVEL)
-    wallet_id = store.add_wallet()
+async def test_set_group_of_a_travel_wallet_returns_400(client: AsyncClient, store: FakeStore):
+    group_id = store.add_group(ALICE, "日本")
+    wallet_id = store.add_wallet(kind=TRAVEL)
     authenticate(client, "alice")
 
-    response = await client.patch(
-        f"/api/wallets/{wallet_id}/group", json={"group_id": travel_group}
-    )
+    response = await client.patch(f"/api/wallets/{wallet_id}/group", json={"group_id": group_id})
 
     assert response.status_code == 400
-    assert store.placement(wallet_id, ALICE)["group_id"] == store.default_group(ALICE)
+    assert store.placement(wallet_id, ALICE)["group_id"] is None
 
 
 @pytest.mark.asyncio
@@ -397,6 +396,17 @@ async def test_set_wallet_visibility_hides_it_only_for_yourself(
     assert response.status_code == 200
     assert store.placement(wallet_id, BOB)["is_hidden"] is True
     assert store.placement(wallet_id, ALICE)["is_hidden"] is False
+
+
+@pytest.mark.asyncio
+async def test_set_travel_wallet_visibility_hides_it(client: AsyncClient, store: FakeStore):
+    wallet_id = store.add_wallet(kind=TRAVEL)
+    authenticate(client, "alice")
+
+    response = await client.patch(f"/api/wallets/{wallet_id}/visibility", json={"is_hidden": True})
+
+    assert response.status_code == 200
+    assert store.placement(wallet_id, ALICE) == {"group_id": None, "is_hidden": True}
 
 
 @pytest.mark.asyncio

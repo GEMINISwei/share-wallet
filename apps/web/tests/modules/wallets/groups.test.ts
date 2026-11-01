@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
-  groupMenuItems, groupWallets, landingGroupId, moveTargets, navGroups, navSections,
+  groupMenuItems, groupWallets, landingPath, moveTargets, navGroups, navSections, travelWallets,
   walletSettingsSections,
 } from "@/modules/wallets/groups"
 import type { WalletGroupInfo, WalletInfo } from "@/modules/wallets/types"
@@ -14,51 +14,52 @@ function wallet(overrides: Partial<WalletInfo>): WalletInfo {
   }
 }
 
+function trip(overrides: Partial<WalletInfo>): WalletInfo {
+  return wallet({ id: "trip", kind: "travel", name: "東京", balance: null, group_id: null, ...overrides })
+}
+
 function group(overrides: Partial<WalletGroupInfo>): WalletGroupInfo {
   return {
-    id: "g-default", kind: "general", name: null, is_default: true,
+    id: "g-default", name: null, is_default: true,
     wallet_count: 0, visible_count: 0, total_balance: 0, ...overrides,
   }
 }
 
 const GENERAL_DEFAULT = group({})
 const YEN = group({ id: "g-yen", name: "日圓", is_default: false })
-const TRAVEL_DEFAULT = group({ id: "g-travel", kind: "travel", total_balance: null })
 
 describe("walletSettingsSections", () => {
-  it("依類型分開，群組照後端給的順序，各自列出自己的錢包", () => {
+  it("一般群組照後端給的順序，各自列出自己的錢包；旅遊錢包另外列成一串", () => {
     const home = wallet({ id: "home" })
     const tokyo = wallet({ id: "tokyo", group_id: "g-yen" })
-    const trip = wallet({ id: "trip", kind: "travel", group_id: "g-travel" })
+    const osaka = trip({ id: "osaka" })
 
-    const groups = [YEN, GENERAL_DEFAULT, TRAVEL_DEFAULT]
-    const sections = walletSettingsSections(groups, [home, tokyo, trip])
+    const sections = walletSettingsSections([YEN, GENERAL_DEFAULT], [home, osaka, tokyo])
 
     expect(sections.general.map((s) => [s.group.id, s.wallets.map((w) => w.id)])).toEqual([
       ["g-yen", ["tokyo"]],
       ["g-default", ["home"]],
     ])
-    expect(sections.travel.map((s) => [s.group.id, s.wallets.map((w) => w.id)])).toEqual([
-      ["g-travel", ["trip"]],
-    ])
+    expect(sections.travel.map((w) => w.id)).toEqual(["osaka"])
   })
 
   it("不顯示與已結帳的錢包也列出來，維持列表的順序", () => {
     const hidden = wallet({ id: "hidden", is_hidden: true })
-    const settled = wallet({ id: "settled", kind: "travel", group_id: "g-travel", status: "settled" })
     const shown = wallet({ id: "shown" })
+    const settled = trip({ id: "settled", status: "settled" })
+    const hiddenTrip = trip({ id: "hidden-trip", is_hidden: true })
 
-    const groups = [GENERAL_DEFAULT, TRAVEL_DEFAULT]
-    const sections = walletSettingsSections(groups, [hidden, shown, settled])
+    const sections = walletSettingsSections([GENERAL_DEFAULT], [hidden, shown, hiddenTrip, settled])
 
     expect(sections.general[0].wallets.map((w) => w.id)).toEqual(["hidden", "shown"])
-    expect(sections.travel[0].wallets.map((w) => w.id)).toEqual(["settled"])
+    expect(sections.travel.map((w) => w.id)).toEqual(["hidden-trip", "settled"])
   })
 
   it("沒有錢包的群組照樣列出", () => {
     const sections = walletSettingsSections([YEN, GENERAL_DEFAULT], [])
 
     expect(sections.general.map((s) => s.wallets.length)).toEqual([0, 0])
+    expect(sections.travel).toEqual([])
   })
 })
 
@@ -76,85 +77,74 @@ describe("groupMenuItems", () => {
     expect(groupMenuItems(YEN, 1, 2)).toEqual(["moveUp", "rename", "delete"])
   })
 
-  it("同類型只有一個群組時，預設群組沒有任何操作", () => {
+  it("只有一個群組時，預設群組沒有任何操作", () => {
     expect(groupMenuItems(GENERAL_DEFAULT, 0, 1)).toEqual([])
   })
 })
 
 describe("moveTargets", () => {
-  it("只列同類型、而且不是目前所在的群組", () => {
-    const targets = moveTargets([YEN, GENERAL_DEFAULT, TRAVEL_DEFAULT], wallet({ group_id: "g-yen" }))
+  it("只列不是目前所在的群組", () => {
+    const targets = moveTargets([YEN, GENERAL_DEFAULT], wallet({ group_id: "g-yen" }))
 
     expect(targets.map((g) => g.id)).toEqual(["g-default"])
   })
 
-  it("旅遊錢包只能移到旅遊群組", () => {
-    const trip = wallet({ kind: "travel", group_id: "g-travel" })
-    const otherTrip = group({ id: "g-japan", kind: "travel", name: "日本", is_default: false })
-
-    expect(moveTargets([YEN, GENERAL_DEFAULT, TRAVEL_DEFAULT, otherTrip], trip).map((g) => g.id))
-      .toEqual(["g-japan"])
+  it("旅遊錢包沒有群組可以移", () => {
+    expect(moveTargets([YEN, GENERAL_DEFAULT], trip({}))).toEqual([])
   })
 })
 
 const EMPTY_DEFAULT = group({ visible_count: 0 })
 const FILLED_DEFAULT = group({ visible_count: 2 })
-const EMPTY_TRAVEL_DEFAULT = group({ id: "g-travel", kind: "travel", visible_count: 0 })
-const FILLED_TRAVEL = group({ id: "g-japan", kind: "travel", name: "日本", is_default: false, visible_count: 1 })
 const FILLED_YEN = group({ id: "g-yen", name: "日圓", is_default: false, visible_count: 1 })
 
 describe("navGroups", () => {
   it("只列出有顯示中錢包的群組，自訂與預設都一樣，保留順序", () => {
-    expect(navGroups([YEN, EMPTY_DEFAULT, TRAVEL_DEFAULT], "general")).toEqual([])
-    expect(navGroups([FILLED_DEFAULT, YEN], "general").map((g) => g.id)).toEqual(["g-default"])
-    expect(navGroups([FILLED_YEN, FILLED_DEFAULT], "general").map((g) => g.id))
-      .toEqual(["g-yen", "g-default"])
-  })
-
-  it("只列那種類型的群組", () => {
-    expect(navGroups([YEN, FILLED_DEFAULT, FILLED_TRAVEL], "travel").map((g) => g.id))
-      .toEqual(["g-japan"])
+    expect(navGroups([YEN, EMPTY_DEFAULT])).toEqual([])
+    expect(navGroups([FILLED_DEFAULT, YEN]).map((g) => g.id)).toEqual(["g-default"])
+    expect(navGroups([FILLED_YEN, FILLED_DEFAULT]).map((g) => g.id)).toEqual(["g-yen", "g-default"])
   })
 })
 
 describe("navSections", () => {
-  it("一般、旅遊各一段，各自列出有錢包的群組", () => {
-    const sections = navSections([FILLED_YEN, FILLED_DEFAULT, FILLED_TRAVEL, EMPTY_TRAVEL_DEFAULT])
+  it("一般錢包一段列出有錢包的群組，旅遊錢包一段只有一項", () => {
+    const sections = navSections([FILLED_YEN, FILLED_DEFAULT], [trip({})])
 
-    expect(sections.map((s) => [s.kind, s.groups.map((g) => g.id)])).toEqual([
-      ["general", ["g-yen", "g-default"]],
-      ["travel", ["g-japan"]],
+    expect(sections).toEqual([
+      { kind: "general", groups: [FILLED_YEN, FILLED_DEFAULT] },
+      { kind: "travel" },
     ])
   })
 
-  it("一種都沒有有錢包的群組時，不列那一段", () => {
-    const sections = navSections([YEN, FILLED_DEFAULT, EMPTY_TRAVEL_DEFAULT])
+  it("旅遊錢包都不顯示時，不列旅遊那段", () => {
+    const sections = navSections([FILLED_DEFAULT], [trip({ is_hidden: true })])
 
     expect(sections.map((s) => s.kind)).toEqual(["general"])
   })
 
+  it("一般群組都沒有顯示中的錢包時，不列一般那段", () => {
+    const sections = navSections([YEN, EMPTY_DEFAULT], [trip({ status: "settled" })])
+
+    expect(sections.map((s) => s.kind)).toEqual(["travel"])
+  })
+
   it("一個錢包都沒有時 (例如剛註冊)，一段都不列", () => {
-    expect(navSections([EMPTY_DEFAULT, EMPTY_TRAVEL_DEFAULT])).toEqual([])
+    expect(navSections([EMPTY_DEFAULT], [])).toEqual([])
   })
 })
 
-describe("landingGroupId", () => {
+describe("landingPath", () => {
   it("先進第一個有顯示中錢包的一般群組，照自己排的順序", () => {
-    const filledYen = group({ id: "g-yen", name: "日圓", is_default: false, visible_count: 1 })
-    expect(landingGroupId([YEN, FILLED_DEFAULT, filledYen, FILLED_TRAVEL])).toBe("g-default")
+    expect(landingPath([YEN, FILLED_DEFAULT, FILLED_YEN], [trip({})])).toBe("/wallets/groups/g-default")
   })
 
-  it("一般群組都沒有顯示中的錢包時，進第一個有錢包的旅遊群組", () => {
-    expect(landingGroupId([YEN, EMPTY_DEFAULT, EMPTY_TRAVEL_DEFAULT, FILLED_TRAVEL])).toBe("g-japan")
+  it("一般群組都沒有顯示中的錢包時，有顯示中的旅遊錢包就進旅遊錢包頁", () => {
+    expect(landingPath([YEN, EMPTY_DEFAULT], [trip({})])).toBe("/wallets/travel")
   })
 
-  it("兩種都沒有時進一般的預設群組", () => {
-    expect(landingGroupId([YEN, EMPTY_DEFAULT, EMPTY_TRAVEL_DEFAULT])).toBe("g-default")
-  })
-
-  it("指定旅遊時只看旅遊群組，沒有錢包就進旅遊的預設群組", () => {
-    expect(landingGroupId([FILLED_DEFAULT, EMPTY_TRAVEL_DEFAULT, FILLED_TRAVEL], "travel")).toBe("g-japan")
-    expect(landingGroupId([FILLED_DEFAULT, EMPTY_TRAVEL_DEFAULT], "travel")).toBe("g-travel")
+  it("兩種都沒有時進未分組", () => {
+    expect(landingPath([YEN, EMPTY_DEFAULT], [trip({ is_hidden: true })]))
+      .toBe("/wallets/groups/g-default")
   })
 })
 
@@ -166,5 +156,16 @@ describe("groupWallets", () => {
     ]
 
     expect(groupWallets(list, "g-default").map((w) => w.id)).toEqual(["a", "b"])
+  })
+})
+
+describe("travelWallets", () => {
+  it("旅遊錢包頁只列顯示中的旅遊錢包，維持列表的順序", () => {
+    const list = [
+      trip({ id: "active" }), wallet({ id: "home" }), trip({ id: "hidden", is_hidden: true }),
+      trip({ id: "settling", status: "settling" }), trip({ id: "settled", status: "settled" }),
+    ]
+
+    expect(travelWallets(list).map((w) => w.id)).toEqual(["active", "settling", "settled"])
   })
 })
