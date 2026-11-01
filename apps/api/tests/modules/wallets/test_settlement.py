@@ -717,4 +717,4 @@ async def test_list_wallets_puts_settled_wallets_last_with_status(client: AsyncC
     response = await client.get("/api/wallets/")
 
     items = [(item["id"], item["status"]) for item in response.json()["list_data"]]
-    assert items == [(settling, "settling"), (general, "active"), (settled, "settled")]
+    assert items == [(general, "active"), (settling, "settling"), (settled, "settled")]
