@@ -13,17 +13,19 @@ import styles from "./wallets.module.css"
 
 type EntryListProps = {
   walletId: string
+  /** 只列這個月 (YYYY-MM); 「載入更多」也帶著它。 */
+  month: string
   firstPage: EntryPage
   onOpen: (entry: EntryInfo) => void
 }
 
-export default function EntryList({ walletId, firstPage, onOpen }: EntryListProps) {
+export default function EntryList({ walletId, month, firstPage, onOpen }: EntryListProps) {
   const t = useT(walletsMessages)
   const { items, hasMore, isPending, failed, loadMore } = useLoadMore(
-    firstPage, (cursor) => loadMoreEntries(walletId, cursor),
+    firstPage, (cursor) => loadMoreEntries(walletId, cursor, month),
   )
 
-  if (items.length === 0) return <p className={styles.hint}>{t("noEntries")}</p>
+  if (items.length === 0) return <p className={styles.hint}>{t("noEntriesInMonth")}</p>
   return (
     <>
       <DayGroups

@@ -16,6 +16,8 @@ type PageHeaderProps = {
   mobileActions?: (ActionMenuItem | null | false | undefined)[]
   /** `actions` 只在桌機顯示: 手機的同一組操作改放 `mobileActions`, 標題列不再放一份。 */
   actionsDesktopOnly?: boolean
+  /** 桌機也把 `mobileActions` 收成 `actions` 後面的「⋯」下拉: 操作多到放成按鈕會擠掉內容的頁面用。 */
+  menuOnDesktop?: boolean
 }
 
 /**
@@ -26,8 +28,10 @@ type PageHeaderProps = {
  */
 export default function PageHeader({
   title, subtitle, back, actions, mobileActions,
-  actionsDesktopOnly = false,
+  actionsDesktopOnly = false, menuOnDesktop = false,
 }: PageHeaderProps) {
+  const desktopMenu = menuOnDesktop && mobileActions
+    && <PageHeaderMenu items={mobileActions} triggerClassName={styles.circleButton} dropdown />
   const actionsClass = actionsDesktopOnly
     ? `${styles.pageHeaderActions} ${styles.desktopOnlyActions}`
     : styles.pageHeaderActions
@@ -45,7 +49,7 @@ export default function PageHeader({
         {subtitle && <p className={styles.pageSubtitle}>{subtitle}</p>}
       </div>
       <div className={styles.pageHeaderEnd}>
-        {actions && <div className={actionsClass}>{actions}</div>}
+        {(actions || desktopMenu) && <div className={actionsClass}>{actions}{desktopMenu}</div>}
         {mobileActions && (
           <div className={styles.pageHeaderMobileActions}>
             <PageHeaderMenu items={mobileActions} triggerClassName={styles.circleButton} />

@@ -468,7 +468,48 @@ a.row:hover {
   overflow-wrap: anywhere;
 }
 
-/* 錢包頁的代墊未還清單: 版面同 .fieldList, 但它是 ul。 */
+/* 帳目標題與月份切換同一列; 標題的下距由這一列負責。 */
+.ledgerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.ledgerHeader .sectionTitle {
+  margin-bottom: 0;
+}
+
+.monthNav {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.monthStep {
+  width: var(--control-height-sm);
+  height: var(--control-height-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-round);
+  color: var(--color-text-muted);
+}
+
+.monthStep:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-body);
+}
+
+.monthLabel {
+  color: var(--color-text-body);
+  font-weight: var(--fw-semibold);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 代墊未還的對話框: 版面同 .fieldList, 但它是 ul。 */
 .owingList {
   padding: 0;
   list-style: none;
@@ -737,21 +778,12 @@ a.pickerItem {
   text-decoration: none;
 }
 
-/* 側欄的「錢包」展開後的兩段 (一般、旅遊), 縮排在「錢包」底下。 */
+/* 側欄的「錢包」展開後的兩段 (一般錢包的群組、旅遊錢包), 縮排在「錢包」底下。 */
 .navSections {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
   margin: 0 0 var(--space-2) var(--space-6);
-}
-
-.navSectionTitle {
-  display: block;
-  padding: var(--space-1) var(--space-3);
-  color: var(--color-text-muted);
-  font-size: var(--fs-xs);
-  font-weight: var(--fw-semibold);
-  letter-spacing: var(--ls-label);
 }
 
 .navGroups {

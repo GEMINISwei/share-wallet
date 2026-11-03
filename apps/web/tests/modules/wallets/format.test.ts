@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest"
 import {
   counterpartName, dayLabel, entryRowText, entryTitle, expenseSnapshotField, expenseSummaryFields,
-  expenseTitle, formatAmount, formatEntryDate, formatMonth, groupByDay, localMonth, localToday, netStatus,
-  parseMonth, shiftMonth, signedAmount,
+  expenseTitle, formatAmount, formatEntryDate, formatMonth, groupByDay, localMonth, localToday,
+  netStatus, parseMonth, shiftMonth, signedAmount,
   snapshotField, snapshotSummaryFields,
 } from "@/modules/wallets/format"
 import type { ExpenseSnapshot } from "@/modules/wallets/types"

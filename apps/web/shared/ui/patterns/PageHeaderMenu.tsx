@@ -9,18 +9,22 @@ import Menu, { type MenuItem } from "./Menu"
 type PageHeaderMenuProps = {
   items: (MenuItem | null | false | undefined)[]
   triggerClassName: string
+  /** 桌機的同一組項目開成下拉: 滑鼠點的面板不必從底部浮出。 */
+  dropdown?: boolean
 }
 
 /**
- * 手機標題列右邊的「⋯」: 這一頁其餘的操作都收在這裡, 開成只列項目的底部面板。
+ * 標題列右邊的「⋯」: 這一頁其餘的操作都收在這裡, 手機開成只列項目的底部面板。
  * 不放標題: 點的是這一頁右上角, 面板屬於哪一頁已經很清楚。
  */
-export default function PageHeaderMenu({ items, triggerClassName }: PageHeaderMenuProps) {
+export default function PageHeaderMenu({
+  items, triggerClassName, dropdown = false,
+}: PageHeaderMenuProps) {
   const t = useT(uiMessages)
 
   return (
     <Menu
-      sheet
+      sheet={!dropdown}
       items={items}
       trigger={<MoreHorizontal size={ICON_SIZE.md} aria-hidden="true" />}
       triggerLabel={t("moreActions")}

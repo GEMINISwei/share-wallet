@@ -182,8 +182,8 @@ export async function adjustBalance(
 
 // 「載入更多」與帳目詳情的歷史是使用者點了才取, 不在頁面 render 時一起取: 每筆帳都先取歷史
 // 太浪費, 而下一頁要接在畫面上已經有的帳後面, 不是換掉整頁。
-export async function loadMoreEntries(id: string, cursor: string) {
-  return apiGet({ url: "/wallets/{id}/entries", params: { id }, query: { cursor } })
+export async function loadMoreEntries(id: string, cursor: string, month: string) {
+  return apiGet({ url: "/wallets/{id}/entries", params: { id }, query: { cursor, month } })
 }
 
 /** 底部導覽「＋」的選錢包面板與旅遊帳的同步選單: 用到才取, 不讓每一頁都多打一次列表。 */
