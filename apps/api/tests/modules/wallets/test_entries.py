@@ -3,6 +3,8 @@
 查詢本身 (排序、游標、cascade、併發時的鎖) 在 `test_model.py` 對真的 PostgreSQL 驗。
 """
 
+from datetime import date
+
 import pytest
 from httpx import AsyncClient
 
@@ -514,6 +516,27 @@ async def test_list_entries_returns_creator_nickname_and_category(client, store,
     assert expense["created_by"] == {"user_id": BOB, "nickname": "Bob"}
     assert adjustment["category"] is None
     assert adjustment["amount"] == -50
+
+
+@pytest.mark.asyncio
+async def test_list_entries_with_month_returns_only_that_month(client, store, wallet, food):
+    october = store.add_entry(wallet, BOB, category_id=food, entry_date=date(2026, 10, 31))
+    store.add_entry(wallet, BOB, category_id=food, entry_date=date(2026, 11, 1))
+    authenticate(client, "bob")
+
+    response = await client.get(f"/api/wallets/{wallet}/entries", params={"month": "2026-10"})
+
+    assert response.status_code == 200
+    assert [entry["id"] for entry in response.json()["list_data"]] == [october]
+
+
+@pytest.mark.asyncio
+async def test_list_entries_with_invalid_month_returns_422(client, store, wallet):
+    authenticate(client, "bob")
+
+    for month in ("2026-13", "2026-1", "2026-10-01", "abc"):
+        response = await client.get(f"/api/wallets/{wallet}/entries", params={"month": month})
+        assert response.status_code == 422, month
 
 
 @pytest.mark.asyncio

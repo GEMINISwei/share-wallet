@@ -504,6 +504,39 @@ async def test_find_entry_page_paginates_with_cursor(db):
     assert last["next_cursor"] is None
 
 
+async def test_find_entry_page_with_month_returns_only_that_month(db):
+    alice = await _user("alice")
+    wallet_id = await _wallet({alice: MemberRole.ADMIN})
+    food = await _category(wallet_id)
+    await _entry(wallet_id, alice, food, date(2026, 9, 30))
+    first_day = await _entry(wallet_id, alice, food, date(2026, 10, 1))
+    last_day = await _entry(wallet_id, alice, food, date(2026, 10, 31))
+    await _entry(wallet_id, alice, food, date(2026, 11, 1))
+
+    page = await WalletEntryTable.find_page(wallet_id, limit=10, month=date(2026, 10, 1))
+
+    assert [entry["id"] for entry in page["list_data"]] == [last_day, first_day]
+    assert page["next_cursor"] is None
+
+
+async def test_find_entry_page_with_month_paginates_within_month(db):
+    alice = await _user("alice")
+    wallet_id = await _wallet({alice: MemberRole.ADMIN})
+    food = await _category(wallet_id)
+    ids = [await _entry(wallet_id, alice, food, date(2026, 12, day)) for day in range(1, 4)]
+    await _entry(wallet_id, alice, food, date(2026, 11, 30))
+    month = date(2026, 12, 1)
+
+    first = await WalletEntryTable.find_page(wallet_id, limit=2, month=month)
+    last = await WalletEntryTable.find_page(
+        wallet_id, limit=2, cursor=first["next_cursor"], month=month
+    )
+
+    assert [e["id"] for e in first["list_data"]] == [ids[2], ids[1]]
+    assert [e["id"] for e in last["list_data"]] == [ids[0]]
+    assert last["next_cursor"] is None
+
+
 async def test_entry_amount_check_rejects_zero_income(db):
     alice = await _user("alice")
     wallet_id = await _wallet({alice: MemberRole.ADMIN})

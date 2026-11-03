@@ -722,10 +722,13 @@ def _install_entries(monkeypatch: pytest.MonkeyPatch, store: FakeStore) -> None:
         if store.entries.get(id, {}).get("wallet_id") == wallet_id:
             del store.entries[id]
 
-    async def find_page(wallet_id, limit, cursor=None):
-        # 排序與游標的 SQL 在 test_model.py 驗, 這裡只照日期新到舊回傳全部。
+    async def find_page(wallet_id, limit, cursor=None, month=None):
+        # 排序、游標與月份的 SQL 在 test_model.py 驗, 這裡只照日期新到舊回傳那個月 (沒給就全部)。
         rows = [
-            store.entry_detail(id) for id, e in store.entries.items() if e["wallet_id"] == wallet_id
+            store.entry_detail(id)
+            for id, e in store.entries.items()
+            if e["wallet_id"] == wallet_id
+            and (month is None or e["entry_date"].replace(day=1) == month)
         ]
         rows.sort(key=lambda e: (e["entry_date"], e["created_at"]), reverse=True)
         return {"list_data": rows, "next_cursor": None}

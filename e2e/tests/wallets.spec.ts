@@ -66,6 +66,34 @@ test("記一筆支出後餘額減少，帳目列表看得到這一筆", async ({
   await expect(page.getByText("9,500").first()).toBeVisible()
 })
 
+test("桌機錢包頁的成員、分類、異動紀錄、詳細設定收在標題列的 ⋯ 選單", async ({ page }) => {
+  await loginAs(page, owner)
+  await page.goto(walletUrl)
+
+  // 頁面上不再列這幾頁的入口, 帳目一多也不會被擠到看不到。
+  await expect(page.getByRole("link", { name: /成員/ })).toHaveCount(0)
+  await page.getByRole("button", { name: "更多" }).click()
+  for (const name of ["成員", "分類", "異動紀錄", "詳細設定"]) {
+    await expect(page.getByRole("menuitem", { name })).toBeVisible()
+  }
+  await page.getByRole("menuitem", { name: "分類" }).click()
+  await expect(page).toHaveURL(/\/categories$/)
+})
+
+test("帳目一次只顯示一個月，切到上個月看不到這個月的帳", async ({ page }) => {
+  await loginAs(page, owner)
+  await page.goto(walletUrl)
+  await expect(page.getByText("午餐")).toBeVisible()
+
+  await page.getByRole("link", { name: "上個月" }).click()
+  await expect(page).toHaveURL(/\?month=\d{4}-\d{2}$/)
+  await expect(page.getByText("這個月沒有帳目")).toBeVisible()
+  await expect(page.getByText("午餐")).toBeHidden()
+
+  await page.getByRole("link", { name: "下個月" }).click()
+  await expect(page.getByText("午餐")).toBeVisible()
+})
+
 test("沒有帳號的人打開邀請連結，註冊後確認加入，成為錢包成員", async ({ page, browser }) => {
   await loginAs(page, owner)
   await page.goto(`${walletUrl}/members`)
@@ -162,6 +190,13 @@ test("群組頁只列顯示中的錢包，總額只算顯示中的錢包", async
     .toHaveAttribute("aria-expanded", "true")
   await expect(generalSection.getByRole("link")).toHaveCount(1)
   await expect(generalSection.getByRole("link", { name: /日圓/ })).toBeVisible()
+})
+
+test("側欄展開的錢包只列群組，不顯示「一般錢包」字樣", async ({ page }) => {
+  await loginAs(page, owner)
+  const sidebar = page.getByRole("navigation", { name: "主要導覽" })
+  await expect(sidebar.getByRole("link", { name: /日圓/ })).toBeVisible()
+  await expect(sidebar.getByText("一般錢包", { exact: true })).toHaveCount(0)
 })
 
 test("新增旅遊帳時同步到一般錢包，一般錢包餘額減少全額、帳目列表看得到這一筆", async ({ page }) => {
