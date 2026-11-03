@@ -134,10 +134,9 @@ function NavSections({ sections, variant, onPicked }: NavSectionsProps) {
             </ul>
           )
         }
-        const titleId = `wallet-nav-${variant}-general`
+        // 不放「一般錢包」的段落標題: 列出來的就是群組, 多一行字只是佔位置; 輔助技術仍讀得到。
         return (
-          <div key="general" role="group" aria-labelledby={titleId}>
-            <span id={titleId} className={styles.navSectionTitle}>{t("navGeneral")}</span>
+          <div key="general" role="group" aria-label={t("navGeneral")}>
             <ul className={className}>
               {section.groups.map((group) => (
                 <NavLink key={group.id} href={walletGroupPath(group.id)} onPicked={onPicked}>

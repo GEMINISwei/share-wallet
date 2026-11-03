@@ -22,23 +22,12 @@ function OwingRows({ owing }: { owing: AdvanceTargetInfo[] }) {
   )
 }
 
-/** 桌機錢包頁上的代墊未還; 手機收進選單 (`OwingDialog`)。都還清時整塊不出現。 */
-export default function OwingList({ targets }: { targets: AdvanceTargetInfo[] }) {
-  const t = useT(walletsMessages)
-  const owing = owingTargets(targets)
-  if (owing.length === 0) return null
-  return (
-    <section className={styles.desktopOnly}>
-      <h2 className={styles.sectionTitle}>{t("owingList")}</h2>
-      <OwingRows owing={owing} />
-    </section>
-  )
-}
-
 type OwingDialogProps = { targets: AdvanceTargetInfo[]; open: boolean; onClose: () => void }
 
-/** 手機從 ⋮ 選單打開的代墊未還。都還清時選單沒有這一項 (`walletMenuItems`)。 */
-export function OwingDialog({ targets, open, onClose }: OwingDialogProps) {
+/**
+ * 從標題列 ⋯ 打開的代墊未還, 不放在頁面上跟帳目搶位置。都還清時選單沒有這一項 (`walletMenuItems`)。
+ */
+export default function OwingDialog({ targets, open, onClose }: OwingDialogProps) {
   const t = useT(walletsMessages)
   return (
     <Modal title={t("owingList")} open={open} onOpenChange={(next) => { if (!next) onClose() }}>

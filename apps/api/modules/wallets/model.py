@@ -1054,15 +1054,19 @@ class WalletEntryTable(BaseTable):
 
     @classmethod
     async def find_page(
-        cls, wallet_id: str, limit: int, cursor: str | None = None
+        cls, wallet_id: str, limit: int, cursor: str | None = None, month: date | None = None
     ) -> EntryPageResult:
         """日期新到舊, 同一天依記帳時間新到舊, 只往下一頁 (「載入更多」)。
 
+        `month` 是某個月的第一天, 給了就只列那個月。
         不用 `BaseTable.get_page`: 它的排序鍵只有一個欄位加 id, 這裡要先排日期再排記帳時間,
         只用日期的話同一天的帳會依隨機的 uuid 排。
         """
         keys = (cls.entry_date, cls.created_at, cls.id)
         statement = cls._detail_select().where(cls.wallet_id == parse_uuid(wallet_id))
+        if month is not None:
+            next_month = date(month.year + month.month // 12, month.month % 12 + 1, 1)
+            statement = statement.where(cls.entry_date >= month, cls.entry_date < next_month)
         if cursor is not None:
             day, created_at, row_id = _decode_keys(cursor, 3)
             try:

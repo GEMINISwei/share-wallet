@@ -219,6 +219,10 @@ async def archive_category_route(
 # 「載入更多」一次取的筆數。
 PageLimit = Annotated[int, Query(ge=1, le=100)]
 PageCursor = Annotated[str | None, Query(max_length=500)]
+# 帳目一次看一個月 (見 docs/features/general-wallet.md〈帳目列表〉)。
+EntryMonth = Annotated[
+    str | None, Query(pattern=r"^\d{4}-(0[1-9]|1[0-2])$", description="只列這個月的帳, `YYYY-MM`。")
+]
 
 
 @router.get("/{id}/entries")
@@ -226,10 +230,14 @@ async def get_entry_list_route(
     id: UuidText,
     limit: PageLimit = 20,
     cursor: PageCursor = None,
+    month: EntryMonth = None,
     current_user: CurrentUser = Depends(check_user_permission()),
 ) -> EntryPage:
-    """一般錢包的帳目, 日期新到舊、同一天依記帳時間新到舊。下一頁帶上一頁的 `next_cursor`。"""
-    return await entries.list_entries(id, current_user, limit=limit, cursor=cursor)
+    """一般錢包的帳目, 日期新到舊、同一天依記帳時間新到舊。
+
+    下一頁帶上一頁的 `next_cursor` 與同一個 `month`。
+    """
+    return await entries.list_entries(id, current_user, limit=limit, cursor=cursor, month=month)
 
 
 @router.post("/{id}/entries")

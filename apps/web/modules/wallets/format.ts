@@ -116,6 +116,31 @@ export function localToday(now: Date = new Date()) {
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
 }
 
+/** 使用者所在時區的這個月 (YYYY-MM), 帳目列表預設顯示的月份。 */
+export function localMonth(now: Date = new Date()) {
+  return localToday(now).slice(0, 7)
+}
+
+const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/
+
+/** 網址上的 `?month=`; 格式跟後端一樣是 YYYY-MM, 不合格式或沒給時是 null (改看這個月)。 */
+export function parseMonth(value: string | string[] | undefined) {
+  return typeof value === "string" && MONTH_PATTERN.test(value) ? value : null
+}
+
+/** 前後移幾個月 (YYYY-MM)。 */
+export function shiftMonth(month: string, delta: number) {
+  const [year, monthIndex] = month.split("-").map(Number)
+  const shifted = new Date(Date.UTC(year, monthIndex - 1 + delta, 1))
+  return shifted.toISOString().slice(0, 7)
+}
+
+/** 月份切換的標題, 例如「2026年11月」。 */
+export function formatMonth(month: string, locale: Locale) {
+  return new Intl.DateTimeFormat(HTML_LANG[locale], { year: "numeric", month: "long", timeZone: "UTC" })
+    .format(new Date(`${month}-01T00:00:00Z`))
+}
+
 /** 日期 (YYYY-MM-DD, 不含時間) 照原樣的年月日顯示, 不經過時區換算。 */
 export function formatEntryDate(day: string, locale: Locale) {
   return formatDate(`${day}T00:00:00Z`, locale, "UTC")

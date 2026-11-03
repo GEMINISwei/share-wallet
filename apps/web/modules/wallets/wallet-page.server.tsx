@@ -4,27 +4,37 @@ import { apiGet } from "@/shared/api/request.server"
 import { getApiListData } from "@/shared/api/response"
 import { getT } from "@/shared/i18n/locale.server"
 import { transferTargets } from "./capabilities"
+import { localMonth, parseMonth } from "./format"
 import { walletsMessages } from "./i18n"
 import type { WalletArea } from "./paths"
 import type { WalletInfo } from "./types"
-import { loadWallet, type WalletPageProps } from "./wallet.server"
+import { loadWallet, type WalletPageProps as WalletRouteProps } from "./wallet.server"
 import WalletNotFound from "./ui/WalletNotFound"
 import type { TravelLedger } from "./ui/TravelWalletView"
 import WalletView, { type WalletLedger } from "./ui/WalletView"
 
-export type { WalletPageProps } from "./wallet.server"
+export type WalletPageProps = WalletRouteProps & {
+  /** 一般錢包的帳目月份 (`YYYY-MM`)。 */
+  searchParams?: Promise<{ month?: string | string[] }>
+}
 
 export async function generateMetadata({ params }: WalletPageProps) {
   const wallet = await loadWallet((await params).id)
   return { title: wallet?.name ?? (await getT(walletsMessages))("notFound") }
 }
 
-/** 一般錢包頁就是帳目 (見 docs/features/general-wallet.md〈帳目列表〉); 旅遊錢包沒有, 是 null。 */
-async function loadLedger(wallet: WalletInfo): Promise<WalletLedger | null> {
+/**
+ * 一般錢包頁就是帳目, 一次一個月 (見 docs/features/general-wallet.md〈帳目列表〉); 旅遊錢包沒有, 是 null。
+ * 網址沒指定月份時先用伺服器時區的這個月, 跟使用者的不同時由畫面換掉 (`MonthNav`)。
+ */
+async function loadLedger(
+  wallet: WalletInfo, urlMonth: string | null,
+): Promise<WalletLedger | null> {
   if (wallet.kind !== "general") return null
   const params = { id: wallet.id }
+  const month = urlMonth ?? localMonth()
   const [entriesRes, categoriesRes, targetsRes, walletsRes, currentUser, t] = await Promise.all([
-    apiGet({ url: "/wallets/{id}/entries", params }),
+    apiGet({ url: "/wallets/{id}/entries", params, query: { month } }),
     apiGet({ url: "/wallets/{id}/categories", params }),
     // 代墊未還清單與對象的輸入提示; 取不到時只是不顯示, 不擋整頁。
     apiGet({ url: "/wallets/{id}/advance-targets", params }),
@@ -41,6 +51,8 @@ async function loadLedger(wallet: WalletInfo): Promise<WalletLedger | null> {
     transferTargets: transferTargets(getApiListData(walletsRes), wallet.id),
     currentUserId: currentUser.data?.id ?? "",
     errorMessage: failed ? t("entriesFailed") : "",
+    month,
+    monthFromUrl: urlMonth !== null,
   }
 }
 
@@ -75,10 +87,11 @@ async function loadTravel(wallet: WalletInfo): Promise<TravelLedger | null> {
   }
 }
 
-async function renderWalletPage({ params }: WalletPageProps, area: WalletArea) {
+async function renderWalletPage({ params, searchParams }: WalletPageProps, area: WalletArea) {
   const wallet = await loadWallet((await params).id)
   if (!wallet) return <WalletNotFound area={area} />
-  const [ledger, travel] = await Promise.all([loadLedger(wallet), loadTravel(wallet)])
+  const month = parseMonth((await searchParams)?.month)
+  const [ledger, travel] = await Promise.all([loadLedger(wallet, month), loadTravel(wallet)])
   return <WalletView wallet={wallet} area={area} ledger={ledger} travel={travel} />
 }
 

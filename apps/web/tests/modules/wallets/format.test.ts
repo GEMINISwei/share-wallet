@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest"
 import {
   counterpartName, dayLabel, entryRowText, entryTitle, expenseSnapshotField, expenseSummaryFields,
-  expenseTitle, formatAmount, formatEntryDate, groupByDay, localToday, netStatus, signedAmount,
+  expenseTitle, formatAmount, formatEntryDate, formatMonth, groupByDay, localMonth, localToday,
+  netStatus, parseMonth, shiftMonth, signedAmount,
   snapshotField, snapshotSummaryFields,
 } from "@/modules/wallets/format"
 import type { ExpenseSnapshot } from "@/modules/wallets/types"
@@ -29,6 +30,39 @@ describe("signedAmount", () => {
 describe("localToday", () => {
   it("用本地時區的年月日，不是 UTC", () => {
     expect(localToday(new Date(2026, 0, 5, 23, 59))).toBe("2026-01-05")
+  })
+})
+
+describe("localMonth", () => {
+  it("用本地時區的年月，不是 UTC", () => {
+    expect(localMonth(new Date(2026, 0, 31, 23, 59))).toBe("2026-01")
+  })
+})
+
+describe("parseMonth", () => {
+  it("網址的月份是 YYYY-MM 才採用", () => {
+    expect(parseMonth("2026-10")).toBe("2026-10")
+  })
+
+  it("網址的月份格式不對或沒給時是 null", () => {
+    for (const value of [undefined, "", "2026-13", "2026-00", "2026-1", "2026-10-01", ["2026-10"]]) {
+      expect(parseMonth(value)).toBeNull()
+    }
+  })
+})
+
+describe("shiftMonth", () => {
+  it("切換上下個月時跨年", () => {
+    expect(shiftMonth("2026-01", -1)).toBe("2025-12")
+    expect(shiftMonth("2026-12", 1)).toBe("2027-01")
+    expect(shiftMonth("2026-10", 1)).toBe("2026-11")
+  })
+})
+
+describe("formatMonth", () => {
+  it("月份依語系顯示年月", () => {
+    expect(formatMonth("2026-11", "zh")).toBe("2026年11月")
+    expect(formatMonth("2026-11", "en")).toBe("November 2026")
   })
 })
 

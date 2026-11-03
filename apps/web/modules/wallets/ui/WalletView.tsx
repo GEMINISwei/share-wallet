@@ -1,6 +1,6 @@
 "use client"
 
-import { Plus, Scale } from "lucide-react"
+import { Plus } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { Button, ErrorState, ICON_SIZE, Notify, useNotify } from "@/shared/ui"
@@ -15,10 +15,10 @@ import { useAddEntryFromUrl, useWalletAddEntry } from "./AddEntryNav"
 import { useActiveWalletKind } from "./WalletNav"
 import EntryList from "./EntryList"
 import LedgerDialogs, { type LedgerDialog } from "./LedgerDialogs"
-import OwingList, { OwingDialog } from "./OwingList"
+import MonthNav from "./MonthNav"
+import OwingDialog from "./OwingDialog"
 import TravelWalletView, { type TravelLedger } from "./TravelWalletView"
 import { useFavoriteAction } from "./useFavoriteAction"
-import WalletLinks from "./WalletLinks"
 import WalletShell from "./WalletShell"
 import WalletSummary from "./WalletSummary"
 import { useWalletMenu } from "./useWalletMenu"
@@ -33,6 +33,10 @@ export type WalletLedger = {
   transferTargets: TransferTarget[]
   currentUserId: string
   errorMessage: string
+  /** 帳目顯示的月份 (YYYY-MM)。 */
+  month: string
+  /** 月份是網址指定的; 不是的話是伺服器時區的這個月, 跟使用者的這個月不同時要換掉。 */
+  monthFromUrl: boolean
 }
 
 type WalletViewProps = {
@@ -76,8 +80,8 @@ function GeneralWalletView(
   }
 
   // 記一筆在桌機放標題列; 手機的使用者區在底部導覽的「＋」, 後台沒有「＋」所以放摘要列。
+  // 其餘操作桌機與手機一樣收進 ⋯, 帳目一多也不會被擠到看不到。
   const addIcon = <Plus size={ICON_SIZE.sm} />
-  const adjustIcon = <Scale size={ICON_SIZE.sm} />
   const openAdd = () => setDialog({ kind: "add" })
   const openAdjust = () => setDialog({ kind: "adjust" })
   const favorite = useFavoriteAction(wallet, { success: notifySuccess, error: notifyError })
@@ -92,18 +96,8 @@ function GeneralWalletView(
   return (
     <WalletShell
       title={wallet.name} subtitle={t("kindGeneral")} backHref={walletBackPath(wallet, area)} backLabel={t("backToList")} actionsDesktopOnly
-      mobileActions={menu}
-      actions={(ledger || favorite) && (
-        <>
-          {favorite && (
-            <Button variant="outlined" icon={favorite.icon} onClick={favorite.onClick}>
-              {favorite.label}
-            </Button>
-          )}
-          {ledger && <Button variant="outlined" icon={adjustIcon} onClick={openAdjust}>{t("adjustBalance")}</Button>}
-          {ledger && <Button icon={addIcon} onClick={openAdd}>{t("addEntry")}</Button>}
-        </>
-      )}
+      mobileActions={menu} menuOnDesktop
+      actions={ledger && <Button icon={addIcon} onClick={openAdd}>{t("addEntry")}</Button>}
     >
       {wallet.balance !== null && (
         <WalletSummary
@@ -111,21 +105,22 @@ function GeneralWalletView(
           onAdd={area === "admin" && canAddEntry(wallet, state.ready) ? openAdd : undefined}
         />
       )}
-      {ledger && <OwingList targets={ledger.advanceTargets} />}
       {ledger && (
         <section>
-          <h2 className={`${styles.sectionTitle} ${styles.ledgerTitle}`}>{t("entries")}</h2>
+          <div className={styles.ledgerHeader}>
+            <h2 className={`${styles.sectionTitle} ${styles.ledgerTitle}`}>{t("entries")}</h2>
+            <MonthNav month={ledger.month} fromUrl={ledger.monthFromUrl} />
+          </div>
           {ledger.errorMessage
             ? <ErrorState>{ledger.errorMessage}</ErrorState>
             : (
               <EntryList
-                walletId={wallet.id} firstPage={ledger.entries}
+                walletId={wallet.id} month={ledger.month} firstPage={ledger.entries}
                 onOpen={(entry) => setDialog({ kind: "detail", entry })}
               />
             )}
         </section>
       )}
-      <WalletLinks wallet={wallet} area={area} />
       {ledger && (
         <>
           <LedgerDialogs

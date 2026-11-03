@@ -632,7 +632,9 @@ export interface paths {
         };
         /**
          * Get Entry List Route
-         * @description 一般錢包的帳目, 日期新到舊、同一天依記帳時間新到舊。下一頁帶上一頁的 `next_cursor`。
+         * @description 一般錢包的帳目, 日期新到舊、同一天依記帳時間新到舊。
+         *
+         *     下一頁帶上一頁的 `next_cursor` 與同一個 `month`。
          */
         get: operations["get_entry_list_route_api_wallets__id__entries_get"];
         put?: never;
@@ -3843,6 +3845,8 @@ export interface operations {
             query?: {
                 limit?: number;
                 cursor?: string | null;
+                /** @description 只列這個月的帳, `YYYY-MM`。 */
+                month?: string | null;
             };
             header?: never;
             path: {

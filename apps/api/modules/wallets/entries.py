@@ -4,6 +4,8 @@
 異動紀錄的讀取在 `entry_logs.py`。
 """
 
+from datetime import date
+
 from modules.users.public import find_nicknames
 from shared.auth.contracts import CurrentUser
 from shared.http.errors import LangException
@@ -200,10 +202,16 @@ async def _entry_infos(entries: list[EntryDetail]) -> list[EntryInfo]:
 
 
 async def list_entries(
-    wallet_id: str, current_user: CurrentUser, limit: int, cursor: str | None = None
+    wallet_id: str,
+    current_user: CurrentUser,
+    limit: int,
+    cursor: str | None = None,
+    month: str | None = None,
 ) -> EntryPage:
     await open_general_wallet(wallet_id, current_user)
-    page = await WalletEntryTable.find_page(wallet_id, limit=limit, cursor=cursor)
+    # 格式由 route 的 pattern 擋過, 這裡只是換成那個月的第一天。
+    first_day = None if month is None else date.fromisoformat(f"{month}-01")
+    page = await WalletEntryTable.find_page(wallet_id, limit=limit, cursor=cursor, month=first_day)
     items = await _entry_infos(page["list_data"])
     return EntryPage(list_data=items, next_cursor=page["next_cursor"])
 
