@@ -23,6 +23,8 @@ source "$(dirname "$0")/lib/compose.sh"
 source "$(dirname "$0")/lib/contract.sh"
 # shellcheck source=scripts/lib/migrations.sh
 source "$(dirname "$0")/lib/migrations.sh"
+# shellcheck source=scripts/lib/shellcheck.sh
+source "$(dirname "$0")/lib/shellcheck.sh"
 
 # deny_on_production 看的是 .env 的 MODE, 要先載入。
 load_env
@@ -64,6 +66,7 @@ missing_tool() {
 
 lint_shell() {
     command -v shellcheck > /dev/null 2>&1 || { missing_tool shellcheck; return; }
+    check_shellcheck_version
     # -x: 跟著 `source` 進 lib/, 被引用的函式與變數才不會被當成未定義。
     shellcheck -x scripts/*.sh scripts/lib/*.sh .github/scripts/*.sh .agents/skills/*/scripts/*.sh \
         .githooks/*
@@ -217,7 +220,15 @@ run_e2e() (
     trap 'app_compose down -v --remove-orphans > /dev/null 2>&1 || true; rm -f "${COMPOSE_ENV_FILE}"' EXIT
 
     step "e2e：建置並啟動拋棄式的正式環境（${COMPOSE_PROJECT_NAME}）"
-    app_compose build
+    # CI 先用 gha 快取建好兩份 image 再傳進來 (compose 的 image: 讀這兩個變數), 這裡不再建一次。
+    # pull_policy 預設是 build, 不改的話 `run migrate` 與 `up` 仍會各自重建; missing 用本機現成的。
+    # 只給一份時另一份會從原始碼建, 不是同一次建置的產物, 所以照舊全部自己建。
+    if [ -n "${API_IMAGE:-}" ] && [ -n "${WEB_IMAGE:-}" ]; then
+        export IMAGE_PULL_POLICY=missing
+        echo "使用建好的 image：${API_IMAGE}、${WEB_IMAGE}"
+    else
+        app_compose build
+    fi
     app_compose run --rm -T migrate
     app_compose up -d --remove-orphans
     # up 會等 api 與 web 的 healthcheck 才啟動 nginx, 但 nginx 自己沒有 healthcheck。

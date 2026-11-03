@@ -36,7 +36,7 @@ GitHub 端要設定一次，流程才不是靠自覺：
   - **Restrict deletions**、**Block force pushes**：建 ruleset 時預設勾起，保持勾選
   - **Require linear history**：`main` 上不會出現 merge commit，有 bypass 權限的人直接 push 也一樣
   - **Require a pull request before merging**，展開後把 **Allowed merge methods** 改成只留 **Squash**
-  - **Require status checks to pass**：把 CI 的四個 job（`check`、`integration`、`images`、`e2e`）
+  - **Require status checks to pass**：把 CI 的三個 job（`check`、`integration`、`e2e`）
     與 PR 格式檢查的 `pr`（`.github/workflows/pr.yml`）加進去，並勾 **Require branches to be up to date before merging**，CI 是跟最新的 `main` 一起跑過的。
     CI 多了 job 時要回來這裡加：沒列進去的 job 紅了，PR 照樣能合併
 - [ ] Settings → Advanced Security（有的帳號叫 Code security）：三項都要打開，少一項安全更新就不會來
@@ -51,10 +51,21 @@ GitHub 端要設定一次，流程才不是靠自覺：
   `<type>: <祈使句>`（`feat: add product list page`）。PR 標題是硬規定（squash 後留在 `main`），
   分支上的 commit 建議照寫。PR 標題與描述的三段由 `pr.yml` 檢查，在 GitHub 上修改標題或描述也會重跑。
 - 送出前通過 `make check`，實質改動在 [`CHANGELOG.md`](../CHANGELOG.md) 的 `## [Unreleased]` 留一筆。
+- commit 訊息（標題或內文）不能有 GitHub 的 CI 略過標記，`.githooks/commit-msg` 會擋：GitHub 在整份訊息裡找它，
+  squash 又把分支上每個 commit 的訊息併進 `main`，只要一個 commit 帶著它，`main` 就不跑 CI，部署也找不到
+  `main` 的 CI 結果。要略過某些檢查時寫成 workflow 的條件（例如依改到的檔案判斷），不靠訊息。
 
-CI（`.github/workflows/ci.yml`）跑的就是本機指令：`check`（`make check`，含契約比對）、`integration`（`make check integration`）、`images`（兩份 production image
-建得起來，且 web image 裡沒有真的 Server Action 金鑰）、`e2e`（`make check e2e`）。**本機綠，CI 就綠。** 部署另由
+CI（`.github/workflows/ci.yml`）跑的就是本機指令：`check`（`make check`，含契約比對）、`integration`（`make check integration`）、
+`e2e`（`make check e2e`，並確認 web image 裡沒有真的 Server Action 金鑰）。**本機綠，CI 就綠。** 部署另由
 `deploy.yml` 在 Publish release 時執行，見 [`operations.md`](operations.md#自動部署)。
+
+為了省時間，CI 有兩處與本機不同，檢查的內容不變：
+
+- `e2e` 先用 GitHub Actions 的快取建好 api 與 web 的 image，再以 `API_IMAGE`、`WEB_IMAGE` 交給 `make check e2e`，
+  不在沒有快取的 runner 上重建。建法（target、快取 scope）與 `deploy.yml` 的 build 相同。
+- `check` 快取 `apps/web/node_modules`，`.nvmrc`、`package.json`、`package-lock.json` 都沒變時跳過 `npm ci`。
+- `check` 下載固定版本的 shellcheck（版本在 `scripts/lib/shellcheck.sh`，核對 sha256），不用 runner 內建的那一版：
+  版本不同時同一份腳本會一邊綠一邊紅。本機的版本不同時 `make check lint` 會提醒，CI 上不同則失敗。
 
 ### AI 協作的共同作者
 
@@ -94,7 +105,7 @@ git log --format='%h %s%n  %(trailers:key=Co-authored-by,valueonly,separator=%x2
 - **Docker image**：漏洞資料庫不涵蓋 image，所以每月開一次 PR，只送 patch（例如 nginx 1.31.7 → 1.31.8）。
 - **整批升級**：在發版前盤點落後多少再決定範圍——開分支、升級、`make check`、實際建置 image 跑起來，
   再開 PR。api Dockerfile 用 `COPY --from` 複製的 uv 不在 Dependabot 的範圍內，盤點時要用
-  `docker scout` 之類的工具掃 image 才看得到。Insights → Dependency graph → Dependabot 的
+  `docker scout` 之類的工具掃 image 才看得到；CI 下載的 shellcheck 也一樣，版本在 `scripts/lib/shellcheck.sh`。Insights → Dependency graph → Dependabot 的
   「Check for updates」在版本更新關掉後不會開 PR，不能拿來取代盤點。
 
 遇到 peer 相容性阻擋就**停在最新的相容版**，不要 `--force`／`--legacy-peer-deps`，並在設定檔裡

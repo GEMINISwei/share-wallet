@@ -1,5 +1,8 @@
 import { expect, test, type Page } from "@playwright/test"
-import { WALLET_HOME, admin } from "./support"
+import { SIGNED_OUT, WALLET_HOME, admin } from "./support"
+
+// 註冊與登入都從未登入開始, 不載入預設的超管登入狀態。
+test.use({ storageState: SIGNED_OUT })
 
 // 資料庫每次都是新的, 名稱固定即可; 跟 users.spec.ts 的一般帳號分開, 兩支的順序才互不影響。
 const newcomer = {
