@@ -336,10 +336,6 @@ a.row:hover {
   background: var(--color-surface-card);
 }
 
-.dangerPanel {
-  border-color: var(--color-danger-fg);
-}
-
 .kindOptions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

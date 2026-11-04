@@ -9,7 +9,6 @@ export default function AboutSettings({ version }: { version: string }) {
 
   return (
     <section className={styles.section}>
-      <h2 className={styles.sectionTitle}>{t("aboutSection")}</h2>
       <div className={styles.settingRow}>
         <div className={styles.settingInfo}>
           <span className={styles.settingName}>{t("systemVersion")}</span>

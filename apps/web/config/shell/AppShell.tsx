@@ -141,12 +141,6 @@ export default function AppShell({
             </div>
 
             <nav className={styles.sidebarNav} aria-label={t("mainNav")}>
-              {/* 管理區沒有進得去的頁面時, 不要留一個底下空空的標題。 */}
-              {(area === "user" || visibleRoutes.length > 0) && (
-                <span className={styles.navSectionLabel}>
-                  {t(area === "admin" ? "navSectionAdmin" : "navSection")}
-                </span>
-              )}
               {area === "user" && <WalletsNav variant="sidebar" />}
               {renderNav("sidebar")}
             </nav>

@@ -58,20 +58,16 @@ export default function WalletSettingsView({ wallet, area }: WalletSettingsViewP
         <WalletFields
           values={form.values}
           errors={{ ...form.errors, name: form.errors.name ?? fieldError("name") }}
-          disabled={locked} showInitialBalance={false} onChange={form.change}
+          disabled={locked} creating={false} onChange={form.change}
         />
         <div>
           <Button type="submit" disabled={locked}>{isPending ? t("saving") : t("save")}</Button>
         </div>
       </form>
 
-      <section className={`${styles.panel} ${styles.dangerPanel}`}>
-        <h2 className={styles.sectionTitle}>{t("dangerZone")}</h2>
-        <p className={styles.hint}>{t("deleteDesc")}</p>
-        <div>
-          <Button variant="outlined" onClick={() => setDeleting(true)}>{t("deleteWallet")}</Button>
-        </div>
-      </section>
+      <div>
+        <Button variant="outlined" onClick={() => setDeleting(true)}>{t("deleteWallet")}</Button>
+      </div>
 
       <DeleteWalletDialog
         wallet={wallet} area={area} open={deleting}

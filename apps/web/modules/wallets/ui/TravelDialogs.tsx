@@ -67,7 +67,7 @@ export default function TravelDialogs({
       )}
       {detail && actions && (
         <ExpenseDetailDialog
-          key={detail.id} walletId={wallet.id} expense={detail}
+          key={detail.id} expense={detail}
           canEdit={actions.edit} canDelete={actions.delete}
           onEdit={() => onChange({ kind: "edit", expense: detail })}
           onDelete={() => onChange({ kind: "delete", expense: detail })}
