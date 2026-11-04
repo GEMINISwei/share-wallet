@@ -74,9 +74,9 @@ test.describe("一般帳號", () => {
   test("側欄不顯示「導覽」區塊標題", async ({ page, member }) => {
     await login(page, member)
 
-    const sidebar = page.getByRole("navigation", { name: "主要導覽" })
-    await expect(sidebar.getByRole("link").first()).toBeVisible()
-    await expect(sidebar.getByText("導覽", { exact: true })).toHaveCount(0)
+    // 新帳號沒有錢包, 側欄沒有連結可等, 改等一定會出現的帳號選單。
+    await expect(page.getByRole("button", { name: "帳號選單" })).toBeVisible()
+    await expect(page.getByRole("navigation", { name: "主要導覽" }).getByText("導覽", { exact: true })).toHaveCount(0)
   })
 
   test("登出後其他已登入的裝置也會被登出", async ({ browser }) => {
