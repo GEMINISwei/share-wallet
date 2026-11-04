@@ -4,6 +4,7 @@
   不碰開發中的那套, 也不碰 `make check e2e` 的拋棄式環境。
 - `test` 每次先重設資料、重建超管、重啟 api (清掉行程記憶體裡的限流計數), 每次跑的起點一樣。
 - 給檔案或名稱時只跑那幾個測試: 開發時要的是幾秒內知道紅綠, 完整的正式環境版本交給 CI。
+  `test` 沒給檔案時拒絕, 不默默跑整套; 要整套用 `make check e2e`, 跑的是正式環境的版本, 與 CI 一致。
 - 只屬於開發機, 正式環境拒絕執行。
 
 沙盒與假的 docker 沿用 `test_stack_scripts.py`: 不碰本機真的容器, 也不讀開發者的 `.env`。
@@ -101,7 +102,7 @@ def test_e2e_test_resets_data_and_restarts_api_before_playwright(box: Sandbox) -
     box.run("e2e", "up")
     stack_running(box)
 
-    result = box.run("e2e", "test")
+    result = box.run("e2e", "test", "auth.spec.ts")
 
     assert result.returncode == 0, result.stderr
     reset = box.first("db.py reset")
@@ -121,6 +122,18 @@ def test_e2e_test_passes_spec_files_to_playwright(box: Sandbox) -> None:
 
     assert result.returncode == 0, result.stderr
     assert box.called("npx playwright test auth.spec.ts users.spec.ts")
+
+
+def test_e2e_test_without_specs_is_refused_before_reset(box: Sandbox) -> None:
+    box.run("e2e", "up")
+    stack_running(box)
+
+    result = box.run("e2e", "test")
+
+    assert result.returncode != 0
+    assert "make check e2e" in result.stderr
+    assert not box.called("db.py reset")
+    assert not box.called("npx playwright test")
 
 
 def test_e2e_grep_passes_name_to_playwright(box: Sandbox) -> None:
