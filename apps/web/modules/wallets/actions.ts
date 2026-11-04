@@ -191,12 +191,6 @@ export async function loadMyWallets() {
   return apiGet({ url: "/wallets/" })
 }
 
-export async function loadEntryLogs(id: string, entryId: string) {
-  return apiGet({
-    url: "/wallets/{id}/entries/{entry_id}/logs", params: { id, entry_id: entryId },
-  })
-}
-
 export async function loadMoreWalletLogs(id: string, cursor: string) {
   return apiGet({ url: "/wallets/{id}/entry-logs", params: { id }, query: { cursor } })
 }
@@ -242,12 +236,6 @@ export async function deleteExpense(id: string, expenseId: string) {
 
 export async function loadMoreExpenses(id: string, cursor: string) {
   return apiGet({ url: "/wallets/{id}/expenses", params: { id }, query: { cursor } })
-}
-
-export async function loadExpenseLogs(id: string, expenseId: string) {
-  return apiGet({
-    url: "/wallets/{id}/expenses/{expense_id}/logs", params: { id, expense_id: expenseId },
-  })
 }
 
 export async function loadMoreExpenseLogs(id: string, cursor: string) {

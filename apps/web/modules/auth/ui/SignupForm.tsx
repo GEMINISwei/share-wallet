@@ -1,6 +1,6 @@
 "use client"
 
-import { Lock, Shield, User, UserPen } from "lucide-react"
+import { Lock, User, UserPen } from "lucide-react"
 import { ICON_SIZE } from "@/shared/ui"
 import { Button } from "@/shared/ui"
 import { useT } from "@/shared/i18n/context"
@@ -98,11 +98,6 @@ export default function SignupForm({ invite }: { invite?: string }) {
           <Button variant="outlined" fullWidth disabled={isPending} onClick={goLogin}>
             {t("goLogin")}
           </Button>
-        </div>
-
-        <div className={styles.securityNote}>
-          <Shield size={ICON_SIZE.sm} color="var(--color-primary)" />
-          <span>{t("securityNote")}</span>
         </div>
       </form>
     </main>

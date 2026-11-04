@@ -10,14 +10,14 @@ type WalletFieldsProps = {
   values: WalletFormValues
   errors: WalletFormErrors
   disabled: boolean
-  /** 只有建立時能填初始餘額; 之後的餘額由記帳的「調整餘額」處理。 */
-  showInitialBalance: boolean
+  /** 只有建立時能填初始餘額 (之後的餘額由記帳的「調整餘額」處理), 名稱提示也只在建立時出現。 */
+  creating: boolean
   onChange: (field: keyof WalletFormValues, value: string) => void
 }
 
 /** 建立錢包與詳細設定共用的欄位。類型的選擇只在建立時出現, 不在這裡。 */
 export default function WalletFields({
-  values, errors, disabled, showInitialBalance, onChange,
+  values, errors, disabled, creating, onChange,
 }: WalletFieldsProps) {
   const t = useT(walletsMessages)
   return (
@@ -26,8 +26,8 @@ export default function WalletFields({
         label={t("name")} value={values.name} error={errors.name} required disabled={disabled}
         onChange={(value) => onChange("name", value)}
       />
-      <p className={styles.hint}>{t("nameHint")}</p>
-      {values.kind === "general" && showInitialBalance && (
+      {creating && <p className={styles.hint}>{t("nameHint")}</p>}
+      {values.kind === "general" && creating && (
         <TextInput
           label={t("initialBalance")} value={values.initial_balance} placeholder="0"
           error={errors.initial_balance} disabled={disabled}

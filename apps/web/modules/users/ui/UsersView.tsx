@@ -70,7 +70,6 @@ export default function UsersView({
     <Container size="lg" padded>
       <ListPageHeader
         title={t("heading")}
-        subtitle={t("subtitle")}
         showReset={showReset}
         onFilter={() => setFilterDialogOpen(true)}
         createAction={{ label: t("create"), onClick: openCreate }}

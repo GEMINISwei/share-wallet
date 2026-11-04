@@ -4,7 +4,6 @@ export const usersMessages = defineMessages({
   zh: {
     pageTitle: "使用者管理",
     heading: "使用者",
-    subtitle: "查看與維護系統使用者",
     listFailed: "無法取得使用者列表",
     createFailed: "建立使用者失敗",
     updateFailed: "更新使用者失敗",
@@ -47,7 +46,6 @@ export const usersMessages = defineMessages({
   en: {
     pageTitle: "User management",
     heading: "Users",
-    subtitle: "View and maintain system users",
     listFailed: "Failed to load users",
     createFailed: "Failed to create user",
     updateFailed: "Failed to update user",

@@ -59,7 +59,7 @@ export default function CreateWalletDialog(
       <WalletFields
         values={form.values}
         errors={{ ...form.errors, name: form.errors.name ?? fieldError("name") }}
-        disabled={isPending} showInitialBalance onChange={form.change}
+        disabled={isPending} creating onChange={form.change}
       />
     </FormDialog>
   )

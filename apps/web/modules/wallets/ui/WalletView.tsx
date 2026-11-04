@@ -95,7 +95,7 @@ function GeneralWalletView(
 
   return (
     <WalletShell
-      title={wallet.name} subtitle={t("kindGeneral")} backHref={walletBackPath(wallet, area)} backLabel={t("backToList")} actionsDesktopOnly
+      title={wallet.name} backHref={walletBackPath(wallet, area)} backLabel={t("backToList")} actionsDesktopOnly
       mobileActions={menu} menuOnDesktop
       actions={ledger && <Button icon={addIcon} onClick={openAdd}>{t("addEntry")}</Button>}
     >

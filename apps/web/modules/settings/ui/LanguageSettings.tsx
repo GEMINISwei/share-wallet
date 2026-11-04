@@ -28,11 +28,9 @@ export default function LanguageSettings() {
 
   return (
     <section className={styles.section}>
-      <h2 className={styles.sectionTitle}>{t("languageSection")}</h2>
       <div className={styles.settingRow}>
         <div className={styles.settingInfo}>
           <span className={styles.settingName}>{t("languageName")}</span>
-          <span className={styles.settingDesc}>{t("languageDesc")}</span>
         </div>
         <div className={styles.settingAction}>
           <SelectInput

@@ -4,7 +4,6 @@ export const rolesMessages = defineMessages({
   zh: {
     pageTitle: "角色管理",
     heading: "角色",
-    subtitle: "建立與維護角色權限",
     listFailed: "無法取得角色列表",
     createFailed: "建立角色失敗",
     empty: "目前沒有角色",
@@ -41,7 +40,6 @@ export const rolesMessages = defineMessages({
   en: {
     pageTitle: "Role management",
     heading: "Roles",
-    subtitle: "Create and maintain role permissions",
     listFailed: "Failed to load roles",
     createFailed: "Failed to create role",
     empty: "No roles yet",

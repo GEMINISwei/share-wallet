@@ -11,7 +11,7 @@ import PageHeader from "./PageHeader"
 
 type ListPageHeaderProps = {
   title: string
-  subtitle: string
+  subtitle?: string
   showReset: boolean
   onFilter: () => void
   createAction?: { label: string; onClick: () => void }
