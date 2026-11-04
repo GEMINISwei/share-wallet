@@ -10,6 +10,16 @@ test("未登入進受保護頁面會導向登入頁", async ({ page }) => {
   await expect(page).toHaveURL(/\/login/)
 })
 
+test("登入與註冊頁不顯示安全標語", async ({ page }) => {
+  await page.goto("/login")
+  await expect(page.getByRole("button", { name: "登入", exact: true })).toBeVisible()
+  await expect(page.getByText("安全登入 · 資料加密保護")).toHaveCount(0)
+
+  await page.goto("/signup")
+  await expect(page.getByRole("button", { name: "建立帳號", exact: true })).toBeVisible()
+  await expect(page.getByText("安全登入 · 資料加密保護")).toHaveCount(0)
+})
+
 test("登入成功後進入錢包列表，session cookie 為 httpOnly", async ({ page, context }) => {
   await login(page, admin)
 

@@ -66,6 +66,48 @@ test("記一筆支出後餘額減少，帳目列表看得到這一筆", async ({
   await expect(page.getByText("9,500").first()).toBeVisible()
 })
 
+test("帳目詳情不列異動紀錄，錢包的異動紀錄頁看得到這一筆", async ({ page }) => {
+  await loginAs(page, owner)
+  await page.goto(walletUrl)
+
+  await page.getByRole("button", { name: /午餐/ }).click()
+  const dialog = page.getByRole("dialog", { name: "帳目詳情" })
+  await expect(dialog.getByText("午餐")).toBeVisible()
+  await expect(dialog.getByText("異動紀錄")).toHaveCount(0)
+
+  await page.goto(`${walletUrl}/history`)
+  await expect(page.getByText(`${owner.nickname} 新增`)).toBeVisible()
+})
+
+test("一般錢包頁的標題下不顯示錢包類型", async ({ page }) => {
+  await loginAs(page, owner)
+  await page.goto(walletUrl)
+
+  await expect(page.getByRole("heading", { name: walletName })).toBeVisible()
+  await expect(page.getByText("一般錢包", { exact: true })).toHaveCount(0)
+})
+
+test("詳細設定不顯示名稱提示與刪除說明，刪除對話框與建立錢包時才看得到", async ({ page }) => {
+  await loginAs(page, owner)
+  const nameHint = "要標示是哪一種錢，可以寫在名稱裡，例如「日本旅遊（日圓）」"
+  const deleteDesc = "成員、分類與所有帳目會一起永久刪除，無法復原。"
+
+  await page.goto(`${walletUrl}/settings`)
+  await expect(page.getByRole("heading", { name: "詳細設定" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "刪除錢包" })).toHaveCount(0)
+  await expect(page.getByText(nameHint)).toHaveCount(0)
+  await expect(page.getByText(deleteDesc)).toHaveCount(0)
+
+  await page.getByRole("button", { name: "刪除錢包" }).click()
+  const deleteDialog = page.getByRole("dialog", { name: `刪除「${walletName}」？` })
+  await expect(deleteDialog.getByText(deleteDesc)).toBeVisible()
+  await deleteDialog.getByRole("button", { name: "取消" }).click()
+
+  await page.goto("/wallets")
+  await page.getByRole("button", { name: "建立錢包" }).first().click()
+  await expect(page.getByRole("dialog", { name: "建立錢包" }).getByText(nameHint)).toBeVisible()
+})
+
 test("桌機錢包頁的成員、分類、異動紀錄、詳細設定收在標題列的 ⋯ 選單", async ({ page }) => {
   await loginAs(page, owner)
   await page.goto(walletUrl)
@@ -92,6 +134,16 @@ test("帳目一次只顯示一個月，切到上個月看不到這個月的帳",
 
   await page.getByRole("link", { name: "下個月" }).click()
   await expect(page.getByText("午餐")).toBeVisible()
+})
+
+test("邀請對話框的說明只留效期與人數", async ({ page }) => {
+  await loginAs(page, owner)
+  await page.goto(`${walletUrl}/members`)
+  await page.getByRole("button", { name: "邀請" }).first().click()
+
+  const dialog = page.getByRole("dialog", { name: "邀請連結" })
+  await expect(dialog.getByText("連結一天內有效，不限人數。")).toBeVisible()
+  await expect(dialog.getByText(/傳給要加入的人/)).toHaveCount(0)
 })
 
 test("沒有帳號的人打開邀請連結，註冊後確認加入，成為錢包成員", async ({ page, browser }) => {
@@ -225,6 +277,17 @@ test("新增旅遊帳時同步到一般錢包，一般錢包餘額減少全額�
   await page.goto(walletUrl)
   await expect(page.getByText("壽司晚餐")).toBeVisible()
   await expect(page.getByText("6,500").first()).toBeVisible()
+})
+
+test("旅遊帳目詳情不列異動紀錄", async ({ page }) => {
+  await loginAs(page, owner)
+  await page.goto("/wallets/travel")
+  await page.getByRole("link", { name: /E2E 東京/ }).click()
+
+  await page.getByRole("button", { name: /壽司晚餐/ }).click()
+  const dialog = page.getByRole("dialog", { name: "帳目詳情" })
+  await expect(dialog.getByText("壽司晚餐")).toBeVisible()
+  await expect(dialog.getByText("異動紀錄")).toHaveCount(0)
 })
 
 test("旅遊錢包不分群組：導覽進到旅遊錢包頁列出全部，設為不顯示後不列", async ({ page }) => {
