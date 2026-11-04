@@ -21,8 +21,10 @@ description: 開始任何要進 main 的改動時使用（新功能、修正、�
 5. **實作**：測試檔此時鎖定。測試變紅先改實作；真的認為測試要改，先向使用者說明那個測試驗證的條件、
    沒過的原因，得到同意才改，並在 PR 描述寫明原本的斷言為什麼錯。
 6. **收尾**：照 `AGENTS.md`〈改完之後〉的表補做（migration、`make gen-types`、`make check integration`、
-   E2E），最後 `make check` 全綠。E2E 在本機用 `make e2e test` 跑相關的 spec 就好，正式環境 image 的
+   E2E），最後 `make check` 全綠。E2E 在本機用 `make e2e test <檔案>` 跑相關的 spec 就好，正式環境 image 的
    完整版本由 CI 的 `e2e` 跑；改到 nginx、compose 或只有正式環境才有的行為時，本機也跑一次 `make check e2e`。
 7. **更新 PR 描述**：「摘要」對上最新的 diff，「驗證」每條寫上結果（成功失敗都寫），
    「檢查」只列 diff 看不出來、要有人去確認的事。push 之後改用 `watch-pr` 這個 skill 等 CI。
+   回報使用者之前的最後一個動作，是照 `watch-pr` 第 2 節在背景開始等合併：這時 agent 的部分做完了，
+   之後合併時收尾不會撞上進行中的工作。
 8. **Ready for review 由使用者決定**，不要自己轉，也不要自己合併。
