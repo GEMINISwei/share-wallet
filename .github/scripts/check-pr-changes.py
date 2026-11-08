@@ -3,7 +3,7 @@
 
 pr.yml 呼叫, 本機也能跑。agent 這一側的 hook 換個寫法就可能繞過, 這裡在 CI 上再檢查一次:
 
-1. 實作開始之後還改到測試檔: PR 描述要寫出那個檔案的路徑, 說明為什麼改
+1. 實作開始之後還改到測試檔: 「驗證」段要有一行寫出那個檔案的路徑, 同一行說明為什麼改
    (docs/testing.md〈改程式不改測試〉)。合併 main 帶進來的 commit 不算。
 2. 動到防線檔案或 agent 的說明: 「檢查」段要列出那個檔案或它的目錄, 審查時才一定會被看到
    (docs/extending/agent-hooks.md〈防線檔案〉)。
@@ -76,6 +76,11 @@ def tests_changed_after_implementation(base: str, head: str) -> list[str]:
         if started:
             changed.update(path for path in files if is_test_file(path))
     return sorted(changed)
+
+
+def explained(path: str, text: str) -> bool:
+    """有一行寫出 path。說明寫得對不對靠審查。"""
+    return any(path in line for line in text.splitlines())
 
 
 def is_guarded(path: str) -> bool:
@@ -165,11 +170,12 @@ def main() -> int:
     checks = sections(body).get("檢查", "")
     errors = []
 
+    verification = sections(body).get("驗證", "")
     for path in tests_changed_after_implementation(base, head):
-        if path not in body:
+        if not explained(path, verification):
             errors.append(
-                f"{path}: 實作開始之後改了這個測試檔，PR 描述要寫出它的路徑並說明為什麼改"
-                "（原本的斷言哪裡錯）"
+                f"{path}: 實作開始之後改了這個測試檔，「驗證」段要有一行寫出它的路徑，"
+                "並在同一行說明為什麼改（原本的斷言哪裡錯）"
             )
 
     changed = git("diff", "--name-only", f"{base}...{head}").splitlines()

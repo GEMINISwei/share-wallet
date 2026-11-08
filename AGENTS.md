@@ -50,6 +50,21 @@
 各條由哪個工具或測試擋，見 [`testing.md`](docs/testing.md#架構本身也有測試)。
 完整規則見 [`architecture.md`](docs/architecture.md#強制依賴規則)。
 
+## 高風險先問
+
+檢查擋不完所有寫法，hook 只擋常見的那幾種（[ADR 0012](docs/decisions/0012-agent-guardrails-by-judgment.md)）。
+下列情況先停下來說明要做什麼、為什麼，等使用者同意；沒列到但你判斷同樣危險的，也照辦：
+
+- 不可逆或影響 repo 以外的動作：部署、發布、合併、刪資料或分支、動主機、改別的 repo、送出外部服務
+- 改防線檔案（hook、agent 設定、CI、檢查的設定）
+- 實作開始後改測試、放寬斷言、加抑制註解或 skip
+- 超出驗收條件的範圍
+- 想換個寫法避開被 hook 或檢查擋下的動作
+
+## 多 agent
+
+一個任務交給一個 agent，Claude 與 Codex 可以互換，也可以審查對方的 PR。不要兩個 agent 同時改同一個分支。
+
 ## 寫程式
 
 - **開發流程：Feature Branch → Draft PR → Incremental Commits → Code Review → Squash Merge**。
@@ -73,7 +88,7 @@
   放在 `tests/` 以外不會執行也不會報錯。
 - **實作期間測試檔鎖定**（單元測試與 E2E 都是）：測試變紅時預設它是對的，改實作讓它變綠。要動測試檔（改斷言、刪測試、
   補新測試、測試的輔助檔與資料）之前，先向使用者說明那個測試驗證的條件與沒過的原因，**得到同意才改**
-  （[說明](docs/testing.md#改程式不改測試)）。hook 會在改測試檔時攔下；Codex 照攔下的理由用申請指令請使用者確認。
+  （[說明](docs/testing.md#改程式不改測試)）。改檔工具改測試檔時 hook 會攔下；用 shell 改不攔，一樣要先問。
 - **CSS 只用設計變數**（名字與預設值在 `shared/ui/styles/tokens.css`，專案在 `app/theme.css` 覆寫），
   不寫死色值或尺寸（`style={{…}}` 也一樣）。
 - **使用者看得到的字串都要中英兩份**，放在擁有它那一層的 `i18n.ts`（[說明](docs/extending/i18n.md)）。
