@@ -27,16 +27,19 @@ Claude 與 Codex 的 hook 協定相同（事件名稱、stdin 收的 JSON、回�
 
 | 腳本 | 事件 | 擋什麼 |
 |---|---|---|
-| `guard_commands.py` | `PreToolUse`（shell 指令） | push 到 `main`、用 `--no-verify` 略過 git hook（`commit -n` 也算）、改 `core.hooksPath`、`gh pr merge`、`npm` 的 `--force`／`--legacy-peer-deps`、直接下 `docker compose`、繞過確認自己放行測試檔、直接下 `gh release create/edit/delete` 或手動觸發 Deploy（發布只能經過 `publish.sh`，見下方） |
-| `guard_tests.py` | `PreToolUse`（改檔） | 實作開始後改測試檔，見下一節 |
+| `guard_commands.py` | `PreToolUse`（shell 指令） | push 到 `main`、用 `--no-verify` 略過 git hook（`commit -n` 也算）、改 `core.hooksPath`、合併 PR 或轉 Ready（`gh pr merge`、`gh pr ready`，以及同樣效果的 `gh api` 與 GraphQL mutation）、`npm` 的 `--force`／`--legacy-peer-deps`、直接下 `docker compose`、繞過確認自己放行測試檔、分支或防線檔案、用 shell 寫入防線檔案、用 shell 改測試檔（見下一節）、有開著的 PR 時開新分支（見〈一次一個 PR〉）、繞過 `publish.sh` 發布或部署（見下方） |
+| `guard_tests.py` | `PreToolUse`（改檔） | 實作開始後改測試檔（見〈測試鎖定〉）、任何時候改防線檔案（見〈防線檔案〉） |
+| `require_check.py` | `Stop` | 改過的程式還沒跑過 `make check` 就收尾（見〈收尾前的 make check〉） |
+| `session_context.py` | `SessionStart` | 不擋，開工時把分支、開著的 PR、測試鎖狀態加進 agent 的上下文（見〈開工時的現況〉） |
 
 ## 測試鎖定
 
 把 [`testing.md`](../testing.md#改程式不改測試)〈改程式不改測試〉變成 agent 動手當下的檢查：
 
 - **測試檔**：`apps/*/tests/**`、`e2e/tests/**`，輔助檔與資料也算（判斷在 `.agents/hooks/test_lock.py`）。
-- **實作開始了**：分支相對 `origin/main` 的差異（含還沒 commit 與沒追蹤的）有 `apps/`、`e2e/` 底下的非測試檔案。
-  只改文件或設定不算。不需要任何人標記，從 git 推導。
+- **實作開始了**：分支相對 `origin/main` 的差異（含還沒 commit 與沒追蹤的）有 `apps/`、`e2e/`、`.agents/hooks/`、
+  `.github/scripts/`、`scripts/` 底下的非測試、非 Markdown 檔案（後三者的測試也放在 `apps/api/tests/`）。
+  只改文件或設定不算。不需要任何人標記，從 git 推導；CI 的 `pr` 用同一個判斷（`test_lock.is_implementation`）。
 - **之後改測試檔要使用者同意**，兩家的方式不同：
 
 | | 攔下 | 使用者怎麼同意 |
@@ -48,7 +51,72 @@ Claude 與 Codex 的 hook 協定相同（事件名稱、stdin 收的 JSON、回�
 就失效。申請指令的寫法固定：直接寫放行檔、換寫法執行申請指令都會被 `guard_commands.py` 擋下，否則就繞過了確認。
 Claude 也能用同一個申請指令（`.claude/settings.json` 的 `permissions.ask` 讓它一樣要確認），但直接按允許比較方便。
 
-agent 用 shell 指令（`sed -i`、重新導向）改測試檔時不會被攔：hook 只看改檔工具。
+shell 指令改測試檔由 `guard_commands.py` 用同一套判斷攔下（兩支 hook 共用 `test_lock.py`）。
+它跟著 `cd` 推算目錄，認得明確指名測試檔的常見寫法：`sed -i`、`perl -pi`、重新導向（含 heredoc）、`tee`、
+`cp`／`mv` 的目的地、`rm`、`git rm`／`git mv`／`git restore`、`git checkout -- <檔>`。認不出來的不擋：
+
+- 格式化工具（`ruff format`、`eslint --fix`、`prettier --write`）：只動排版、不動斷言，擋下來誤判太多。
+- 整批切換（`git checkout main`、`git stash`、`git reset`）與在腳本裡寫檔（`python -c`）。
+
+## 防線檔案
+
+決定其他規則擋不擋得住的檔案，改動前一律要使用者同意，**不分實作前後**（清單在 `.agents/hooks/protected_files.py`）：
+
+| 類別 | 路徑 |
+|---|---|
+| agent 的 hook 與設定 | `.agents/hooks/`、`.claude/`（含不進版控的 `settings.local.json`）、`.codex/` |
+| git hook | `.githooks/` |
+| CI | `.github/workflows/`、`.github/scripts/` |
+| 檢查的設定 | `apps/api/pyproject.toml`、`apps/web/package.json`、`eslint.config.mjs`、`.dependency-cruiser.cjs`、`knip.ts`、`tsconfig.json`、`vitest.config.ts` |
+| 檢查的入口 | `scripts/check.sh`、`Makefile` |
+
+這些檔案改了不會有任何檢查變紅：刪掉一個 CI 步驟，required check 的名字還在，照樣顯示綠燈；
+在 `settings.local.json` 設 `disableAllHooks`，所有 hook 就安靜地不生效。它們有時確實要改，所以不禁止，而是一定讓使用者看到。
+
+- 改檔工具與 shell 寫入（同〈測試鎖定〉認得的寫法）都會攔下。
+- 同意的方式跟測試鎖一樣：Claude 跳確認；Codex 擋下，agent 執行
+  `python3 .agents/hooks/approve_protected_edit.py <檔案>` 申請（`.codex/rules/approve-protected-edit.rules` 讓它跳確認）。
+  放行寫在 `.git/agent-approved-protected-edits`，只對列出的檔案、只在目前的 HEAD 有效。
+- **刻意不保護**：`AGENTS.md`、`docs/`、`.agents/skills/`、PR 模板。它們是說明，不執行檢查，而且改動頻繁。
+- 用 `uv add`、`npm install` 改 `pyproject.toml`、`package.json` 的相依不會被攔：守衛只認得直接寫檔的寫法。
+- 檔案改名或搬家時，清單會指到不存在的路徑；`apps/api/tests/test_agent_protected_files.py` 確認清單裡的路徑都存在。
+
+## 一次一個 PR
+
+把 [`workflow.md`](../workflow.md#一次一個-pr)〈一次一個 PR〉變成 agent 動手當下的檢查（`branch_lock.py`）：
+
+- **檢查的指令**：開新分支（`git switch -c`、`git checkout -b`、`git branch <名稱>`）、`git worktree add`、
+  `gh pr create`。切換、刪除、改名分支不檢查。
+- **有沒有開著的 PR**：用 `gh pr list --author @me --state open` 查，只算使用者自己開的。
+  查不到時（沒網路、`gh` 沒登入）**放行**：這是流程規則，不是部署那種安全邊界，沒網路時擋開分支只會礙事，
+  而且本來也開不了 PR。
+- **插隊要使用者同意**，方式跟測試鎖一樣：Claude 跳確認；Codex 擋下，agent 執行
+  `python3 .agents/hooks/approve_parallel_branch.py <分支>` 申請，`.codex/rules/approve-parallel-branch.rules`
+  讓它一定跳確認。
+
+放行寫在 `.git/agent-approved-parallel-branches`（不進版控），**針對分支名稱**：插隊的那個分支之後開 PR 不會再問。
+直接寫放行檔、換寫法執行申請指令都會被擋下。
+
+## 收尾前的 make check
+
+agent 要結束這一輪時，`require_check.py` 檢查分支上改過的程式有沒有跑過 `make check`：
+
+- `make check`（不帶參數）全部通過時，`scripts/check.sh` 呼叫 `.agents/hooks/check_stamp.py record`，
+  把當時工作目錄的實際內容（含還沒 commit 與沒追蹤的檔案，不含 Markdown）記成一個 git tree，
+  寫在 `.git/agent-last-check`。只跑其中一項（`make check test`）不算。
+- 分支上有非 Markdown 的改動、而且工作目錄跟紀錄不一樣時，回 `decision: block`，agent 會先跑 `make check` 再收尾。
+  紀錄不看 HEAD 也不含 Markdown：跑完檢查再 commit、或只改文件，都不必重跑；程式改了任何一個字就要。
+- **同一輪已經被要求過一次就放行**（`stop_hook_active`）：agent 停下來可能只是要問使用者問題，說明一句就能結束，
+  不會被逼著先跑幾分鐘的檢查，也不會無限迴圈。
+
+## 開工時的現況
+
+`session_context.py` 在開新 session、恢復或壓縮上下文之後（`matcher`：`startup|resume|clear|compact`），
+把目前分支、使用者開著的 PR、測試鎖的狀態與插隊放行的分支加進 agent 的上下文。agent 這時不記得進行到哪，
+最容易在等合併時順手開新分支，或忘了實作已經開始。查不到 PR（沒網路、`gh` 沒登入）時省略那一行。
+
+`.agents/hooks/` 的每個 hook 都由 `apps/api/tests/test_agent_session_hooks.py` 用 `PATH` 上的 `python3`
+實際跑一次：其他測試用的是 api 的虛擬環境，抓不到使用者機器上 `python3` 太舊、腳本一跑就壞的情況。
 
 ## 發布 release
 
@@ -59,8 +127,14 @@ agent 用 shell 指令（`sed -i`、重新導向）改測試檔時不會被攔�
 | Claude | `guard_commands.py` 回 `ask`，`.claude/settings.json` 的 `permissions.ask` 也列了它 |
 | Codex | hook 不支援 `ask`，由 `.codex/rules/publish-release.rules` 的 `prompt` 跳確認 |
 
-`gh release create/edit/delete`、`gh workflow run deploy…` 與換寫法呼叫 `publish.sh`（`bash …`、`./…`）
-兩家都擋下，否則就繞過了確認。這跟測試檔放行的申請指令是同一種做法。
+這些會部署的寫法兩家都擋下，否則就繞過了確認。這跟測試檔放行的申請指令是同一種做法：
+
+- `gh release create/edit/delete`、`gh workflow run deploy…`、換寫法呼叫 `publish.sh`（`bash …`、`./…`）
+- `gh api` 建立、修改或刪除 release、觸發 workflow dispatch、重跑 run；GraphQL 的 `createRelease` 等 mutation
+- `gh run rerun`：先用 `gh run view` 查是哪個 workflow，Deploy 或查不到時擋下（重跑 Deploy 等於重新部署）
+
+GitHub 那一側刻意不設 environment reviewer，所以這裡是部署前唯一的確認
+（[ADR 0015](../decisions/0015-no-environment-reviewer-for-deploys.md)）。用 `curl` 帶 token 直接打 API 擋不住。
 
 ## 新增一個 hook
 

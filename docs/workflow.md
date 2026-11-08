@@ -12,20 +12,40 @@ Feature Branch → Draft PR → Incremental Commits → Code Review → Squash M
    不直接 push `main`。一個分支只做一件事，做到一半發現別的問題就另開分支，不要順手塞進來。
 2. **Draft PR**：分支第一次 push 就開 Draft PR（`gh pr create --draft`），先照模板寫「摘要」與
    [驗收條件](testing.md#驗收條件與測試名稱)。動手前就把方向攤開，方向錯了在寫程式之前就會被看到。
+   AI agent 寫的驗收條件要**先給使用者確認才開始寫測試**。
    描述固定三段（[模板](../.github/PULL_REQUEST_TEMPLATE.md)）；`gh pr create --body` 會跳過模板，
    自己帶內文時照同樣三段寫：
    - **摘要**：改了哪些內容、為什麼。之後再推 commit 時回來補，讓它一直對得上最新的 diff。
    - **驗證**：做過哪些驗證與結果，**成功與失敗都寫**，沒驗到的寫原因。
    - **檢查**：請審查者確認的項目，用 checkbox 列。整份 diff 本來就要看，不用列；這裡只寫
      diff 看不出來、要有人去確認的事（例：在部署主機實際跑一次、對已部署的下游有沒有影響）。
+
+   CI 的 `pr` 另外檢查這個 PR 的改動，沒寫到就紅（`.github/scripts/check-pr-changes.py`；改描述會重跑，不必再推 commit）：
+   - 實作開始之後還改到測試檔：描述要寫出那個檔案的路徑與原因（[說明](testing.md#改程式不改測試)）
+   - 動到防線檔案或 agent 的說明（`AGENTS.md`、`.agents/skills/`）：「檢查」段要列出那個檔案或它的目錄
+     （[清單](extending/agent-hooks.md#防線檔案)）
+   - 新增的抑制註解：同一行要寫理由（[說明](development.md#抑制註解)）
 3. **Incremental Commits**：小步提交、常常 push，每個 commit 是一個說得清楚的步驟
    （例：先補測試、再實作、再整理）。這些 commit 的訊息會併進 squash 後的內文，所以寫成
    「做了什麼、為什麼」，不要一路 `wip`、`fix`。
-4. **Code Review**：`make check` 綠、「驗證」寫完、整份 diff 自己讀過一次，才按
-   **Ready for review**。回應 review 用新的 commit，不要 force push 改寫已經被看過的歷史，
+4. **Code Review**：`make check` 綠、「驗證」寫完、整份 diff 自己讀過一次（AI agent 照 `self-review`
+   這個 skill 逐條對照驗收條件與 diff），才按 **Ready for review**。回應 review 用新的 commit，不要 force push 改寫已經被看過的歷史，
    reviewer 才看得出這一輪改了什麼。CI 綠、意見都處理完才合併。
 5. **Squash Merge**：一律 **Squash and merge**，`main` 上一個 PR 一個 commit。squash 後的標題就是
    `main` 的 commit 標題，所以 **PR 標題**要符合下面的 commit 格式。合併後刪除分支。
+
+### 一次一個 PR
+
+前一個 PR 合併（或關閉）之後，才開下一個分支。同時有兩個進行中的 PR 時，後一個常常建立在還沒審過的程式上，
+前一個審查時一改，後一個就要跟著重做；兩個 PR 也會改到同一批檔案而互相衝突。每次只審一件事，diff 才小得好讀。
+
+等合併的期間可以討論下一件事要做什麼，但不開分支、不動檔案。正式環境出問題等不及前一個合併時，
+由使用者決定要不要插隊（AI agent 照 `hotfix` 這個 skill 做）。
+
+AI agent 這一側由 hook 強制：還有開著的 PR 時，開新分支、開 worktree、開 PR 都要使用者同意
+（[說明](extending/agent-hooks.md#一次一個-pr)）。只算你自己開的 PR，Dependabot 的不算。
+
+### GitHub 設定
 
 GitHub 端要設定一次，流程才不是靠自覺：
 
