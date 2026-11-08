@@ -2,6 +2,8 @@
   "permissions": {
     "ask": [
       "Bash(python3 .agents/hooks/approve_test_edit.py:*)",
+      "Bash(python3 .agents/hooks/approve_parallel_branch.py:*)",
+      "Bash(python3 .agents/hooks/approve_protected_edit.py:*)",
       "Bash(.agents/skills/release/scripts/publish.sh:*)"
     ]
   },
@@ -22,6 +24,28 @@
           {
             "type": "command",
             "command": "python3 \"$(git rev-parse --show-toplevel)/.agents/hooks/guard_tests.py\" claude"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/.agents/hooks/require_check.py\" claude"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/.agents/hooks/session_context.py\" claude"
           }
         ]
       }

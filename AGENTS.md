@@ -44,6 +44,8 @@
     內文不寫某一家專屬的工具，只能手動呼叫的兩家要一起設（[說明](docs/extending/agent-skills.md)）。
 17. **hook 的邏輯只放 `.agents/hooks/`**：`.claude/settings.json` 與 `.codex/hooks.json` 只負責呼叫，
     兩份的事件、matcher 與腳本要一致（[說明](docs/extending/agent-hooks.md)）。被 hook 擋下時照理由做，不要換個寫法繞過。
+    hook、agent 設定、CI 與檢查的設定是**防線檔案**，改動一律要使用者同意
+    （[清單](docs/extending/agent-hooks.md#防線檔案)）。
 
 各條由哪個工具或測試擋，見 [`testing.md`](docs/testing.md#架構本身也有測試)。
 完整規則見 [`architecture.md`](docs/architecture.md#強制依賴規則)。
@@ -53,6 +55,8 @@
 - **開發流程：Feature Branch → Draft PR → Incremental Commits → Code Review → Squash Merge**。
   不直接 push `main`；PR 標題用 Conventional Commits，因為 squash 後它就是 `main` 的 commit
   （[說明](docs/workflow.md#開發流程)）。
+- **一次只有一個進行中的 PR**：前一個合併（或關閉）之後才開下一個分支；要插隊照 `hotfix` skill 先問使用者，
+  hook 會攔下（[說明](docs/workflow.md#一次一個-pr)）。
 - **PR 描述固定三段：摘要、驗證（成功失敗都寫）、檢查（給審查者的 checkbox）**。
   `gh pr create --body` 會跳過 [`PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md)，
   自己帶內文時也照這三段；之後推新 commit 要回頭補摘要與驗證。PR 標題與三段由 CI 的 `pr` 擋。
@@ -60,7 +64,8 @@
   email 用工具官方的值，沒有時用 `noreply@<廠商網域>`（[說明](docs/workflow.md#ai-協作的共同作者)）。
   `.githooks/commit-msg` 會擋，不要用 `--no-verify` 繞過。
 - **動手前先把驗收條件寫進 Draft PR 的「驗證」段，每條對應一個測試名稱**，不另寫成文件；
-  寫不出測試名稱的那條就是要先問清楚的地方（[說明](docs/testing.md#驗收條件與測試名稱)）。
+  寫不出測試名稱的那條就是要先問清楚的地方。**列給使用者確認之後才開始寫測試**，對話裡談定的方向
+  也一樣：轉成測試名稱時最容易漏掉情境或擴大範圍（[說明](docs/testing.md#驗收條件與測試名稱)）。
 - **先寫測試，寫好才開始實作**，不要邊寫功能邊改測試。單元測試與 `e2e/` 的 E2E 測試都一樣：功能會改到畫面流程時，
   E2E 也要在實作前寫好。`actions.ts` 與 `ui/*.tsx` 不寫執行期測試；
   畫面有分支時抽進 `capabilities.ts` 再測。不要為了覆蓋率數字補測試。

@@ -137,8 +137,12 @@ cd apps/web && npm run test:watch           # 前端 watch 模式
 | skills 只有 `.agents/skills/` 一份、`.claude/skills` 是指向它的 symlink、內文不用某一家專屬的工具、只能手動呼叫的兩家設定一致 | `apps/api/tests/test_agent_skills.py` |
 | hook 腳本擋下該擋的指令、不誤擋一般指令、`.claude/settings.json` 與 `.codex/hooks.json` 呼叫同樣的腳本 | `apps/api/tests/test_agent_hooks.py` |
 | 實作開始後改測試檔要使用者同意、放行只對列出的檔案且有新 commit 就失效、agent 不能繞過確認自己放行 | `apps/api/tests/test_agent_test_guard.py` |
+| 有開著的 PR 時開新分支要使用者同意、放行針對分支名稱 | `apps/api/tests/test_agent_one_pr.py` |
+| 改防線檔案（hook、agent 設定、CI、檢查的設定）一律要使用者同意、清單裡的路徑都存在 | `apps/api/tests/test_agent_protected_files.py` |
+| agent 收尾前改過的程式要跑過 `make check`、開工時提示現況、每個 hook 用 `PATH` 上的 `python3` 跑得起來 | `apps/api/tests/test_agent_session_hooks.py` |
 | AI agent 的 commit 帶寫到模型與版本的 `Co-authored-by`、Codex 執行的指令帶 `AI_AGENT` | `.githooks/commit-msg`（`apps/api/tests/test_githooks.py`） |
 | PR 標題是 Conventional Commits、描述有摘要／驗證／檢查三段且不是模板原樣 | CI 的 `pr`（`.github/scripts/check-pr.sh`、`apps/api/tests/test_pr_checks.py`） |
+| 實作後改的測試檔寫進描述、防線檔案與 agent 說明列進「檢查」、新增的抑制註解有理由 | CI 的 `pr`（`.github/scripts/check-pr-changes.py`、`apps/api/tests/test_pr_change_checks.py`） |
 | `make init dev` 擋下缺少 `python3` 3.9 以上、`.claude/skills` 不是 symlink，裝了 Codex 卻沒信任專案時提醒；`make init prod` 不做這些 | `apps/api/tests/test_init_agent_setup.py` |
 | lock 檔與 `make gen-types` 的產出列在 `.ignore`（AI agent 的搜尋不撞進去） | `apps/api/tests/test_search_ignore.py` |
 
@@ -155,7 +159,8 @@ cd apps/web && npm run test:watch           # 前端 watch 模式
    沒過的原因，以及為什麼是測試而不是實作要改。
 3. 得到同意後才動測試檔，並在 PR 描述寫明**原本那個斷言為什麼是錯的**。
 
-AI agent 由 hook 強制這一條：分支相對 `origin/main` 已經改了 `apps/`、`e2e/` 底下的非測試檔案（實作開始了），
+AI agent 由 hook 強制這一條：分支相對 `origin/main` 已經改了有測試的程式（`apps/`、`e2e/`、`.agents/hooks/`、
+`.github/scripts/`、`scripts/` 底下的非測試、非 Markdown 檔案，也就是實作開始了），
 再改測試檔就會停下來等使用者同意（Claude 直接跳確認；Codex 由 agent 執行申請指令、跳確認）。
 做法見 [`agent-hooks.md`](extending/agent-hooks.md#測試鎖定)。
 
@@ -168,6 +173,11 @@ PR 描述「驗證」段的每條驗收條件後面接一個測試名稱與結�
 
 - 前端與 E2E：讀得通的中文句子（`未登入導向 /login`、`登出後其他已登入的裝置也會被登出`）
 - 後端：`test_<動作>_<條件>_<結果>`（`test_get_users_without_permission_returns_403`）
+
+AI agent 寫完驗收條件要**先列給使用者確認，才開始寫測試**，就算方向已經在對話裡談定也一樣。
+談定的是「要做什麼」，驗收條件是「怎麼證明做到了」，兩者之間的轉換最容易漏掉情境、多加一條沒被要求的，
+或把範圍擴大。這時發現只要改幾行文字；測試與實作都寫完才發現，就是整個 PR 重來。
+之後的測試鎖（見〈改程式不改測試〉）只保證測試沒被偷改，保證不了測試一開始就寫對，所以這一步要人看。
 
 驗收條件只寫在 PR，不另寫一份文件或 spec：PR 是動手前討論方向的地方，合併後留下來的是測試名稱，
 它會跟著程式一起被執行，文件則會在下一次改動時悄悄過時。
