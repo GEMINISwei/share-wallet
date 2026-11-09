@@ -6,7 +6,7 @@
 
 from sqlalchemy.exc import IntegrityError
 
-from modules.roles.public import RoleTable
+from modules.roles.public import get_user_role_id
 from shared.auth import passwords
 from shared.auth.contracts import AppEnvProtocol, CurrentUser
 from shared.auth.tokens import create_token
@@ -39,7 +39,7 @@ async def signup_user(form_data: SignupRequest, env: AppEnvProtocol) -> UserToke
     # 寫過就不能再歸還連線。
     await release_connection()
     password_hash = await passwords.hash_password_async(form_data.password)
-    role_id = await RoleTable.get_user_role_id()
+    role_id = await get_user_role_id()
 
     try:
         created = await UserTable.create(

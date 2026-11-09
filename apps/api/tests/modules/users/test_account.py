@@ -8,7 +8,7 @@
 import pytest
 from sqlalchemy.exc import IntegrityError
 
-from modules.roles.public import RoleTable
+from modules.roles.model import RoleTable
 from modules.users import account
 from modules.users.errors import UserError
 from modules.users.model import UserTable

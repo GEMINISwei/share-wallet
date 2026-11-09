@@ -43,3 +43,4 @@
 | [0011](0011-no-environment-reviewer-for-deploys.md) | 部署不設 environment reviewer，由發布前的確認把關 | 採用 |
 | [0012](0012-agent-guardrails-by-judgment.md) | agent 防線以判斷為主，hook 只擋確認點 | 採用 |
 | [0013](0013-lock-mobile-zoom.md) | 手機上鎖住畫面縮放，像原生 App | 採用 |
+| [0014](0014-cross-module-references-by-id.md) | 跨模組只以 ID 參照，但保留外鍵與共用交易 | 採用 |
