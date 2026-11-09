@@ -3,6 +3,17 @@
 本機環境、指令與程式碼風格。測試見 [`testing.md`](testing.md)，開發流程與提交見
 [`workflow.md`](workflow.md)，擴充功能見 [`extending/`](extending/README.md)，部署與維運見 [`operations.md`](operations.md)。
 
+## 為什麼這樣設計
+
+- **一個主題一個指令**（`make <主題> <動作>`）：開發機與部署主機用同一套指令，腳本跟著版本走
+  （[starter/0008](starter/0008-full-repo-checkout-on-hosts.md)）。
+- **`.env` 的 `MODE` 決定環境**：同一套指令依它疊 dev 或 prod 的 overlay；缺少或值不對時碰容器的指令一律停下，
+  不會用錯設定啟動（〈[指令](#指令)〉）。
+- **風格上限交給 lint**：上限是防退步的地板，不是重構目標；lint 擋不了的才靠 review（〈[程式碼風格](#程式碼風格)〉）。
+- **註解寫為什麼**：做了什麼看程式碼就知道，註解與文件只留讀程式碼推不出來的取捨（〈[註解與文件](#註解與文件)〉）。
+- **抑制註解要在同一行寫理由**：關掉檢查是讓 CI 變綠最快的捷徑，寫了理由，下一個人才判斷得了能不能拿掉
+  （〈[抑制註解](#抑制註解)〉）。
+
 ## 開發環境
 
 需要 Docker Desktop、`make`、`openssl`、`uv`、Node.js（版本見 [`apps/web/.nvmrc`](../apps/web/.nvmrc)；升 Node 時
@@ -47,7 +58,7 @@ tunnel（cloudflared、Tailscale Funnel）。
 | `port is already allocated` | 改 `.env` 的 `SYSTEM_PORT`，`make services down && make start` |
 | api 一直重啟、`relation "users" does not exist` | migration 失敗了，`make services logs migrate` 看原因 |
 | 容器裡 `ModuleNotFoundError` | 改了相依但 image 沒重建，重建後再 `make start` |
-| api 一直重啟、`password authentication failed` 或 `role "app" does not exist` | 資料庫的帳號密碼只在第一次建立 volume 時寫入：改過 `.env` 的 `POSTGRES_PASSWORD`，或 volume 是舊版（帳號不是 `app`）建的。開發機可以清掉重建（**資料會消失**）：`make services down`，`docker volume rm <專案>_development_postgres_data`，再 `make start` 與 `make db superuser` |
+| api 一直重啟、`password authentication failed` 或 `role "app" does not exist` | 資料庫的帳號密碼只在第一次建立 volume 時寫入：改過 `.env` 的 `POSTGRES_PASSWORD`，或 volume 是用別的帳號建的（帳號不是 `app`）。開發機可以清掉重建（**資料會消失**）：`make services down`，`docker volume rm <專案>_development_postgres_data`，再 `make start` 與 `make db superuser` |
 | 修好 `instrumentation.ts` 之後 dev 還在印 Edge Runtime 警告 | 容器看得到新檔案，但執行中的 `next dev` 還在印舊的結果。`make services restart` 就好，不必清 `.next`。重啟前的舊警告會留在容器的 log 裡，看 `make services logs web` 時只算重啟後的新內容 |
 | `make init dev` 抱怨 Node 版本 | `nvm use` |
 | `make init dev` 說專案名稱已有 docker 服務在使用 | 換一個名稱；確定是不要的舊專案，就用 `docker rm`／`docker volume rm` 清掉列出的資源 |
