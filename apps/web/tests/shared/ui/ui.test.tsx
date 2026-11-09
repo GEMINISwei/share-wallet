@@ -12,6 +12,7 @@
 
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
+import { useState } from "react"
 import { describe, expect, it, vi } from "vitest"
 import {
   Button, ChoiceGroup, Container, Flex, Form, FormDialog, Modal, SelectInput, TextInput,
@@ -173,6 +174,55 @@ describe("Modal", () => {
     const overlay = screen.getByRole("dialog").parentElement!
     expect(overlay.parentElement).toBe(document.body)
     expect(screen.getByTestId("outer")).not.toContainElement(overlay)
+  })
+
+  it("關閉後焦點回到開啟前的元素", async () => {
+    // 只用鍵盤的人從列表的「編輯」打開對話框, 存檔後要回到原本那一列, 而不是頁首。
+    function Harness() {
+      const [open, setOpen] = useState(false)
+      return (
+        <>
+          <Button onClick={() => setOpen(true)}>開啟</Button>
+          <Modal title="測試" open={open} onOpenChange={setOpen}>內容</Modal>
+        </>
+      )
+    }
+    render(<Harness />)
+
+    await userEvent.click(screen.getByRole("button", { name: "開啟" }))
+    await userEvent.keyboard("{Escape}")
+
+    expect(screen.getByRole("button", { name: "開啟" })).toHaveFocus()
+  })
+
+  it("在最後一個可聚焦元素按 Tab 會回到第一個，不會跑到背景", async () => {
+    render(
+      <>
+        <Button>背景</Button>
+        <Modal title="測試" open onOpenChange={() => {}}>
+          <Button>確定</Button>
+        </Modal>
+      </>,
+    )
+
+    screen.getByRole("button", { name: "確定" }).focus()
+    await userEvent.tab()
+
+    expect(screen.getByRole("dialog").contains(document.activeElement)).toBe(true)
+    expect(screen.getByRole("button", { name: "背景" })).not.toHaveFocus()
+  })
+})
+
+describe("FormDialog 的驗證", () => {
+  it("送出時不跑瀏覽器的原生驗證", () => {
+    // 原生驗證的提示跟著瀏覽器語系, 不跟應用語系; 錯誤一律由各對話框標在欄位上。
+    render(
+      <FormDialog title="新增" open isPending={false} submitText="送出" onClose={() => {}} onSubmit={() => {}}>
+        <TextInput label="名稱" required />
+      </FormDialog>,
+    )
+
+    expect(screen.getByRole("dialog").querySelector("form")).toHaveAttribute("novalidate")
   })
 })
 
