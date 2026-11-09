@@ -1,6 +1,6 @@
 """deploy.yml: 重用 main 的 CI 結果、主機依 digest 拉 image。
 
-- 要部署的 tag 指向的 commit 在 main 上已經跑過同一套 CI (push 或手動補跑) 而且成功時,
+- 要部署的 tag 指向的 commit 在 main 上已經跑過同一套 CI (push 觸發) 而且成功時,
   不再重跑一次 (`.github/scripts/ci-passed.sh` 判斷)。找不到就照舊先跑 CI, 判斷失敗則整次停下。
   PR 的 run 不算: 它測的是 PR 的 head, 不是 squash 之後 main 上的 commit。
 - build 推完 image 後輸出 digest, 主機以 `<repo>@sha256:…` 拉: 重跑舊的部署 job 時, 組名標籤
@@ -46,8 +46,9 @@ def test_ci_passed_when_main_push_run_succeeded() -> None:
     assert answer(ci_passed(run())) == "true"
 
 
-def test_ci_passed_when_main_manual_run_succeeded() -> None:
-    assert answer(ci_passed(run(event="workflow_dispatch"))) == "true"
+def test_ci_not_passed_when_only_manual_run_succeeded() -> None:
+    # ci.yml 不再能手動執行; 只認 push 觸發的, 查不到就由部署自己跑一次 CI。
+    assert answer(ci_passed(run(event="workflow_dispatch"))) == "false"
 
 
 def test_ci_not_passed_when_only_pull_request_runs_succeeded() -> None:
@@ -168,3 +169,31 @@ def test_deploy_summary_records_image_digests() -> None:
     assert "API_IMAGE" in summary[0]
     assert "WEB_IMAGE" in summary[0]
     assert "matrix.environment" in summary[0]
+
+
+SSH_JOBS = ["migration-check", "deploy"]
+
+
+def _steps(job: str) -> list[str]:
+    return re.split(r"^      - ", _job(job), flags=re.MULTILINE)[1:]
+
+
+@pytest.mark.parametrize("job", SSH_JOBS)
+def test_deploy_jobs_prepare_ssh_with_shared_script(job: str) -> None:
+    # 連主機前的準備只寫在 deploy-ssh.sh: 兩個 job 各寫一份時, 改了一邊另一邊會在碰主機時才失敗。
+    steps = _steps(job)
+    assert any(".github/scripts/deploy-ssh.sh" in step for step in steps)
+    assert not any("> ~/.ssh/deploy_key" in step for step in steps)
+    assert "> ~/.ssh/deploy_key" not in _workflow()
+
+
+@pytest.mark.parametrize("job", SSH_JOBS)
+def test_deploy_ssh_script_comes_from_workflow_commit(job: str) -> None:
+    # 回滾到比 deploy-ssh.sh 還舊的 tag 時, 那個 tag 裡沒有這支腳本, 所以取 workflow 自己的 commit。
+    checkouts = [
+        step
+        for step in _steps(job)
+        if step.startswith("uses: actions/checkout@") and ".github/scripts" in step
+    ]
+    assert checkouts, f"{job} 要 checkout .github/scripts"
+    assert all("ref:" not in step for step in checkouts)

@@ -146,7 +146,6 @@ GitHub 同一個排隊群組最多「一個在跑、一個在等」，再排進�
 | 資料庫在跑 | 照常備份 |
 | 連資料 volume 都沒有（全新主機） | 沒有東西可備份，略過，直接部署 |
 | 有資料 volume，但資料庫沒在跑 | 主機狀態不是預期的，**中止**，先上主機看過 |
-| 沒有 uploads volume（還沒部署過有它的版本） | 只備份資料庫 |
 
 服務起來之後才清舊備份，只留最近 `BACKUP_KEEP` 組（見〈[備份與還原](#備份與還原)〉）。
 **清理失敗不會讓部署變紅**，執行頁面只留一個警告，上主機手動 `make backup prune <組數>` 即可。
@@ -267,7 +266,7 @@ tag），第一版是 `make release 0.0.1`。
 跟 git tag 對齊的版號只有兩處：後端的 `APP_VERSION` 與 CHANGELOG 的版本段落；只改了 api 或 web
 也一樣升這一個。前端顯示的版號經 `GET /api/system/version` 取自 `APP_VERSION`。
 `make release` 會改 `APP_VERSION`，並把 CHANGELOG 的 `[Unreleased]` 改成這個版號；不要手動改，
-`make check` 會擋下兩者不一致（`apps/api/tests/test_version.py`）。
+CI 會擋下兩者不一致（`apps/api/tests/test_version.py`）。
 
 其餘的版號**刻意不跟發版**，有實際變更時才改，git 上的 diff 才代表真的有東西變了：
 

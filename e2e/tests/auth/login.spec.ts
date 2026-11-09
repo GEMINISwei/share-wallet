@@ -1,24 +1,8 @@
 import { expect, test } from "@playwright/test"
-import { SIGNED_OUT, admin, login } from "./support"
+import { SIGNED_OUT, admin, login } from "../support"
 
-// 這個檔案驗證的是未登入的導向與登入流程本身, 不載入預設的超管登入狀態。
+// 這個檔案驗證的是登入流程本身, 不載入預設的超管登入狀態。
 test.use({ storageState: SIGNED_OUT })
-
-test("未登入進受保護頁面會導向登入頁", async ({ page }) => {
-  await page.goto("/settings")
-
-  await expect(page).toHaveURL(/\/login/)
-})
-
-test("登入與註冊頁不顯示安全標語", async ({ page }) => {
-  await page.goto("/login")
-  await expect(page.getByRole("button", { name: "登入", exact: true })).toBeVisible()
-  await expect(page.getByText("安全登入 · 資料加密保護")).toHaveCount(0)
-
-  await page.goto("/signup")
-  await expect(page.getByRole("button", { name: "建立帳號", exact: true })).toBeVisible()
-  await expect(page.getByText("安全登入 · 資料加密保護")).toHaveCount(0)
-})
 
 test("登入成功後進入錢包列表，session cookie 為 httpOnly", async ({ page, context }) => {
   await login(page, admin)
@@ -40,4 +24,14 @@ test("帳號或密碼錯誤時留在登入頁並顯示錯誤訊息", async ({ pa
   // 文案來自後端的 LangText, 依請求的語系回傳。
   await expect(page.getByText("帳號或密碼錯誤")).toBeVisible()
   await expect(page).toHaveURL(/\/login/)
+})
+
+test("登入與註冊頁不顯示安全標語", async ({ page }) => {
+  await page.goto("/login")
+  await expect(page.getByRole("button", { name: "登入", exact: true })).toBeVisible()
+  await expect(page.getByText("安全登入 · 資料加密保護")).toHaveCount(0)
+
+  await page.goto("/signup")
+  await expect(page.getByRole("button", { name: "建立帳號", exact: true })).toBeVisible()
+  await expect(page.getByText("安全登入 · 資料加密保護")).toHaveCount(0)
 })
