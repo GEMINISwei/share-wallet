@@ -1,7 +1,7 @@
 # 帳號、角色與密碼
 
 誰能建立帳號、角色與權限怎麼分、後台開放給誰，以及忘記密碼時怎麼辦。為什麼開放一般使用者註冊見
-[ADR 0009](../decisions/0009-public-signup.md)。
+[starter/0001](../starter/0001-revoke-sessions-by-auth-version.md)。
 
 ## 帳號
 

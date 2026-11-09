@@ -53,7 +53,7 @@ def test_create_super_admin_is_not_exposed_over_http():
 
 def test_signup_is_the_only_web_route_that_creates_accounts_without_login():
     """網頁上不需登入就能建帳號的只有公開註冊 `/signup`, 它固定建一般用戶 (見 `test_account.py`);
-    以註冊代碼建立第一個超管的初始化路徑不存在, 不能被接回來。
+    超管只能用指令建立, 以註冊代碼建立超管的路徑不能出現。
 
     比對路徑而不是打一次請求: `GET /users/bootstrap-status` 會落進 `/users/{user_id}`
     而回 401, 看起來像「有擋住」, 其實什麼都沒驗證到。

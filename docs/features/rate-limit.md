@@ -18,7 +18,7 @@
 - 註冊擋的是大量建立帳號，所以成功的那一次也計數；上限要容得下同一個 NAT 後面的一家人或一群朋友一起註冊。
 - 用戶端 IP 取自 `X-Real-IP`，主機那層沒有正確轉送時所有人共用同一份額度（見
   [`operations.md`](../operations.md#用戶端-ip-與限流)）。
-- 計數放在行程記憶體，不用 Redis，見 [ADR 0004](../decisions/0004-single-api-process.md)。
+- 計數放在行程記憶體，不用 Redis，見 [starter/0004](../starter/0004-single-api-process.md)。
 
 ## 程式與測試
 

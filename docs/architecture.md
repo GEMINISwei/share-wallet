@@ -10,7 +10,21 @@ app（組裝層） → modules（垂直功能） → shared（平台能力）
 - `modules`：一個完整的功能，包含它的資料、規則、API／畫面。
 - `shared`：多個模組共用的能力。
 
-這份文件只講**規則與介面**，操作步驟見 [`extending/`](extending/README.md)。
+這份文件講**規則與介面**，以及它們為什麼這樣定；操作步驟見 [`extending/`](extending/README.md)。
+
+## 為什麼這樣設計
+
+- **一個功能是一個垂直模組**：資料、規則、API 與畫面放在一起，新增時照抄一個模組，刪除時整包拿掉，
+  不必改 `shared/`（〈[新增與移除 module](#新增與移除-module)〉）。按技術分層會讓一個功能散在各處，所以前後端都不准水平分層。
+- **邊界由工具強制，不靠約定**：這個專案主要由 AI 協作開發，最省事的寫法常常跨出邊界，每次單獨看都合理，
+  累積起來模組就糾纏在一起。所以依賴規則都寫成 lint 與架構測試，違反就紅燈（〈[強制依賴規則](#強制依賴規則)〉）。
+- **跨模組只走 public entry、只以 ID 參照**：模組內部怎麼改，只要 public 不變就不影響別人；審查時看 public 的 diff
+  就知道有沒有新的耦合。資料庫層刻意保留外鍵與共用交易
+  （[starter/0013](starter/0013-cross-module-references-by-id.md)）。
+- **組裝層沒有特權**：它只認 manifest，不 import 模組的實作，模組才可替換。
+- **只有兩份清單集中定義**：`Permission` 與 `Language` 要進 OpenAPI 成為字串聯集，前端才有編譯期保護
+  （〈[兩份刻意中央化的清單](#兩份刻意中央化的清單)〉）。
+- **OpenAPI 契約進版控**：前端型別只從它產生，對外介面的變更在 review 的 diff 裡看得到（〈[前後端契約](#前後端契約)〉）。
 
 ## 目錄結構
 
@@ -155,7 +169,7 @@ manifest 的 `group: "user" | "admin"` 決定區域，頁面檔放在對應的�
 | `error`／`global-error`／`not-found`／`loading` | 用 `shared/ui` 的 `MessagePage`／`RouteLoading` 填文案。`global-error` 取代整個 root layout，要自己再載入 layout 的那組樣式表 |
 | `route.ts` | 不依賴模組、session 或後端的常數回應（目前只有 `healthz`） |
 
-**`<main>` 由外框提供**：`(protected)` 兩區由外殼（`config/shell/AreaLayout.tsx`）提供，頁面與模組不再渲染
+**`<main>` 由外框提供**：`(protected)` 兩區由外殼（`config/shell/AreaLayout.tsx`）提供，頁面與模組不自己渲染
 （`tests/architecture.test.ts` 擋）；公開頁與整頁的 `MessagePage` 沒有外殼，自己提供。
 
 **Next 只讀 route 檔自己的 export，模組裡的不會跟過來**，Next 本身漏掉不會報錯。要逐一接上的：
@@ -211,13 +225,13 @@ modules/products/
 `app/permissions.py` 的 `Permission` 與 `shared/http/errors.py` 的 `Language` 是**僅有的兩處**
 「新增功能要改共用檔案」的地方。它們要進 OpenAPI 成為字串聯集，前端才拿得到編譯期保護
 （權限打錯字是 `tsc` 失敗，而不是執行期靜默失效），所以不要改成由模組動態貢獻
-（[ADR 0003](decisions/0003-centralized-permission-and-language.md)）。
+（[starter/0003](starter/0003-centralized-permission-and-language.md)）。
 
 ## 模組之間的資料關聯
 
 規則在這裡，**怎麼做**（範例、`ondelete` 的選法、前端怎麼用對方的東西、跨模組排序與彙總）在
 [`extending/cross-module.md`](extending/cross-module.md)。設計取捨（為什麼保留外鍵、允許共用交易）見
-[ADR 0014](decisions/0014-cross-module-references-by-id.md)。
+[starter/0013](starter/0013-cross-module-references-by-id.md)。
 
 ### 先決定怎麼切模組
 

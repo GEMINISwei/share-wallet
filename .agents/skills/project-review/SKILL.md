@@ -70,6 +70,7 @@ disable-model-invocation: true
 
 - **碰到現有的 ADR**：照 [`decisions/README.md`](../../../docs/decisions/README.md)〈寫法〉記進那一份：
   還沒有 `v*` tag 就直接併進「背景」或「後果」，有 tag 之後追加 `## 後續討論`。
+- **碰到 `starter/` 的決定**：那一區不改，照 [`decisions/README.md`](../../../docs/decisions/README.md)〈寫法〉另寫一份。
 - **沒碰到 ADR、但屬於「刻意不做」的取捨**（之後很可能又被提出）：另寫一份新的 ADR。
 - **只是效益太小**：不記錄，下次可以用排除項擋掉。
 

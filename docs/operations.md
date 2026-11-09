@@ -2,6 +2,22 @@
 
 正式環境的部署、主機設定、備份與救援。系統功能怎麼運作見 [`features/`](features/README.md)，本機開發見 [`development.md`](development.md)。
 
+## 為什麼這樣設計
+
+- **主機 clone 整份 repo，只從 tag 啟動**：主機與開發機用同一套指令；只認 tag，避免上線沒發版、沒經過 CI 的程式碼
+  （[starter/0008](starter/0008-full-repo-checkout-on-hosts.md)）。
+- **migrate 先單獨跑，成功才切換服務**：migration 或 seed 失敗時線上維持原狀
+  （[starter/0006](starter/0006-seed-in-migrate-service.md)）。
+- **部署前先備份，而且在 checkout 新 tag 之前**：備份檔名的版號就是這份資料所屬的版本，回滾後才還原得回去
+  （〈[備份與還原](#備份與還原)〉）。
+- **api 單一行程，部署會短暫停機**：不必處理新舊版本並存，也不必為限流多一個要維運的服務
+  （[starter/0004](starter/0004-single-api-process.md)）。
+- **發布前在對話裡確認，不設 environment reviewer**：只有一位維護者時，逐套放行太繁瑣
+  （[starter/0010](starter/0010-no-environment-reviewer-for-deploys.md)）。
+- **可觀測性只到 stdout**：錯誤內容可能帶著使用者資料，送不送第三方是專案自己的決定
+  （[starter/0007](starter/0007-no-built-in-error-tracking.md)）。
+- **`MODE=production` 擋下危險指令**：防的是手誤，不是權限控制（〈[生產部署](#生產部署)〉）。
+
 ## 生產部署
 
 在**部署主機上**：
@@ -40,7 +56,7 @@ nginx 模板（`infra/nginx/`）有變時 `make start` 才重建 nginx（compose
 `make start`。nginx 模板改了也用 `make start`：restart 雖然會重新展開模板，但**不先跑 `nginx -t`**，寫錯時整個站就停了。
 
 `make services` 列出這個專案的 volume（依 compose 專案標籤），名稱不是 `<專案>_<MODE>_` 開頭的標 `← Not Matched`
-（另一種模式或舊命名留下的，目前用不到也不會自己消失）。只標註不刪，確定不要再 `docker volume rm`。容量看
+（例如另一種模式留下的，目前用不到也不會自己消失）。只標註不刪，確定不要再 `docker volume rm`。容量看
 `make services volumes`（要掃整台主機，所以不放在 `make services`）。
 
 同一台主機要跑多套，就各用一個目錄，`.env` 的 `COMPOSE_PROJECT_NAME` 與 `SYSTEM_PORT` 不重複
@@ -53,7 +69,7 @@ nginx 模板（`infra/nginx/`）有變時 `make start` 才重建 nginx（compose
 
 **每次部署都會短暫中斷服務**：備份期間 nginx 停止（資料越多越久，見〈[備份與還原](#備份與還原)〉），重建後也要等
 healthcheck 通過才接回流量，所以挑離峰時段。零停機要 api 能同時跑兩份，目前做不到（〈[單一行程，不能直接加副本](#單一行程不能直接加副本)〉、
-[ADR 0004](decisions/0004-single-api-process.md)）。
+[starter/0004](starter/0004-single-api-process.md)）。
 
 prod overlay 比 dev 多了 **log 上限**與**記憶體上限**（api、web 各 512M，postgres 1G）。
 api 週期性重啟時，先懷疑記憶體上限。
@@ -109,7 +125,7 @@ api 週期性重啟時，先懷疑記憶體上限。
 2. 列出 repo 裡屬於這些組的 environment；有任何一組找不到就停，並列出現有的組。
 3. 確認這個 commit 通過 CI（`ci.yml`）：它在 `main` 上已經跑過而且成功（push 觸發，或手動補跑的）就不再跑，
    查不到（`main` 的 CI 還沒跑完、紀錄已過保存期限、或那次是紅的）就先跑一次，沒過不部署
-   （[理由](decisions/0010-e2e-strategy.md)）。同時逐套讀主機資料庫的 migration revision
+   （[理由](starter/0009-e2e-strategy.md)）。同時逐套讀主機資料庫的 migration revision
    （`migration check (<environment>)`）：任何一套的資料庫比要部署的版本新，**整組都不部署**，
    主機什麼都不動（見〈[回滾與 migration](#回滾與-migration)〉）。
 4. 建兩份 production image 推到 GHCR：`ghcr.io/<帳號>/<repo>-api:<組名>` 與 `-web:<組名>`（全小寫）。
@@ -188,7 +204,7 @@ GitHub 同一個排隊群組最多「一個在跑、一個在等」，再排進�
   回滾與部署到其他組會在 deploy job 被 GitHub 擋下（environment protection rules）。
   `main` 要有 ruleset（見 [`workflow.md`](workflow.md#github-設定)），它上面的 `deploy.yml` 才一定經過 PR。
 - [ ] **不勾 Required reviewers**：發布前已經在對話裡確認過，再到 GitHub 上按 Approve 太繁瑣；
-      代價與什麼情況要改回來見 [ADR 0011](decisions/0011-no-environment-reviewer-for-deploys.md)。
+      代價與什麼情況要改回來見 [starter/0010](starter/0010-no-environment-reviewer-for-deploys.md)。
 - [ ] 第一次推上去之後，到 GHCR 的 package 設定確認 Visibility：image 裡有完整的程式碼（但沒有機密），
       **私有 repo 要設 Private**；公開 repo 的 image 內容等於原始碼，設 Public 也可以，而且免費。
       **改成 Public 之後就改不回 Private**
@@ -204,20 +220,6 @@ GitHub 同一個排隊群組最多「一個在跑、一個在等」，再排進�
 
 第一次部署完成後，在主機上用 `make db superuser` 建立超級管理者（見〈[建立超級管理者](#建立超級管理者)〉）。
 這是系統初始化的一環，部署流程刻意不代建。
-
-主機以前手動 `make start` 建過 image 的話，那些 image 與建置快取 CD 用不到，
-部署成功後可以清掉（`<專案名>` 是 `.env` 的 `COMPOSE_PROJECT_NAME`）：
-
-```bash
-docker image rm <專案名>-api:latest <專案名>-web:latest
-```
-
-```bash
-docker builder prune
-```
-
-從只標 `latest` 的版本升上來時，主機上舊的 `ghcr.io/<帳號>/<repo>-api:latest` 與 `-web:latest`
-還帶著標籤，不會被自動清掉；第一次部署成功後手動 `docker image rm` 掉即可。
 
 主機拉 image 用那次 job 的 `GITHUB_TOKEN`（job 結束就失效，主機不存長期憑證），登入資訊寫在每次部署的暫存
 `DOCKER_CONFIG`，結束就刪，**不碰部署帳號的 `~/.docker`**：同帳號多套系統不會互相登出。
@@ -315,7 +317,7 @@ gh workflow run deploy.yml --ref main -f tag=v0.1.0 -f target="production stagin
   同一次操作在三個服務的 log 裡是同一個 id。
 - **看 log** 用 `make services logs [服務]`。正式環境每個容器只留 10MB × 5 份（prod overlay），
   **重建容器時舊的 log 會一起消失**，要長期保存就自己轉送到別處。
-- **沒有**：結構化 log、錯誤追蹤、指標與告警（[ADR 0007](decisions/0007-no-built-in-error-tracking.md)）。出錯沒人收到通知，
+- **沒有**：結構化 log、錯誤追蹤、指標與告警（[starter/0007](starter/0007-no-built-in-error-tracking.md)）。出錯沒人收到通知，
   要等使用者回報再上主機查。
 - **最大的盲點是瀏覽器端的錯誤**（按了沒反應、畫面白掉），主機 log 一行都沒有。需要時先補錯誤追蹤（Sentry 或相容的
   GlitchTip），DSN 走執行期設定（後端 `app/config.py`、前端 `shared/runtime/`）。
@@ -453,7 +455,7 @@ ssh -N -L 8080:127.0.0.1:<SYSTEM_PORT> <使用者>@<主機 IP>
 
 API 是**單一 Python 行程**（沒有 workers，compose 也沒有 replica）。限流的計數存在行程記憶體裡，
 加 workers 或副本會讓允許次數直接變成 N 倍，而且沒有任何症狀。要水平擴充時，**先**把
-`RateLimiter` 的計數換成 PostgreSQL，**再**加副本（不用 Redis 的理由見 [ADR 0004](decisions/0004-single-api-process.md)）。
+`RateLimiter` 的計數換成 PostgreSQL，**再**加副本（不用 Redis 的理由見 [starter/0004](starter/0004-single-api-process.md)）。
 
 初始資料（seed）由 migrate 服務寫入，api 開機時不寫任何東西，所以加副本不受它影響。
 
@@ -479,7 +481,7 @@ api、web 不停（上傳檔案從 api 容器打包）。
 
 **資料庫**用 `pg_dump`，清單只列出與這個目錄版本一致的備份，新到舊，例如 `1) v0.0.2 2026-10-17 08:35:53`。
 **還原只接受目前版本的備份**：別版的資料表結構可能跟目前的程式對不上，要還原別版的備份就先部署回那一版。
-檔名沒有版號的舊備份不會列出，真的要用時自己改名成上面的格式。
+檔名不符合這個格式的備份不會列出，要用時先改名成上面的格式。
 還原會**取代備份裡有的資料表**（`pg_restore --clean`）；備份之後才新建的表不會被刪掉。
 
 **上傳檔案**是 uploads volume（api 的 `/app/uploads`）整包打成 `.tar`，不壓縮（圖片、影片本身已經壓過）。
