@@ -4,6 +4,7 @@ from pydantic import AfterValidator, BaseModel, StringConstraints
 
 from app.permissions import Permission
 from shared.auth.passwords import MAX_PASSWORD_BYTES
+from shared.auth.permissions import KnownPermissions
 from shared.http.errors import BaseError, LangText, resolve_text
 from shared.http.schema import NonEmptyText, PaginatedResponse, SimpleListResponse, UuidText
 
@@ -103,7 +104,7 @@ class UserMe(BaseModel):
     id: str
     nickname: str
     role_ids: list[str]
-    permissions: list[Permission]
+    permissions: KnownPermissions[Permission]
 
 
 class UserInfo(BaseModel):
@@ -111,7 +112,7 @@ class UserInfo(BaseModel):
     username: str
     nickname: str
     role_ids: list[str]
-    permissions: list[Permission]
+    permissions: KnownPermissions[Permission]
     is_disabled: bool
 
 

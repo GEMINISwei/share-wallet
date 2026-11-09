@@ -47,6 +47,21 @@ type MenuProps = {
 
 type Position = { left: number; top?: number; bottom?: number }
 
+/** 下拉選單的鍵盤操作: Escape 關閉, 上下鍵在項目間移動 (到頭繞回另一端)。 */
+function handleMenuKeyDown(event: React.KeyboardEvent<HTMLDivElement>, close: () => void) {
+  if (event.key === "Escape") {
+    event.preventDefault()
+    close()
+    return
+  }
+  if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return
+  event.preventDefault()
+  const menuItems = [...event.currentTarget.querySelectorAll<HTMLElement>("[role='menuitem']")]
+  const current = menuItems.indexOf(document.activeElement as HTMLElement)
+  const step = event.key === "ArrowDown" ? 1 : -1
+  menuItems[(current + step + menuItems.length) % menuItems.length]?.focus()
+}
+
 export default function Menu({
   items,
   trigger,
@@ -60,6 +75,8 @@ export default function Menu({
   const [open, setOpen] = useState(false)
   const [position, setPosition] = useState<Position>({ top: 0, left: 0 })
   const ref = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
   const visibleItems = items.filter((item): item is MenuItem => Boolean(item))
   const asSheet = sheet || sheetTitle !== undefined
 
@@ -101,6 +118,15 @@ export default function Menu({
     }
   }, [open, asSheet])
 
+  // `role="menu"` 對輔助科技宣告了方向鍵操作: 開啟時焦點進到第一個項目。
+  useEffect(() => {
+    if (!open || asSheet) return
+    listRef.current?.querySelector<HTMLElement>("[role='menuitem']")?.focus()
+  }, [open, asSheet])
+
+  // 項目多半是打開對話框, 對話框關閉時把焦點還給開啟前的元素: 先還給觸發按鈕, 否則會掉到 body。
+  const closeAndRestoreFocus = () => { setOpen(false); triggerRef.current?.focus() }
+
   function renderItems(itemClassName: string | undefined) {
     return visibleItems.map((item, index) => (
       <button
@@ -109,7 +135,7 @@ export default function Menu({
         role="menuitem"
         className={cls(itemClassName, item.color === "error" && styles.itemError)}
         onClick={() => {
-          setOpen(false)
+          closeAndRestoreFocus()
           item.onClick()
         }}
       >
@@ -124,6 +150,7 @@ export default function Menu({
   return (
     <div ref={ref} className={cls(styles.wrapper, fullWidth && styles.wrapperFull)}>
       <button
+        ref={triggerRef}
         type="button"
         className={triggerClassName ?? styles.trigger}
         onClick={toggleOpen}
@@ -134,7 +161,7 @@ export default function Menu({
         {trigger}
       </button>
       {open && !asSheet && (
-        <div className={styles.dropdown} role="menu" style={position}>
+        <div ref={listRef} className={styles.dropdown} role="menu" style={position} onKeyDown={(event) => handleMenuKeyDown(event, closeAndRestoreFocus)}>
           {renderItems(styles.item)}
         </div>
       )}

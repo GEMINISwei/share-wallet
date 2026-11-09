@@ -1,5 +1,11 @@
 // UI kit 的內部工具; 版面元件直接使用 `as`、`className` 與 `style`。
 
+/** 鍵盤可以聚焦到的元素; 對話框的焦點循環用它找出第一個與最後一個。 */
+export const FOCUSABLE_SELECTOR = [
+  "a[href]", "button:not([disabled])", "input:not([disabled])", "select:not([disabled])",
+  "textarea:not([disabled])", "[tabindex]:not([tabindex='-1'])",
+].join(", ")
+
 export function cls(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ")
 }
