@@ -77,6 +77,8 @@ app（組裝層） → modules（垂直功能） → shared（平台能力）
    `tokens.css` 由 `app/theme.css` 以 `@import` 帶入，文件根只 import `theme.css`，順序才有保證
    （`tests/app/theme.test.ts` 擋）。
 9. 後端不得有 `api`／`core`／`services`／`repositories` 這類**水平分層**的頂層套件。
+10. 後端 `public.py` 只轉出能力（函式與它的回傳型別），**不轉出 ORM 類別或 `Table`**
+    （見〈[模組之間的資料關聯](#模組之間的資料關聯)〉）。
 
 違反就紅燈（CI 的 `lint`，本機可跑 `make check lint`），各條由現成工具執行，都涵蓋 re-export、動態 `import()` 與相對 import：
 
@@ -87,6 +89,7 @@ app（組裝層） → modules（垂直功能） → shared（平台能力）
 | 6 client 不引 server | — | Next.js build（`.server` 檔一律 `import "server-only"`） |
 | 7 模組內部相對路徑 | — | ESLint |
 | 9 不准水平分層 | `tests/test_architecture.py` | — |
+| 10 public 不轉出資料表 | `tests/test_architecture.py` | — |
 
 ## 程式放在哪
 
@@ -177,7 +180,7 @@ manifest 的 `group: "user" | "admin"` 決定區域，頁面檔放在對應的�
 ```text
 modules/products/
 ├── manifest.py          # 必備。routers、tables、permissions
-├── public.py            # 其他 module 唯一可引用的介面
+├── public.py            # 其他 module 唯一可引用的介面：函式與回傳型別，不放資料表
 ├── router.py
 ├── schema.py
 ├── service.py
@@ -209,6 +212,56 @@ modules/products/
 「新增功能要改共用檔案」的地方。它們要進 OpenAPI 成為字串聯集，前端才拿得到編譯期保護
 （權限打錯字是 `tsc` 失敗，而不是執行期靜默失效），所以不要改成由模組動態貢獻
 （[ADR 0003](decisions/0003-centralized-permission-and-language.md)）。
+
+## 模組之間的資料關聯
+
+規則在這裡，**怎麼做**（範例、`ondelete` 的選法、前端怎麼用對方的東西、跨模組排序與彙總）在
+[`extending/cross-module.md`](extending/cross-module.md)。設計取捨（為什麼保留外鍵、允許共用交易）見
+[ADR 0014](decisions/0014-cross-module-references-by-id.md)。
+
+### 先決定怎麼切模組
+
+**依關係緊密程度切，不是看有沒有外鍵**：經常 JOIN、通常一起改、有共同規則要同時成立的放同一個模組；只需要
+「指到的東西存在」的分開，以 ID 參照（[判斷表](extending/cross-module.md#1-先判斷該不該是兩個模組)）。
+分開之後對方的 public 多到像是把內部原封不動轉出去，就是邊界畫錯了。模組內部可以自由用 ORM relationship 與 JOIN。
+
+### 資料表與外鍵
+
+- 跨模組照樣建外鍵，用字串宣告（`ForeignKey("roles.id")`），不 import 對方的資料表。依賴方向跟外鍵方向一致，
+  被參照的模組不知道誰在參照它。
+- 一對一擴充別的模組的實體時，開自己的表，**不在對方的表加欄位**；歷史與稽核紀錄只存 ID 與快照，不加外鍵。
+- `ondelete` 由持有外鍵的一方決定，業務資料預設 `RESTRICT`。
+
+### 讀對方的資料
+
+- 只呼叫對方 `public.py` 的函式，拿到的是函式的回傳型別，不是資料表（強制規則 10）。
+- 提供的一方一定要有**批次**版本；使用的一方要帶出對方的資料時覆寫 `BaseTable.to_details()`，一次補完整批，
+  並用測試鎖住查詢次數不隨筆數增加。
+- 跨模組的函式不收 `session`，用目前的 session，所以自然與呼叫端在同一個交易裡。
+- 屬於對方的規則放在對方的 public，不在呼叫端各寫一份。
+- 前端同樣只用對方的 `public.server.ts`（讀資料）與 `public.client.ts`（畫面規則、字典），型別在自己的 `types.ts` 命名。
+
+### 反方向的需求
+
+被參照的一方需要知道誰在參照自己時（刪角色前檢查還有沒有人用、停用使用者時連動取消訂單），不可反過來 import：
+
+1. 先交給資料庫：`RESTRICT` 讓刪除失敗。平台把外鍵違反統一轉成 409：刪除時是「仍有其他資料使用中」，
+   新增或更新時是「參照的資料不存在」（`shared/platform.py`），模組不必自己攔 `IntegrityError`。
+   兩種情況 PostgreSQL 只有會隨語系變的 detail 文字不同，所以依觸發錯誤的 SQL 種類區分（`foreign_key_error()`）。
+2. 需要業務上的連動或明確的否決時，用**模組事件**：被參照的模組定義事件並 `publish()`，參照它的模組在 manifest 的
+   `event_handlers` 訂閱。處理函式在發布者的交易裡同步執行，丟出錯誤就否決整個操作（[做法](extending/module-events.md)）。
+
+### 非 HTTP 的入口
+
+CLI 與將來的背景工作一律經過 `shared/platform.py` 的 `platform_scope(modules, postgres_url)`，拿到與 HTTP 請求相同的
+session 與事件訂閱表；不自己 `session_scope()` 或設定 session factory（`tests/scripts/test_db.py` 擋 `scripts/db.py`）。
+平台多一項「每個入口都要有」的東西時，只改 middleware 與 `platform_scope` 這兩處。
+
+### 跨模組的排序與彙總
+
+一定要跨模組計算時，計算儘量交給擁有資料的模組（public 的統計函式）；要用對方的欄位排序後分頁時存去正規化的副本，
+用事件同步；真的要跨模組 JOIN 時由一個模組擁有唯讀的資料庫 view，並寫明這是例外
+（[做法](extending/cross-module.md#6-跨模組的排序與彙總)）。
 
 ## 前後端契約
 
