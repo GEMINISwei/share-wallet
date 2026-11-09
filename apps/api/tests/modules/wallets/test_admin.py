@@ -129,7 +129,7 @@ async def test_admin_create_travel_wallet_has_no_categories(client: AsyncClient,
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("admin_user_id", [DAVE, MISSING_ID])
+@pytest.mark.parametrize("admin_user_id", [DAVE, MISSING_ID], ids=["disabled", "unknown"])
 async def test_admin_create_wallet_with_disabled_or_unknown_user_returns_400(
     client: AsyncClient, store: FakeStore, admin_user_id: str
 ):
