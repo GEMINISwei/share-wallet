@@ -102,7 +102,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: refs/tags/${{ steps.tag.outputs.tag }}
-      # 比對後端的 APP_VERSION (跟 tag 對齊的版號); CHANGELOG 與它一致由 make check 的
+      # 比對後端的 APP_VERSION (跟 tag 對齊的版號); CHANGELOG 與它一致由 CI 的
       # apps/api/tests/test_version.py 保證, 下面的 ci job 會跑到。
       - name: tag 與 APP_VERSION 一致
         env:
@@ -179,7 +179,7 @@ jobs:
             split("\n") | map(select(length > 0) | split("\t") | {group: .[0], environment: .[1]})
             | {include: .}' <<< "${selected}")" >> "${GITHUB_OUTPUT}"
 
-  # 這個 commit 在 main 上已經跑過同一套 CI 而且成功 (push, 或 push 被略過時手動補跑) 就不再跑:
+  # 這個 commit 在 main 上已經跑過同一套 CI 而且成功 (push 觸發的) 就不再跑:
   # tag 指向的就是合併進 main 的 commit, 重跑的結果相同。PR 的 run 不算, 它測的是 PR 的 head。
   # 查不到 (main 的 CI 還沒跑完、run 已經過了保存期限、或那次是紅的) 就照舊先跑 CI;
   # 查詢本身失敗則整次停下, 不默默跳過。判斷腳本取自這份 workflow 的 commit, 理由同 targets。
@@ -303,17 +303,19 @@ jobs:
     permissions:
       contents: read
     steps:
-      # 讀資料庫 revision 的腳本用 workflow 自己這份: 主機上的 checkout 與要部署的 tag 都可能是
-      # 還沒有 `make db revision` 的舊版。
+      # 讀資料庫 revision 的腳本與 deploy-ssh.sh 用 workflow 自己這份: 主機上的 checkout 與要部署的
+      # tag 都可能是還沒有它們的舊版。
       - uses: actions/checkout@v7
         with:
-          sparse-checkout: scripts
+          sparse-checkout: |
+            scripts
+            .github/scripts
       - uses: actions/checkout@v7
         with:
           ref: refs/tags/${{ needs.version.outputs.tag }}
           path: target
           sparse-checkout: apps/api/migrations/versions
-      - name: 檢查 secrets
+      - name: 準備 SSH
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
@@ -321,24 +323,7 @@ jobs:
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
           ENVIRONMENT: ${{ matrix.environment }}
-        run: |
-          missing=()
-          for name in DEPLOY_HOST DEPLOY_USER DEPLOY_PATH DEPLOY_SSH_KEY DEPLOY_KNOWN_HOSTS; do
-            [ -n "${!name}" ] || missing+=("${name}")
-          done
-          if [ "${#missing[@]}" -gt 0 ]; then
-            echo "environment ${ENVIRONMENT} 缺少 secrets：${missing[*]}" >&2
-            exit 1
-          fi
-      - name: 準備 SSH
-        env:
-          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
-        run: |
-          install -m 700 -d ~/.ssh
-          printf '%s\n' "${DEPLOY_SSH_KEY}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          printf '%s\n' "${DEPLOY_KNOWN_HOSTS}" > ~/.ssh/known_hosts
+        run: .github/scripts/deploy-ssh.sh "${ENVIRONMENT}"
       # 這份 Makefile 與 scripts/ 經 SSH 的 stdin 送到主機的暫存目錄, 接上主機的 .env 跑
       # `make db revision`; 主機的 repo 目錄一個檔案都不動。
       - name: 資料庫不會往回
@@ -383,8 +368,12 @@ jobs:
       contents: read
       packages: read
     steps:
-      # 剛建好、還沒填 secrets 的 environment 在這裡就停, 不必等 SSH 報出看不懂的錯。
-      - name: 檢查 secrets
+      # deploy-ssh.sh 取自這份 workflow 所在的 commit, 理由同 targets: 回滾到的舊 tag 裡可能沒有它。
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/scripts
+      # 缺 secrets 時在這裡就停 (見腳本開頭)。
+      - name: 準備 SSH
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
@@ -392,15 +381,7 @@ jobs:
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
           ENVIRONMENT: ${{ matrix.environment }}
-        run: |
-          missing=()
-          for name in DEPLOY_HOST DEPLOY_USER DEPLOY_PATH DEPLOY_SSH_KEY DEPLOY_KNOWN_HOSTS; do
-            [ -n "${!name}" ] || missing+=("${name}")
-          done
-          if [ "${#missing[@]}" -gt 0 ]; then
-            echo "environment ${ENVIRONMENT} 缺少 secrets：${missing[*]}" >&2
-            exit 1
-          fi
+        run: .github/scripts/deploy-ssh.sh "${ENVIRONMENT}"
       # 保留組數來自 Variables (environment 的會蓋過 repo 的), 沒設就是 10。設錯的值在碰主機之前就擋,
       # 不要等部署完才在清理那步只留一個警告。
       - name: 檢查 BACKUP_KEEP
@@ -411,16 +392,6 @@ jobs:
             echo "::error::BACKUP_KEEP 必須是正整數，目前是「${BACKUP_KEEP}」"
             exit 1
           fi
-      - name: 準備 SSH
-        env:
-          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
-        run: |
-          install -m 700 -d ~/.ssh
-          printf '%s\n' "${DEPLOY_SSH_KEY}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          # 主機指紋事先登記, 不用 StrictHostKeyChecking=no: 那等於誰冒充主機都收得到 token。
-          printf '%s\n' "${DEPLOY_KNOWN_HOSTS}" > ~/.ssh/known_hosts
       # 腳本經 SSH 的 stdin 送過去 (bash -s), token 不會出現在任一端的指令列 (ps 看得到)。
       # 值一律 %q 轉義後才拼進腳本, 遠端固定用 bash 解讀, 不受部署帳號的登入 shell 影響。
       #
@@ -434,7 +405,7 @@ jobs:
       # 全新主機 (連資料 volume 都沒有) 沒有東西可備份, allow-fresh 讓第一次部署直接過。
       # 備份在 checkout 新 tag 之前: 備份檔名的版號取自這份 checkout, 這時它還是線上正在跑的版本,
       # 也就是這份資料的結構所屬的版本。回滾到那一版後, make db restore 才找得到它。
-      # make backup 同時打包 uploads volume; 還沒有那個 volume 的主機只備份資料庫。備份期間 nginx
+      # make backup 同時打包 uploads volume。備份期間 nginx
       # 會暫停 (資料庫與檔案才是同一個時間點), 之後的 make start 本來就要重建容器, 多停的只有備份那幾秒。
       # make start 依主機 .env 的 MODE (make init prod 寫的 production) 啟動, 而且只認停在
       # v<APP_VERSION> tag 上的 checkout —— 上面剛 checkout 的就是。

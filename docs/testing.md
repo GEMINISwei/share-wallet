@@ -1,10 +1,10 @@
 # 測試
 
 ```bash
-make check test                             # 前後端全部（帶覆蓋率）
+make check test                             # 前後端單元測試（帶覆蓋率；後端平行跑，不含 integration）
 make check integration                      # 起拋棄式 PostgreSQL 跑 integration + alembic check
 make check e2e                              # 起拋棄式的正式環境，用 Playwright 從瀏覽器跑過整條路
-make e2e test <檔案...>                     # 開發中：在常駐的 dev 環境只跑指定的 spec（先 make e2e up）
+make e2e test <檔案或目錄...>               # 開發中：在常駐的 dev 環境只跑指定的 spec（先 make e2e up）
 cd apps/api && uv run pytest tests/ -k xxx  # 只跑後端某些測試
 cd apps/web && npm run test:watch           # 前端 watch 模式
 ```
@@ -43,22 +43,24 @@ cd apps/web && npm run test:watch           # 前端 watch 模式
 
 `make check e2e` 另起一套 compose 專案（`<專案>-e2e`，port 預設 3900，`E2E_PORT` 可換），用**正式環境的 image 與
 nginx 模板**，以 CLI 建隨機密碼的超管，跑完 Playwright 連 volume 一起刪，不動開發中的那套。第一次會下載 Chromium
-（幾百 MB）。CI 是獨立平行的 `e2e` job；失敗時到 Artifacts 下載 `playwright-report`，trace 用
-`npx playwright show-trace <zip>` 打開。
+（幾百 MB）。CI 是獨立平行的 `e2e` job，依檔案分份（matrix 的 `shard`，`E2E_SHARD=<份號>/<總份數>` 轉成
+Playwright 的 `--shard`），每份各起一套環境；每份在 Summary 記下 Playwright 本身的秒數，接近每份約 75 秒的固定成本時
+在 matrix 加一份（[準則](decisions/0010-e2e-strategy.md)）。失敗時到 Artifacts 下載 `playwright-report-<份號>`，
+trace 用 `npx playwright show-trace <zip>` 打開。
 
 **開發中用 `make e2e`，不必每次跑 `make check e2e`**（[理由](decisions/0010-e2e-strategy.md)）：
 
 | 指令 | 做什麼 |
 |---|---|
 | `make e2e up` | 起一套這個 checkout 專用的環境：**dev mode**，原始碼直接掛進容器，改了不必重建；已經起著就沿用 |
-| `make e2e test <檔案...>` | 重設資料、重建超管、重啟 api（清掉記憶體裡的登入限流計數），再只跑那幾個 spec；沒給檔案時拒絕，整套用 `make check e2e` |
+| `make e2e test <檔案或目錄...>` | 重設資料、重建超管、重啟 api（清掉記憶體裡的登入限流計數），再只跑那幾個 spec；沒給檔案時拒絕，整套用 `make check e2e` |
 | `make e2e grep "名稱"` | 同上，只跑名稱符合的測試 |
 | `make e2e down` | 拆掉這套環境，連資料一起刪；PR 合併後執行 |
 
 - 每個 checkout（含 worktree）一套：專案名稱取自路徑，port（3901 起找空的）與隨機帳密記在 git 目錄的
   `e2e-stack.env`，不 commit，互不影響。
 - 本機 Playwright 只輸出失敗摘要（`dot`）。
-- dev 與正式 build 的差異要到 CI 才看得到；改到 nginx、compose 或只有正式環境才有的行為時，本機也跑 `make check e2e`。
+- dev 與正式 build 的差異要到 CI 才看得到（CI 的 `e2e` 用正式環境的 image）。
 - 失敗時先讀 `e2e/test-results/` 裡該測試的 `error-context.md`，看不出才開 trace。由修的 agent 自己讀，不交給子代理。
 
 **只放跨層的 smoke 測試**：proxy 導向、cookie 屬性、Server Action、權限導向、撤銷這類整套跑起來才看得到的行為。
@@ -66,7 +68,14 @@ nginx 模板**，以 CLI 建隨機密碼的超管，跑完 Playwright 連 volume
 
 - 名稱用中文句子，斷言用中文文案（`locale: "zh-TW"`）。選元素用 `getByRole`／`getByLabel`，不用 class 或 DOM 結構。
 - 用會自動重試的斷言等待（`toBeVisible()`、`toHaveURL()`），**不寫固定 sleep**；不開 retries，偶發失敗要修等待條件。
-- **檔案之間平行**（2 個 worker），同檔依序：一個子功能一個檔案，整套才不會被最大的檔案拖住。
+- **目錄依功能分**：`e2e/tests/<功能>/` 是使用者看得到的功能。有對應模組的用模組名稱（`users/`），停用模組時
+  連同目錄一起刪；不屬於模組的照功能取名（`auth/` 登入與權限、`layout/` 版面）。不用技術分層或裝置當目錄。
+  跨兩個以上功能的完整流程放 `journeys/`。只跑一個功能：`make e2e test auth/`。
+- **一個檔案一條流程或一個子功能**：檔案之間平行（2 個 worker），同檔依序，整套才不會被最大的檔案拖住，
+  之後拆 shard 也分得平均。
+- **裝置交給 project**：`desktop`（Desktop Chrome）與 `mobile`（Pixel 7）。預設只跑 desktop：兩邊都跑時間加倍，
+  同一 IP 的登入次數也加倍。手機上行為不同的（用到 720px 的版面切換或觸控專屬的處理）加 `{ tag: "@mobile" }`
+  兩邊都跑，只有手機才有意義的加 `@mobile-only`。不在測試裡用 `test.use` 自己設 viewport。
 - **共用準備，不共用結果**：可以共用帳號與登入狀態，不能用別的測試建的資料（一個失敗會連累一串、也不能單獨重跑）。
   建立的資料名稱帶 uuid。
 - **登入狀態**：`auth.setup.ts` 讓超管從畫面登入一次並保存，其他測試預設載入；要從未登入開始的用
@@ -80,8 +89,9 @@ nginx 模板**，以 CLI 建隨機密碼的超管，跑完 Playwright 連 volume
 
 - **後端單元**：`tests/modules/conftest.py` 的 `client` fixture 直接打 app，service 與資料表方法用 monkeypatch 換掉，
   不需要資料庫（`tests/modules/users/test_routes.py`）。
-- **後端 integration**：標 `@pytest.mark.integration`，用 `tests/integration.py` 的 `require_postgres`。本機沒資料庫時
-  skip（`make check test` 結尾提醒），CI 上 skip 視為失敗。
+- **後端 integration**：標 `@pytest.mark.integration`，用 `tests/integration.py` 的 `require_postgres`，
+  由 `make check integration` 跑。`make check test` 排除有標記的測試，而且帶 `REQUIRE_INTEGRATION=1`：
+  忘了標記、又去連資料庫的測試會失敗，不會被 skip 掉。直接跑 pytest 時本機沒資料庫就 skip。
 - **前端**：Vitest + Testing Library。`.server.ts` 也能測：`server-only` 換成空模組，`cookies`、`headers`、`redirect`
   用 `vi.mock` 換掉（`tests/shared/api/request.server.test.ts`）。
 
@@ -124,10 +134,10 @@ nginx 模板**，以 CLI 建隨機密碼的超管，跑完 Playwright 連 volume
 | 實作開始後用改檔工具改測試檔要使用者同意、放行只對列出的檔案且有新 commit 就失效、不能自己寫放行 | `apps/api/tests/test_agent_test_guard.py` |
 | 有開著的 PR 時開新分支要使用者同意、放行針對分支名稱 | `apps/api/tests/test_agent_one_pr.py` |
 | 改防線檔案（hook、agent 設定、CI、檢查的設定）一律要使用者同意、清單裡的路徑都存在 | `apps/api/tests/test_agent_protected_files.py` |
-| agent 收尾前改過的程式要跑過 `make check`、開工時提示現況、每個 hook 用 `PATH` 上的 `python3` 跑得起來 | `apps/api/tests/test_agent_session_hooks.py` |
+| 沒有收尾前的 Stop hook、開工時提示現況、每個 hook 用 `PATH` 上的 `python3` 跑得起來 | `apps/api/tests/test_agent_session_hooks.py` |
 | AI agent 的 commit 帶寫到模型與版本的 `Co-authored-by`、Codex 執行的指令帶 `AI_AGENT` | `.githooks/commit-msg`（`apps/api/tests/test_githooks.py`） |
 | PR 標題是 Conventional Commits、描述有摘要／驗證／檢查三段且不是模板原樣 | CI 的 `pr`（`.github/scripts/check-pr.sh`、`apps/api/tests/test_pr_checks.py`） |
-| 實作後改的測試檔在「驗證」段寫出路徑與理由、防線檔案與 agent 說明列進「檢查」、新增的抑制註解有理由 | CI 的 `pr`（`.github/scripts/check-pr-changes.py`、`apps/api/tests/test_pr_change_checks.py`） |
+| 新增的抑制註解有理由 | CI 的 `pr`（`.github/scripts/check-pr-changes.py`、`apps/api/tests/test_pr_change_checks.py`） |
 | `make init dev` 擋下缺少 `python3` 3.9 以上、`.claude/skills` 不是 symlink，裝了 Codex 卻沒信任專案時提醒；`make init prod` 不做這些 | `apps/api/tests/test_init_agent_setup.py` |
 | lock 檔與 `make gen-types` 的產出列在 `.ignore`（AI agent 的搜尋不撞進去） | `apps/api/tests/test_search_ignore.py` |
 
@@ -141,14 +151,13 @@ nginx 模板**，以 CLI 建隨機密碼的超管，跑完 Playwright 連 volume
 1. 測試變紅時預設它是對的，先改實作讓它變綠。
 2. 真的覺得測試要改（介面改名、斷言本來就寫錯、漏了情境要補）時，**先停下來說明**那個測試驗證的條件、
    沒過的原因，以及為什麼是測試而不是實作要改。
-3. 得到同意後才動測試檔，並在 PR 描述的「驗證」段寫一行：測試檔的路徑，同一行寫明**原本那個斷言為什麼是錯的**
-   （CI 的 `pr` 檢查這一行在不在，寫得對不對靠審查）。
+3. 得到同意後才動測試檔，並在 PR 描述的「驗證」段寫一行：測試檔的路徑，同一行寫明**原本那個斷言為什麼是錯的**。
 
 AI agent 這一側：實作開始後用改檔工具改測試檔，hook 會停下來等使用者同意；用 shell 改不攔，靠 agent 自律與
-CI 的 `pr`（[做法](extending/agent-hooks.md#測試鎖定)）。
+審查時看 diff 裡的測試檔（[做法](extending/agent-hooks.md#測試鎖定)）。
 
-紅燈階段用單項指令跑（`uv run pytest tests/ -k xxx`、`npm run test -- -t "名稱"`），
-`make check` 要等實作完成、全部轉綠才會過。
+紅燈階段用單項指令跑（`uv run pytest tests/ -k xxx`、`npm run test -- -t "名稱"`、
+`make check integration <測試檔>`）。完整的檢查只在 CI 跑，要等實作完成、全部轉綠才會過。
 
 ## 驗收條件與測試名稱
 
@@ -156,6 +165,11 @@ PR 描述「驗證」段的每條驗收條件後面接一個測試名稱與結�
 
 - 前端與 E2E：讀得通的中文句子（`未登入導向 /login`、`登出後其他已登入的裝置也會被登出`）
 - 後端：`test_<動作>_<條件>_<結果>`（`test_get_users_without_permission_returns_403`）
+
+**只改 Markdown 的 PR**（界線同 CI 的 [docs 模式](workflow.md#提交與-ci)）沒有可執行的行為，驗收條件不接測試名稱，
+改寫成可檢查的結果：哪個 CI job 通過、diff 裡看得到什麼（例：`api-test` 的連結檢查通過、`AGENTS.md` 與 skill
+的說法一致）。一樣先給使用者確認；不寫測試，也不要為了湊測試名稱寫斷言文件內容的測試。
+只要有一個非 `.md` 檔（設定、CI、相依），就照上面的規則。
 
 AI agent 寫完驗收條件要**先列給使用者確認才寫測試**，方向已在對話談定也一樣：從「要做什麼」轉成「怎麼證明做到」
 最容易漏情境、多加條件或擴大範圍。這時改幾行字就好，寫完才發現就是整個 PR 重來；測試鎖只保證測試沒被偷改，
