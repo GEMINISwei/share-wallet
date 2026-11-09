@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test"
-import { SIGNED_OUT, WALLET_HOME } from "./support"
+import { SIGNED_OUT, WALLET_HOME } from "../support"
 
 // 錢包的操作者是自己註冊的帳號, 不載入預設的超管登入狀態; 測試裡另開的 context (受邀者、另一台裝置) 也一樣。
 test.use({ storageState: SIGNED_OUT })
