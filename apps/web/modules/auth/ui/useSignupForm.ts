@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useRef, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { getApiResponseErrorMessage } from "@/shared/api/error"
 import { createActionFormData } from "@/shared/api/action-form-data"
@@ -28,6 +28,8 @@ export function useSignupForm(invite?: string) {
   const [isSubmit, setIsSubmit] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [isPending, startTransition] = useTransition()
+  // 同登入: isPending 要等重新渲染才生效, 連按 Enter 要另外同步擋。
+  const inFlight = useRef(false)
   // 與登入流程共用同一個通知機制。
   const { notify, notifyError, closeNotify } = useNotify()
   const destinations = authDestinations(invite)
@@ -53,9 +55,16 @@ export function useSignupForm(invite?: string) {
       setIsSubmit(true)
 
       if (Object.values(nextErrors).some(Boolean)) return
+      if (inFlight.current) return
+      inFlight.current = true
 
       startTransition(async () => {
-        const res = await signupUser(createActionFormData(values))
+        let res: Awaited<ReturnType<typeof signupUser>>
+        try {
+          res = await signupUser(createActionFormData(values))
+        } finally {
+          inFlight.current = false
+        }
 
         // 後端已經簽好 token 寫進 cookie, 直接進首頁 (帶著邀請時是確認頁)。
         if (res.status === "success") {

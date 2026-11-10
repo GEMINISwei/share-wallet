@@ -1,7 +1,11 @@
-from typing import Any, Literal
+from typing import Any, Literal, NoReturn
+
+from sqlalchemy.exc import IntegrityError
 
 from app.permissions import Permission
+from shared.audit import audit
 from shared.auth.catalog import PermissionCatalog
+from shared.db.table import is_unique_violation
 from shared.http.errors import BaseError, LangException, LangText, ensure_found
 
 from .model import RoleTable
@@ -29,12 +33,27 @@ class RoleError(BaseError):
         en="Cannot Update Super Admin Role Permissions",
     )
     CANNOT_RENAME_DEFAULT = LangText(zh="預設角色不可改名", en="Cannot Rename Default Role")
+    NAME_EXISTS = LangText(zh="角色名稱已存在", en="Role Name Already Exists")
+
+
+async def _ensure_name_available(name: str, role_id: str | None = None) -> None:
+    # 先查一次擋下依序來的重複; 同時到的兩個請求由寫入時的唯一約束接住 (`_raise_if_name_taken`)。
+    existing = await RoleTable.find_detail_by_name(name)
+    if existing is not None and existing["id"] != role_id:
+        raise LangException(409, RoleError.NAME_EXISTS)
+
+
+def _raise_if_name_taken(exc: IntegrityError) -> NoReturn:
+    if not is_unique_violation(exc):
+        raise exc
+    raise LangException(409, RoleError.NAME_EXISTS) from exc
 
 
 async def create_role(form_data: RoleCreate) -> RoleOperate:
     validate_regular_permissions(form_data.permissions)
-    return RoleOperate.model_validate(
-        await RoleTable.create(
+    await _ensure_name_available(form_data.name)
+    try:
+        created = await RoleTable.create(
             data={
                 # 逐欄列出而不是 `**model_dump()`: 日後往 RoleCreate 加的欄位才不會沒經處理就落地。
                 "name": form_data.name,
@@ -43,7 +62,11 @@ async def create_role(form_data: RoleCreate) -> RoleOperate:
                 "code": None,
             }
         )
-    )
+    except IntegrityError as exc:
+        _raise_if_name_taken(exc)
+    result = RoleOperate.model_validate(created)
+    audit("role_created", role_id=result.id, permissions=form_data.permissions)
+    return result
 
 
 async def get_role(id: str) -> RoleInfo:
@@ -112,10 +135,20 @@ async def update_role(id: str, form_data: RoleUpdate) -> RoleOperate:
         validate_regular_permissions(form_data.permissions)
         update_data["permissions"] = form_data.permissions
 
+    await _ensure_name_available(form_data.name, role_id=id)
+    try:
+        updated = await RoleTable.update_by_id(id=id, data=update_data)
+    except IntegrityError as exc:
+        _raise_if_name_taken(exc)
     # 再包一次 ensure_found: 查到之後、更新之前文件仍可能被刪掉。
-    return RoleOperate.model_validate(
-        ensure_found(await RoleTable.update_by_id(id=id, data=update_data), RoleError.NOT_FOUND)
+    result = RoleOperate.model_validate(ensure_found(updated, RoleError.NOT_FOUND))
+    audit(
+        "role_updated",
+        role_id=id,
+        permissions=form_data.permissions,
+        is_disabled=form_data.is_disabled,
     )
+    return result
 
 
 async def disable_role(id: str) -> RoleOperate:
@@ -123,12 +156,14 @@ async def disable_role(id: str) -> RoleOperate:
     if RoleTable.is_system_role(role):
         raise LangException(403, RoleError.CANNOT_DISABLE_DEFAULT)
 
-    return RoleOperate.model_validate(
+    result = RoleOperate.model_validate(
         ensure_found(
             await RoleTable.update_by_id(id=id, data={"is_disabled": True}),
             RoleError.NOT_FOUND,
         )
     )
+    audit("role_disabled", role_id=id)
+    return result
 
 
 def validate_regular_permissions(permissions: list[Permission]) -> None:

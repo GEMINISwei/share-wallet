@@ -10,6 +10,7 @@
 """
 
 import logging
+import re
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterable
 from contextlib import asynccontextmanager
@@ -32,8 +33,21 @@ from shared.auth.permissions import BasePermission
 from shared.db.session import configure_session_factory, create_engine, session_scope
 from shared.db.table import foreign_key_error, is_foreign_key_violation
 from shared.events import EventBus, use_event_bus
-from shared.http.context import current_request_id, resolve_request_id
-from shared.http.errors import LangException, NoChangeError, current_language, resolve_language
+from shared.http.context import (
+    current_client_ip,
+    current_request_id,
+    resolve_request_id,
+)
+from shared.http.errors import (
+    BaseError,
+    LangException,
+    LangText,
+    NoChangeError,
+    current_language,
+    resolve_language,
+)
+from shared.http.rate_limit import client_ip
+from shared.logs import stream_logger
 from shared.module import (
     ModuleManifest,
     event_handlers,
@@ -51,36 +65,39 @@ UNLOGGED_PATHS = frozenset({"/health"})
 # 要與 nginx 的 proxy 標頭片段、前端 `shared/api/headers.ts` 一致。
 REQUEST_ID_HEADER = "X-Request-ID"
 
+# 超過這個耗時的請求記成 WARNING, `grep WARNING` 就挑得出效能問題。固定值不開放設定:
+# 它只決定紀錄的等級, 不影響任何行為。
+SLOW_REQUEST_MS = 1000
+
+
+class PlatformError(BaseError):
+    INTERNAL = LangText(zh="伺服器發生錯誤", en="Internal Server Error")
+
 
 class PlatformEnv(AppEnvProtocol, Protocol):
-    """`create_platform_app()` 用得到的環境設定 (`shared/auth` 的那份再加上資料庫)。"""
+    """`create_platform_app()` 用得到的環境設定 (`shared/auth` 的那份再加上資料庫與執行模式)。"""
 
     postgres_url: str
 
-
-class _TimingFormatter(logging.Formatter):
-    """跟 uvicorn 預設 log 一樣的 `LEVEL:` 對齊寫法, 時間改用 [] 包住。"""
-
-    def formatMessage(self, record: logging.LogRecord) -> str:  # noqa: N802
-        separator = " " * (8 - len(record.levelname))
-        levelprefix = f"{record.levelname}:{separator}"
-        timestamp = self.formatTime(record, self.datefmt)
-        return f"{levelprefix}[{timestamp}] {record.message}"
+    # 唯讀屬性: 專案的設定是 Literal, 可寫的 Protocol 成員會因為不變性而對不上。
+    @property
+    def mode(self) -> str: ...
 
 
-request_logger = logging.getLogger("api.timing")
-request_logger.setLevel(logging.INFO)
-if not request_logger.handlers:
-    _handler = logging.StreamHandler()
-    _handler.setFormatter(_TimingFormatter(datefmt="%Y-%m-%d %H:%M:%S"))
-    request_logger.addHandler(_handler)
-    request_logger.propagate = False
+request_logger = stream_logger("api.timing")
 
 
 @asynccontextmanager
 async def _lifespan(application: FastAPI) -> AsyncIterator[None]:
     application.state.db_engine = create_engine(application.state.env.postgres_url)
     configure_session_factory(application.state.db_engine)
+
+    # 對照「從哪一版開始壞」時, 要看得出那個時間點跑的是哪一版。
+    modules = ",".join(module.name for module in application.state.modules) or "-"
+    request_logger.info(
+        f"啟動 {application.title} v{application.state.app_version}"
+        f" mode={application.state.env.mode} modules={modules}"
+    )
 
     # 開機時刻意**不寫任何資料**: 建表、資料回填與初始資料 (seed) 都屬於 compose 的 migrate
     # 服務 (`scripts/db.py migrate`), 它在 api 啟動前跑, 而 `make start` 先單獨跑它、失敗就
@@ -112,17 +129,32 @@ async def _call_within_session(
             return response
 
 
+# IPv4 與 IPv6 會用到的字元。值來自標頭: 繞過 nginx 直接打 api 時由對方說了算 (compose 內網做得到),
+# 不檢查的話可以塞進假的欄位或一整行假的紀錄。
+_LOGGABLE_IP = re.compile(r"^[0-9A-Fa-f:.]{1,45}$")
+
+
+def _loggable_ip(request: Request) -> str:
+    ip = client_ip(request)
+    return ip if _LOGGABLE_IP.match(ip) else "invalid"
+
+
 def _log_request(request: Request, request_id: str, status_code: int, started: float) -> None:
     if request.url.path in UNLOGGED_PATHS:
         return
     duration_ms = (time.perf_counter() - started) * 1000
-    client = f"{request.client.host}:{request.client.port}" if request.client else "-"
+    # 權限檢查的 dependency 寫進 `request.state`: 路由跑在另一個 task,
+    # 它設的 ContextVar 這裡讀不到。
+    user_id = getattr(request.state, "user_id", "-")
+    client = f"user_id={user_id} {current_client_ip.get()}"
     # **不要**加上 query string: 那會把敏感內容長期留存在 log 裡。
     http_version = request.scope.get("http_version", "1.1")
-    request_logger.info(
+    level = logging.WARNING if duration_ms > SLOW_REQUEST_MS else logging.INFO
+    request_logger.log(
+        level,
         f"[{request_id}] "
         f'{client} - "{request.method} {request.url.path} HTTP/{http_version}"'
-        f" {status_code} ({duration_ms:.1f}ms)"
+        f" {status_code} ({duration_ms:.1f}ms)",
     )
 
 
@@ -136,11 +168,24 @@ async def _handle_request(
     # 沿用上游的追蹤識別碼, 三個行程的 log 才串得起來。
     request_id = resolve_request_id(request.headers.get(REQUEST_ID_HEADER))
     current_request_id.set(request_id)
+    # 在 `call_next` 之前設: 路由的 task 會複製這時的 context, AUDIT 才讀得到。
+    current_client_ip.set(_loggable_ip(request))
 
     started = time.perf_counter()
     status_code = 500
     try:
-        response = await _call_within_session(request, call_next)
+        try:
+            response = await _call_within_session(request, call_next)
+        except Exception:
+            # 自己攔下來印: 交給 uvicorn 的話 traceback 不帶 request id, 同時有好幾個 500 時
+            # 分不出哪段屬於哪個請求。資料庫 session 在 `_call_within_session` 裡已經回滾。
+            request_logger.exception(
+                f"[{request_id}] 未處理的例外 {request.method} {request.url.path}"
+            )
+            response = JSONResponse(
+                status_code=500,
+                content={"detail": LangException(500, PlatformError.INTERNAL).detail},
+            )
         status_code = response.status_code
         response.headers[REQUEST_ID_HEADER] = request_id
         return response
@@ -246,6 +291,7 @@ def create_platform_app(
     application = FastAPI(title=title, version="1", lifespan=_lifespan)
 
     application.state.env = env
+    application.state.app_version = app_version
     application.state.modules = resolved
     application.state.table_models = table_list
     application.state.permission_catalog = catalog
