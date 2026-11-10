@@ -6,6 +6,7 @@
 from typing import Any
 
 import pytest
+from sqlalchemy.exc import IntegrityError
 
 from app.permissions import Permission
 from modules.roles import service as role_service
@@ -13,6 +14,7 @@ from modules.roles.model import RoleTable
 from modules.roles.schema import RoleCreate, RoleUpdate
 from modules.roles.service import RoleError
 from shared.http.errors import LangException
+from tests.audit import acting_as, events
 
 SYSTEM_ROLE = {
     "id": "role-super",
@@ -56,7 +58,11 @@ def roles(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
         writes.append(data)
         return {"id": "role-new"}
 
+    async def fake_find_by_name(name, session=None):
+        return next((role for role in stored.values() if role["name"] == name), None)
+
     monkeypatch.setattr(RoleTable, "find_detail_by_id", fake_find)
+    monkeypatch.setattr(RoleTable, "find_detail_by_name", fake_find_by_name)
     monkeypatch.setattr(RoleTable, "update_by_id", fake_update)
     monkeypatch.setattr(RoleTable, "create", fake_create)
     return writes
@@ -142,6 +148,50 @@ async def test_disable_regular_role(roles):
 @pytest.mark.asyncio
 async def test_disable_missing_role_returns_404(roles):
     await _expect_error(_disable("role-missing"), 404, RoleError.NOT_FOUND)
+
+
+# ── 角色名稱不可重複 ─────────────────────────────────────────────────────────
+#
+# 指派角色時畫面上只看得到名稱, 同名的兩個角色會讓管理者分不清、把權限給錯人。
+
+
+@pytest.mark.asyncio
+async def test_create_role_with_existing_name_returns_409(roles):
+    await _expect_error(_create([], name="一般"), 409, RoleError.NAME_EXISTS)
+    assert roles == []
+
+
+@pytest.mark.asyncio
+async def test_create_role_racing_on_name_returns_409(monkeypatch, roles):
+    """查詢時還不存在、寫入時撞到唯一約束 (連點或併發) —— 要回 409, 不是 500。"""
+
+    class _UniqueViolationError(Exception):
+        sqlstate = "23505"
+
+    async def racing_create(data, session=None):
+        raise IntegrityError("INSERT", {}, _UniqueViolationError())
+
+    monkeypatch.setattr(RoleTable, "create", racing_create)
+
+    await _expect_error(_create([], name="新角色"), 409, RoleError.NAME_EXISTS)
+
+
+@pytest.mark.asyncio
+async def test_update_role_to_existing_name_returns_409(roles):
+    await _expect_error(
+        _update("role-reader", name="超級管理者", permissions=[]),
+        409,
+        RoleError.NAME_EXISTS,
+    )
+    assert roles == []
+
+
+@pytest.mark.asyncio
+async def test_update_role_keeping_own_name_is_accepted(roles):
+    """查到的同名角色就是自己, 不算重複。"""
+    await _update("role-reader", name="一般", permissions=[], is_disabled=True)
+
+    assert roles == [{"id": "role-reader", "name": "一般", "permissions": [], "is_disabled": True}]
 
 
 # ── 系統角色 (code 不為 None) 的保護 ──────────────────────────────────────────
@@ -232,3 +282,51 @@ async def test_user_role_cannot_be_renamed(roles):
         RoleError.CANNOT_RENAME_DEFAULT,
     )
     assert roles == []
+
+
+# ── AUDIT 紀錄 ───────────────────────────────────────────────────────────────
+#
+# 「誰改了角色的權限」: 操作者來自這個請求的登入者 (`acting_as`), 不從參數傳。
+
+
+@pytest.mark.asyncio
+async def test_create_role_is_audited_with_actor_and_permissions(roles, audit_records):
+    with acting_as("root"):
+        await _create([])
+
+    assert events(audit_records) == [
+        (
+            "role_created",
+            {
+                "request_id": "-",
+                "actor": "root",
+                "ip": "-",
+                "role_id": "role-new",
+                "permissions": "-",
+            },
+        )
+    ]
+
+
+@pytest.mark.asyncio
+async def test_update_role_is_audited_with_actor_and_permissions(roles, audit_records):
+    with acting_as("root"):
+        await _update("role-reader", name="一般", permissions=[], is_disabled=True)
+
+    [(event, fields)] = events(audit_records)
+    assert event == "role_updated"
+    assert fields["actor"] == "root"
+    assert fields["role_id"] == "role-reader"
+    assert fields["permissions"] == "-"
+    assert fields["is_disabled"] == "True"
+
+
+@pytest.mark.asyncio
+async def test_disable_role_is_audited_with_actor(roles, audit_records):
+    with acting_as("root"):
+        await _disable("role-reader")
+
+    audited = [
+        (event, fields["actor"], fields["role_id"]) for event, fields in events(audit_records)
+    ]
+    assert audited == [("role_disabled", "root", "role-reader")]

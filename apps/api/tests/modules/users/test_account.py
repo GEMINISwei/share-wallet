@@ -12,11 +12,13 @@ from modules.roles.model import RoleTable
 from modules.users import account
 from modules.users.errors import UserError
 from modules.users.model import UserTable
-from modules.users.schema import SignupRequest, UserLogin
+from modules.users.schema import PasswordChange, SignupRequest, UserLogin
 from shared.auth import passwords
+from shared.auth.contracts import CurrentUser
 from shared.auth.tokens import parse_token
 from shared.db.session import session_scope
 from shared.http.errors import LangException
+from tests.audit import events
 from tests.shared.minimal_app import MinimalEnv
 
 ENV = MinimalEnv()
@@ -215,3 +217,115 @@ async def test_signed_up_user_has_user_role_and_can_log_in(db):
     async with session_scope():
         login = await account.login_user(UserLogin(username="newbie", password="new-password"), ENV)
     assert parse_token(login.access_token, ENV)["username"] == "newbie"
+
+
+# ── AUDIT 紀錄 ───────────────────────────────────────────────────────────────
+#
+# 帳號被盜時要回答「什麼時候、從哪裡登入」, 被暴力破解時要看得出哪個帳號在被試。
+# 登入失敗**不記輸入的帳號**: 使用者偶爾會把密碼打進帳號欄。
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("username", "password", "disabled", "reason", "user_id"),
+    [
+        ("viewer", "wrong-password", False, "bad_password", "user-1"),
+        ("viewer", PASSWORD, True, "disabled", "user-1"),
+        ("nobody", PASSWORD, False, "unknown_account", None),
+    ],
+)
+async def test_login_failure_is_audited_with_reason(
+    stored_user, audit_records, username, password, disabled, reason, user_id
+):
+    stored_user["is_disabled"] = disabled
+
+    await _expect_invalid_credentials(username, password)
+
+    [(event, fields)] = events(audit_records)
+    assert event == "login_failed"
+    assert fields["reason"] == reason
+    assert fields.get("user_id") == user_id
+
+
+@pytest.mark.asyncio
+async def test_login_failure_does_not_log_submitted_username(stored_user, audit_records):
+    await _expect_invalid_credentials("my-secret-password", PASSWORD)
+
+    assert audit_records
+    assert all("my-secret-password" not in record.getMessage() for record in audit_records)
+
+
+@pytest.mark.asyncio
+async def test_login_success_is_audited_with_user_id(stored_user, audit_records):
+    await account.login_user(UserLogin(username="viewer", password=PASSWORD), ENV)
+
+    assert [(event, fields["user_id"]) for event, fields in events(audit_records)] == [
+        ("login_succeeded", "user-1")
+    ]
+
+
+CURRENT_USER: CurrentUser = {
+    "id": "user-1",
+    "username": "viewer",
+    "auth_version": 3,
+    "permissions": [],
+    "is_disabled": False,
+}
+
+
+@pytest.fixture
+def password_change(stored_user, monkeypatch: pytest.MonkeyPatch):
+    """改自己密碼要用到的資料表方法; 雜湊換成固定值省下 bcrypt。"""
+
+    async def fake_set(id, password_hash, expected_auth_version=None, session=None):
+        return {"id": id, "auth_version": 4}
+
+    async def fake_hash(raw_password):
+        return f"hashed:{raw_password}"
+
+    async def no_release():
+        return None
+
+    monkeypatch.setattr(UserTable, "set_password_and_revoke_sessions", fake_set)
+    monkeypatch.setattr(passwords, "hash_password_async", fake_hash)
+    monkeypatch.setattr(account, "release_connection", no_release)
+
+
+@pytest.mark.asyncio
+async def test_change_own_password_is_audited(password_change, audit_records):
+    await account.change_own_password(
+        current_user=CURRENT_USER,
+        form_data=PasswordChange(current_password=PASSWORD, new_password="new-password-123"),
+        env=ENV,
+    )
+
+    assert [(event, fields["user_id"]) for event, fields in events(audit_records)] == [
+        ("password_changed", "user-1")
+    ]
+
+
+@pytest.mark.asyncio
+async def test_change_own_password_mismatch_is_audited(password_change, audit_records):
+    """偷到 cookie 的人試舊密碼時, 這裡看得到。"""
+    with pytest.raises(LangException):
+        await account.change_own_password(
+            current_user=CURRENT_USER,
+            form_data=PasswordChange(current_password="guess", new_password="new-password-123"),
+            env=ENV,
+        )
+
+    [(event, fields)] = events(audit_records)
+    assert event == "password_change_failed"
+    assert fields["user_id"] == "user-1"
+    assert fields["reason"] == "current_password_mismatch"
+
+
+@pytest.mark.asyncio
+async def test_signup_success_is_audited_with_user_id(signup_writes, audit_records):
+    """公開註冊誰都能用: 「什麼時候、從哪裡建了這個帳號」要查得到。不記帳號名稱, 同登入。"""
+    await _signup()
+
+    assert [(event, fields["user_id"]) for event, fields in events(audit_records)] == [
+        ("signup_succeeded", "user-new")
+    ]
+    assert all("newbie" not in record.getMessage() for record in audit_records)
